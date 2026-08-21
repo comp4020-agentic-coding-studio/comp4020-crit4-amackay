@@ -131,22 +131,24 @@ Pointer and keyboard are equal citizens and work simultaneously.
 ## Visual design
 
 - **Layout.** The grid fills the viewport, vertically centred, on a near-black
-  background (`oklch(18% 0.01 260)`). Each row upward is translated left by ⅓ of
-  a cap width, mirroring the physical keyboard stagger. The offset accumulates
-  to a full cap width across four rows, so the container needs that much
-  horizontal slack or the top row clips.
+  background (`oklch(18% 0.01 260)`). Caps sit flush against each other, square
+  cornered — no background shows except outside the grid's own edge. Each row
+  upward is translated left by ⅓ of a cap width, mirroring the physical
+  keyboard stagger. The offset accumulates to a full cap width across four
+  rows, so the container needs that much horizontal slack or the top row clips.
 - **Colour is pitch class.** `hue = 25° + 360° · pc`, where
   `pc = frac(log2(ratio))`, so the root F sits at 25°. Rest: `oklch(75% 0.12
   hue)` fill, label `oklch(28% 0.02 hue)`. Lightness and chroma are constant
   across caps — hue is the only varying channel, so equal pitch-class distances
   look equally different. The schisma pairs above are consequently near-identical
   in colour (0.6° apart); that follows from the rule and is left alone.
-- **Active state.** While sounding: lightness → 88%, chroma → 0.16, scale →
-  1.06, over the 15 ms attack; on release, fade back over ~500 ms so the visual
-  tail matches the audible one.
+- **Active state.** While sounding: lightness → 88%, chroma → 0.16, over the
+  15 ms attack; on release, fade back over ~500 ms so the visual tail matches
+  the audible one. Per instruction: colour carries the affordance alone, no
+  scale — the caps sit flush, and a cap that grew would shove its neighbours.
 - **Type.** System sans stack, uppercase, sized to the cap. The labels are the
   only visible text on the page.
-- **Motion.** Only the transitions above. No idle animation.
+- **Motion.** Only the transition above. No idle animation.
 
 ### Portrait phones
 
