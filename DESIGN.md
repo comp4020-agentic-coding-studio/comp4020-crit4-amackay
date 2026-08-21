@@ -9,7 +9,7 @@ returned decisions are in the history (`git show 14c54b5`).
 
 ## What it is
 
-A 10×4 grid of glowing key-caps, one per node of the 5-limit just-intonation
+A 9×4 grid of glowing key-caps, one per node of the 5-limit just-intonation
 lattice, each sounding an octaveless Shepard tone while held — playable
 polyphonically by multi-touch, by finger-drag, or by the matching block of
 QWERTY keys.
@@ -21,25 +21,25 @@ beyond the key labels.
 
 Each node sounds the pitch class of `3^a · 5^b` against a root of pitch class F
 (reference 349.2282 Hz). Columns step the 3-axis, rows step the 5-axis. Column
-index `i = 0…9` gives `a = i − 3`, so F is the root `1/1` and the a-row is a
-chain of fifths: Ab Eb Bb F C G D A E B.
+index `i = 0…8` gives `a = i − 3`, so F is the root `1/1` and the a-row is a
+chain of fifths: Ab Eb Bb F C G D A E.
 
 | Row (top→bottom) | Keys | `b` |
 |---|---|---|
-| digits | `1 2 3 4 5 6 7 8 9 0` | 2 |
-| q-row | `q w e r t y u i o p` | 1 |
-| a-row | `a s d f g h j k l ;` | 0 |
-| z-row | `z x c v b n m , . /` | −1 |
+| digits | `1 2 3 4 5 6 7 8 9` | 2 |
+| q-row | `q w e r t y u i o` | 1 |
+| a-row | `a s d f g h j k l` | 0 |
+| z-row | `z x c v b n m , .` | −1 |
 
-**The near-unisons are intended, not a bug.** A ten-wide chain of fifths wraps
-far enough to collide with the 5-axis: six pairs (`;`~`x`, `0`~`w`, `9`~`q`,
-`o`~`a`, `l`~`z`, `p`~`s`) sit a schisma apart — 1.95 cents, beating about once
-every three seconds — and 36 pairs fall within 30 cents, the 19.6-cent ones
-being syntonic-comma pairs. Per instruction: players discovering audible beats
-is part of the instrument. Do not "fix" this by narrowing the lattice.
+**The near-unisons are intended, not a bug.** A nine-wide chain of fifths wraps
+far enough to collide with the 5-axis: three pairs (`9`~`q`, `o`~`a`, `l`~`z`)
+sit a schisma apart — 1.95 cents, beating about once every three seconds — and
+28 pairs fall within 30 cents, the 19.6-cent ones being syntonic-comma pairs.
+Per instruction: players discovering audible beats is part of the instrument.
+Do not "fix" this by narrowing the lattice further.
 `scripts/lattice-check.ts` recomputes all of it.
 
-All 40 pitch classes are distinct, and per-voice loudness varies by only
+All 36 pitch classes are distinct, and per-voice loudness varies by only
 0.27 dB, so no per-node loudness correction is needed.
 
 ## Synthesis

@@ -2,7 +2,10 @@
 import Layout from "../layouts/Layout.astro";
 import { NODES } from "../lib/lattice.ts";
 
-const ROWS = [NODES.slice(0, 10), NODES.slice(10, 20), NODES.slice(20, 30), NODES.slice(30, 40)];
+// Four rows, however many columns lattice.ts generates, so the two can't drift apart.
+const ROW_COUNT = 4;
+const perRow = NODES.length / ROW_COUNT;
+const ROWS = Array.from({ length: ROW_COUNT }, (_, i) => NODES.slice(i * perRow, (i + 1) * perRow));
 ---
 
 <Layout

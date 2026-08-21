@@ -160,7 +160,7 @@ describe("it is expressive", () => {
     const low = audio.signature;
 
     audio.reset();
-    page?.press("Digit0");
+    page?.press("Digit9");
     const high = audio.signature;
 
     expect(low, "the first gesture made no sound to compare").not.toBe("[]");
@@ -177,7 +177,7 @@ describe("it is expressive", () => {
     // Ten different caps stand in for two players who don't play the same.
     const codes = [
       "Digit1", "KeyQ", "KeyA", "KeyZ", "Digit5",
-      "KeyU", "KeyH", "KeyN", "Digit0", "Semicolon",
+      "KeyU", "KeyH", "KeyN", "Digit9", "KeyL",
     ];
     for (const code of codes) {
       page?.press(code);
@@ -202,7 +202,7 @@ describe("there is no way to play it wrong", () => {
     for (const code of ["KeyQ", "Escape", "F5", "Tab", "Enter", "Digit9", "ShiftLeft"]) {
       page?.key(code);
     }
-    for (const code of ["Digit1", "Semicolon", "KeyZ", "Slash", "NoSuchCap"]) {
+    for (const code of ["Digit1", "KeyL", "KeyZ", "Period", "NoSuchCap"]) {
       page?.press(code);
     }
     page?.missPointer();

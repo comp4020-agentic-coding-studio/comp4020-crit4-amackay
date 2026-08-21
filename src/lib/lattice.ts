@@ -24,23 +24,23 @@ interface Row {
 const ROWS: Row[] = [
   {
     b: 2,
-    codes: ["Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "Digit8", "Digit9", "Digit0"],
-    labels: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+    codes: ["Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "Digit8", "Digit9"],
+    labels: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
   },
   {
     b: 1,
-    codes: ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY", "KeyU", "KeyI", "KeyO", "KeyP"],
-    labels: ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+    codes: ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY", "KeyU", "KeyI", "KeyO"],
+    labels: ["Q", "W", "E", "R", "T", "Y", "U", "I", "O"],
   },
   {
     b: 0,
-    codes: ["KeyA", "KeyS", "KeyD", "KeyF", "KeyG", "KeyH", "KeyJ", "KeyK", "KeyL", "Semicolon"],
-    labels: ["A", "S", "D", "F", "G", "H", "J", "K", "L", ";"],
+    codes: ["KeyA", "KeyS", "KeyD", "KeyF", "KeyG", "KeyH", "KeyJ", "KeyK", "KeyL"],
+    labels: ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
   },
   {
     b: -1,
-    codes: ["KeyZ", "KeyX", "KeyC", "KeyV", "KeyB", "KeyN", "KeyM", "Comma", "Period", "Slash"],
-    labels: ["Z", "X", "C", "V", "B", "N", "M", ",", ".", "/"],
+    codes: ["KeyZ", "KeyX", "KeyC", "KeyV", "KeyB", "KeyN", "KeyM", "Comma", "Period"],
+    labels: ["Z", "X", "C", "V", "B", "N", "M", ",", "."],
   },
 ];
 

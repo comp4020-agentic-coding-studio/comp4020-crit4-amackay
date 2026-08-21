@@ -40,11 +40,11 @@ a {
 
 /* The instrument. See DESIGN.md "Visual design". */
 .stage {
-  /* 11 cap-widths of horizontal budget (10 columns plus the padding-left
-     slack below) and 4 of vertical, each minus its share of the 0.3rem row
-     and column gaps, so the grid fits the viewport at any aspect ratio
-     without clipping. */
-  --cap: min(calc((100vw - 3rem) / 11), calc((100vh - 1rem) / 4));
+  /* 10 cap-widths of horizontal budget (9 columns plus the padding-left slack
+     below) and 4 of vertical, each minus its share of the 0.3rem row and
+     column gaps, so the grid fits the viewport at any aspect ratio without
+     clipping. */
+  --cap: min(calc((100vw - 2.5rem) / 10), calc((100vh - 1rem) / 4));
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -121,6 +121,6 @@ a {
        formula above still reasons in the unrotated vw/vh, so it has to be
        recomputed with them swapped or the grid sizes itself to the narrow
        axis twice over and leaves the rotated box mostly empty. */
-    --cap: min(calc((100vh - 3rem) / 11), calc((100vw - 1rem) / 4));
+    --cap: min(calc((100vh - 2.5rem) / 10), calc((100vw - 1rem) / 4));
   }
 }

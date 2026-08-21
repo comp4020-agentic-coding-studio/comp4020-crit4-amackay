@@ -10,15 +10,15 @@ interface LatticeNode {
 }
 
 const ROWS: Array<{ b: number; keys: string }> = [
-  { b: 2, keys: "1234567890" },
-  { b: 1, keys: "qwertyuiop" },
-  { b: 0, keys: "asdfghjkl;" },
-  { b: -1, keys: "zxcvbnm,./" },
+  { b: 2, keys: "123456789" },
+  { b: 1, keys: "qwertyuio" },
+  { b: 0, keys: "asdfghjkl" },
+  { b: -1, keys: "zxcvbnm,." },
 ];
 
 const nodes: LatticeNode[] = [];
 for (const { b, keys } of ROWS) {
-  for (let i = 0; i < 10; i += 1) {
+  for (let i = 0; i < keys.length; i += 1) {
     const a = i - 3;
     const ratio = 3 ** a * 5 ** b;
     nodes.push({ a, b, label: keys[i] ?? "?", pc: ((Math.log2(ratio) % 1) + 1) % 1 });
