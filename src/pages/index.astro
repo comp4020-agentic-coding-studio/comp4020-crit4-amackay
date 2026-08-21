@@ -1,23 +1,32 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import { NODES } from "../lib/lattice.ts";
+
+const ROWS = [NODES.slice(0, 10), NODES.slice(10, 20), NODES.slice(20, 30), NODES.slice(30, 40)];
 ---
 
 <Layout
   title="COMP4020 prototype"
   description="Replace this with one sentence saying what this page is. A search result and a link preview both show it."
 >
-  <header>
+  <header class="visually-hidden">
     <nav aria-label="Primary">
       <a href="./">Home</a>
     </nav>
   </header>
-  <main>
-    <h1>COMP4020 prototype</h1>
-    <!-- Checkpoint 1: a temporary trigger for the audio engine, not the
-         instrument's grid. See DESIGN.md "Checkpoints". -->
-    <div data-instrument tabindex="0" role="button" aria-label="temporary trigger">
-      hold to sound a note
-    </div>
+  <h1 class="visually-hidden">COMP4020 prototype</h1>
+  <main data-instrument class="stage">
+    {
+      ROWS.map((row) => (
+        <div class="row">
+          {row.map((node) => (
+            <button type="button" class="cap" data-note={node.code} style={`--hue:${node.hue}`}>
+              {node.label}
+            </button>
+          ))}
+        </div>
+      ))
+    }
   </main>
   <script src="../scripts/main.ts"></script>
 </Layout>

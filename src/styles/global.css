@@ -1,33 +1,114 @@
-body {
-  margin: 0;
-  padding: 2rem;
-  font-family: system-ui, sans-serif;
-  line-height: 1.6;
-  color: #1a1a1a;
+:root {
+  color-scheme: dark;
 }
 
-main {
-  max-width: 40rem;
-  margin: 0 auto;
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  background: oklch(18% 0.01 260);
+  overflow: hidden;
 }
 
 a {
   color: #0b5fff;
 }
 
-/* Checkpoint 1's temporary trigger. Sized and touch-action'd for a listening
-   pass with several fingers held at once; the real grid replaces this. */
-[data-instrument] {
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The instrument. See DESIGN.md "Visual design". */
+.stage {
+  /* 11 cap-widths of horizontal budget (10 columns plus the padding-left
+     slack below) and 4 of vertical, each minus its share of the 0.3rem row
+     and column gaps, so the grid fits the viewport at any aspect ratio
+     without clipping. */
+  --cap: min(calc((100vw - 3rem) / 11), calc((100vh - 1rem) / 4));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.3rem;
+  /* One cap width of slack on the left: the rows above shift left by up to a
+     full cap width (the stagger below), and would clip without it. Centering
+     above is what keeps the grid centred once portrait mode takes .stage out
+     of the flow body would otherwise centre it in. */
+  padding-left: var(--cap);
   touch-action: none;
-  user-select: none;
+}
+
+.row {
+  display: flex;
+  gap: 0.3rem;
+}
+
+/* Each row upward shifts left by another third of a cap width, mirroring a
+   physical keyboard's stagger. */
+.row:nth-child(1) {
+  transform: translateX(calc(var(--cap) * -1));
+}
+.row:nth-child(2) {
+  transform: translateX(calc(var(--cap) * -2 / 3));
+}
+.row:nth-child(3) {
+  transform: translateX(calc(var(--cap) * -1 / 3));
+}
+.row:nth-child(4) {
+  transform: translateX(0);
+}
+
+.cap {
+  width: var(--cap);
+  height: var(--cap);
   display: grid;
   place-items: center;
-  width: 100%;
-  height: 16rem;
-  margin-top: 2rem;
-  border-radius: 0.5rem;
-  background: #1a1a2e;
-  color: #eee;
-  font-size: 1.25rem;
+  border: none;
+  border-radius: 0.35rem;
+  background: oklch(75% 0.12 var(--hue));
+  color: oklch(28% 0.02 var(--hue));
+  font: 700 calc(var(--cap) * 0.32) / 1 system-ui, sans-serif;
+  text-transform: uppercase;
   cursor: pointer;
+  transition:
+    background-color 500ms ease-out,
+    transform 500ms ease-out;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.cap.active {
+  background: oklch(88% 0.16 var(--hue));
+  transform: scale(1.06);
+  transition-duration: 15ms;
+}
+
+/* Per instruction: on a portrait phone, render the stage rotated so it reads
+   as landscape without the player touching their orientation lock.
+   `translate` applies before `rotate`, and the swapped width/height make the
+   rotated stage cover the viewport exactly. Hit-testing rotates with the
+   element, so pointer events need no correction. */
+@media (orientation: portrait) {
+  .stage {
+    position: fixed;
+    inset: 0 auto auto 0;
+    width: 100dvh;
+    height: 100dvw;
+    transform-origin: top left;
+    transform: rotate(90deg) translate(0, -100%);
+  }
 }

@@ -1,52 +1,127 @@
-// Checkpoint 1: the synthesis and envelope path, wired to a single temporary
-// trigger for a listening pass. No grid yet — see DESIGN.md "Checkpoints".
-//
-// The trigger is one element, held by pointer (any number of simultaneous
-// fingers) or the space bar. Each new hold advances one step along the a-row
-// fifths chain (b = 0) and wraps after ten, so a player can walk the chain by
-// repeated presses to check the Shepard illusion, or land several fingers on
-// it at once to check loudness with five or more voices held.
+// Checkpoint 2: the grid, keyboard mapping, and pointer/drag handling. See
+// DESIGN.md "Interaction" for the contract this follows.
 
 import { Instrument } from "../lib/instrument.ts";
-import { ratioFor } from "../lib/tuning.ts";
+import { nodeFor } from "../lib/lattice.ts";
 
-const trigger = document.querySelector<HTMLElement>("[data-instrument]");
+const grid = document.querySelector<HTMLElement>("[data-instrument]");
 
-if (trigger) {
+if (grid) {
   const instrument = new Instrument();
-  let step = 0;
+  const caps = [...grid.querySelectorAll<HTMLElement>("[data-note]")];
+  const capByCode = new Map(caps.map((cap) => [cap.dataset.note!, cap]));
 
-  // A `const` arrow function, not a block-scoped `function` declaration: the
-  // spec harness runs the built script as a classic (sloppy) script, where a
-  // `function` declared inside this `if` block would hoist to the module's
-  // top level under Annex B and clobber whichever top-level binding the
-  // minifier happened to give the same single-letter name.
-  const nextRatio = (): number => {
-    const a = (step % 10) - 3;
-    step += 1;
-    return ratioFor(a, 0);
+  // Which codes currently hold each cap active, so a key and a finger landing
+  // on the same cap don't fight over its visual state.
+  const holders = new Map<HTMLElement, Set<string>>();
+
+  // `const` arrow functions throughout this block, not `function`
+  // declarations: the spec harness runs the built script as a classic
+  // (sloppy) script, where a block-scoped `function` hoists under Annex B and
+  // can clobber whichever top-level binding the minifier gives the same
+  // single-letter name (bit us once already at checkpoint 1).
+  const activate = (cap: HTMLElement, holder: string): void => {
+    const set = holders.get(cap) ?? new Set<string>();
+    set.add(holder);
+    holders.set(cap, set);
+    cap.classList.add("active");
   };
 
-  trigger.addEventListener("pointerdown", (event) => {
-    trigger.releasePointerCapture(event.pointerId);
-    instrument.noteOn(String(event.pointerId), nextRatio());
-  });
+  const deactivate = (cap: HTMLElement, holder: string): void => {
+    const set = holders.get(cap);
+    if (!set) return;
+    set.delete(holder);
+    if (set.size === 0) {
+      holders.delete(cap);
+      cap.classList.remove("active");
+    }
+  };
 
-  for (const type of ["pointerup", "pointercancel", "pointerleave"]) {
-    trigger.addEventListener(type, (event) => {
-      instrument.noteOff(String((event as PointerEvent).pointerId));
+  // What each pointer is currently holding, so a drag knows what to release.
+  const pointerCodes = new Map<number, string>();
+
+  const releasePointer = (pointerId: number): void => {
+    const code = pointerCodes.get(pointerId);
+    if (code === undefined) return;
+    pointerCodes.delete(pointerId);
+    const holder = String(pointerId);
+    instrument.noteOff(holder);
+    const cap = capByCode.get(code);
+    if (cap) deactivate(cap, holder);
+  };
+
+  const pressPointer = (pointerId: number, cap: HTMLElement): void => {
+    const code = cap.dataset.note;
+    if (!code) return;
+    if (pointerCodes.get(pointerId) === code) return; // already holding this cap
+    releasePointer(pointerId);
+    const node = nodeFor(code);
+    if (!node) return;
+    pointerCodes.set(pointerId, code);
+    instrument.noteOn(String(pointerId), node.ratio);
+    activate(cap, String(pointerId));
+  };
+
+  for (const cap of caps) {
+    cap.addEventListener("pointerdown", (event) => {
+      cap.releasePointerCapture(event.pointerId);
+      pressPointer(event.pointerId, cap);
+    });
+
+    // pointerenter is the drag path the spec drives: touch pointers are
+    // implicitly captured to the cap pressed, so releasing capture above is
+    // what lets this fire on the caps a finger drags onto.
+    cap.addEventListener("pointerenter", (event) => {
+      if (!pointerCodes.has(event.pointerId)) return; // hover, not a drag
+      pressPointer(event.pointerId, cap);
     });
   }
 
-  window.addEventListener("keydown", (event) => {
-    if (event.code !== "Space" || event.repeat) return;
-    event.preventDefault();
-    instrument.noteOn("Space", nextRatio());
-  });
-  window.addEventListener("keyup", (event) => {
-    if (event.code !== "Space") return;
-    instrument.noteOff("Space");
+  for (const type of ["pointerup", "pointercancel", "pointerleave"]) {
+    grid.addEventListener(type, (event) => releasePointer((event as PointerEvent).pointerId));
+  }
+
+  // A fallback for environments where pointerenter doesn't carry a drag:
+  // resolve the cap under the pointer directly. jsdom has no layout, so this
+  // is wrapped to degrade to doing nothing rather than throwing.
+  grid.addEventListener("pointermove", (event) => {
+    if (!pointerCodes.has(event.pointerId)) return;
+    let hit: Element | null = null;
+    try {
+      hit = document.elementFromPoint(event.clientX, event.clientY);
+    } catch {
+      return;
+    }
+    const cap = hit?.closest<HTMLElement>("[data-note]");
+    if (cap) pressPointer(event.pointerId, cap);
   });
 
-  window.addEventListener("blur", () => instrument.releaseAll());
+  const heldKeys = new Set<string>();
+
+  window.addEventListener("keydown", (event) => {
+    const node = nodeFor(event.code);
+    if (!node) return; // unmapped keys do nothing
+    event.preventDefault();
+    if (event.repeat || heldKeys.has(event.code)) return;
+    heldKeys.add(event.code);
+    instrument.noteOn(event.code, node.ratio);
+    const cap = capByCode.get(event.code);
+    if (cap) activate(cap, event.code);
+  });
+
+  window.addEventListener("keyup", (event) => {
+    if (!heldKeys.has(event.code)) return;
+    heldKeys.delete(event.code);
+    instrument.noteOff(event.code);
+    const cap = capByCode.get(event.code);
+    if (cap) deactivate(cap, event.code);
+  });
+
+  window.addEventListener("blur", () => {
+    instrument.releaseAll();
+    for (const cap of holders.keys()) cap.classList.remove("active");
+    holders.clear();
+    pointerCodes.clear();
+    heldKeys.clear();
+  });
 }

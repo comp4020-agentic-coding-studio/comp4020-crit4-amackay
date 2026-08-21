@@ -81,19 +81,19 @@ describe("the browser is the instrument", () => {
   it("makes sound live, through the Web Audio graph", () => {
     const { audio, errors } = open();
     audio.reset();
-    page?.pointer(0.5, 0.5);
+    page?.press("KeyF");
 
     expect(errors, "the page threw while being played").toEqual([]);
     expect(audio.contexts, "no AudioContext was ever created").toBeGreaterThan(0);
     expect(
       audio.started.length,
-      "a pointer gesture on the surface started no voice",
+      "a pointer gesture on a cap started no voice",
     ).toBeGreaterThan(0);
   });
 
   it("resumes the suspended context on the player's first gesture", () => {
     const { audio } = open();
-    page?.pointer(0.5, 0.5);
+    page?.press("KeyF");
     expect(
       audio.resumes,
       "an AudioContext starts suspended; without resume() on a user gesture the page is silent in a real browser",
@@ -105,8 +105,22 @@ describe("playable with whatever is at hand", () => {
   it("plays from the pointer, so mouse and touch both work", () => {
     const { audio } = open();
     audio.reset();
-    page?.pointer(0.3, 0.7);
+    page?.press("KeyG");
     expect(audio.started.length, "no voice from a pointer gesture").toBeGreaterThan(0);
+  });
+
+  it("plays the caps a finger drags across", () => {
+    const { audio } = open();
+    audio.reset();
+    page?.drag("KeyA", "KeyL");
+    expect(
+      audio.started.length,
+      "a drag across two caps should start two voices, not one continuous one",
+    ).toBeGreaterThan(8);
+    expect(
+      audio.frequencies.length,
+      "dragging onto a different cap should sound different partials, not repeat the first cap's",
+    ).toBeGreaterThan(8);
   });
 
   it("plays from the keyboard", () => {
@@ -142,11 +156,11 @@ describe("it is expressive", () => {
     const { audio } = open();
 
     audio.reset();
-    page?.pointer(0.1, 0.2);
+    page?.press("KeyZ");
     const low = audio.signature;
 
     audio.reset();
-    page?.pointer(0.9, 0.8);
+    page?.press("Digit0");
     const high = audio.signature;
 
     expect(low, "the first gesture made no sound to compare").not.toBe("[]");
@@ -160,9 +174,13 @@ describe("it is expressive", () => {
     const { audio } = open();
     audio.reset();
 
-    // Ten scattered gestures stand in for two players who don't play the same.
-    for (let i = 0; i < 10; i += 1) {
-      page?.pointer((i * 0.17) % 1, (i * 0.31) % 1);
+    // Ten different caps stand in for two players who don't play the same.
+    const codes = [
+      "Digit1", "KeyQ", "KeyA", "KeyZ", "Digit5",
+      "KeyU", "KeyH", "KeyN", "Digit0", "Semicolon",
+    ];
+    for (const code of codes) {
+      page?.press(code);
     }
     const distinct = new Set(audio.started.map((voice) => JSON.stringify(voice)));
 
@@ -179,14 +197,17 @@ describe("there is no way to play it wrong", () => {
     audio.reset();
 
     // Everything a curious stranger does in the first ten seconds: mash keys,
-    // scrub the edges, press outside the surface, release without pressing.
+    // scrub the edges, press between caps or outside the grid, drag around,
+    // release without pressing.
     for (const code of ["KeyQ", "Escape", "F5", "Tab", "Enter", "Digit9", "ShiftLeft"]) {
       page?.key(code);
     }
-    for (const [x, y] of [[0, 0], [1, 1], [-0.2, 0.5], [0.5, 1.4], [0.5, 0.5]]) {
-      page?.pointer(x as number, y as number);
+    for (const code of ["Digit1", "Semicolon", "KeyZ", "Slash", "NoSuchCap"]) {
+      page?.press(code);
     }
-    page?.pointer(0.5, 0.5, { type: "pointerup" });
+    page?.missPointer();
+    page?.drag("KeyA", "NoSuchCap");
+    page?.press("KeyA", { type: "pointerup" });
 
     expect(errors, "some input made the page throw; a thrown error is a way to play it wrong").toEqual([]);
   });

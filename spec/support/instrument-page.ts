@@ -27,9 +27,17 @@ export interface LoadedPage {
   /** The playable surface, or null if the page never marked one. */
   surface: Element | null;
   errors: string[];
-  /** Press, drag and release across the surface, in surface-relative
-   *  fractions of its size (0–1), the way a player would. */
-  pointer(x: number, y: number, options?: { type?: string }): void;
+  /** Press and release the cap carrying `data-note="<code>"`, the way a
+   *  player's finger or mouse would. Falls back to the surface itself if no
+   *  cap carries that code, standing in for a tap in the gap between keys. */
+  press(code: string, options?: { type?: string }): void;
+  /** Press `from`, then — pointer still down — `pointerenter` `to` before
+   *  releasing there. The drag path DESIGN.md asks a finger to be able to
+   *  take across the grid. */
+  drag(from: string, to: string): void;
+  /** A pointer gesture that lands on no cap at all — the gap between keys, or
+   *  outside the grid entirely. */
+  missPointer(): void;
   /** Press and release a key, the way a player would. */
   key(code: string, options?: { type?: string }): void;
   close(): void;
@@ -91,37 +99,48 @@ export function loadInstrument(page = "index.html"): LoadedPage {
 
   const surface = document.querySelector(SURFACE);
 
-  function pointer(x: number, y: number, options: { type?: string } = {}): void {
-    const target = surface ?? document.body;
-    // jsdom lays nothing out, so a rect is all zeroes; give the surface a
-    // plausible one so a page mapping position to pitch sees a real spread.
-    const rect = { left: 0, top: 0, width: 1000, height: 600 };
+  function capOrSurface(code: string): Element {
+    return surface?.querySelector(`[data-note="${code}"]`) ?? surface ?? document.body;
+  }
+
+  const Ctor = (window as unknown as Record<string, unknown>).PointerEvent ?? window.MouseEvent;
+
+  function dispatchPointer(target: Element, type: string, pointerId = 1): void {
     const init = {
       bubbles: true,
       cancelable: true,
-      clientX: rect.left + x * rect.width,
-      clientY: rect.top + y * rect.height,
-      pointerId: 1,
+      pointerId,
       pointerType: "mouse",
       isPrimary: true,
       buttons: 1,
     };
-    const Ctor =
-      (window as unknown as Record<string, unknown>).PointerEvent ?? window.MouseEvent;
-    const make = (type: string) =>
-      new (Ctor as typeof window.MouseEvent)(type, init as MouseEventInit);
+    target.dispatchEvent(new (Ctor as typeof window.MouseEvent)(type, init as MouseEventInit));
+  }
 
-    for (const type of options.type ? [options.type] : ["pointerdown", "pointermove"]) {
-      target.dispatchEvent(make(type));
+  function press(code: string, options: { type?: string } = {}): void {
+    const target = capOrSurface(code);
+    for (const type of options.type ? [options.type] : ["pointerdown", "pointerup"]) {
+      dispatchPointer(target, type);
     }
     if (!options.type) {
-      target.dispatchEvent(make("pointerup"));
       // Mouse-only pages listen for these instead; a player pressing a mouse
       // fires both families, so the test should too.
-      target.dispatchEvent(make("mousedown"));
-      target.dispatchEvent(make("mouseup"));
-      target.dispatchEvent(make("click"));
+      for (const type of ["mousedown", "mouseup", "click"]) {
+        target.dispatchEvent(new window.MouseEvent(type, { bubbles: true, cancelable: true }));
+      }
     }
+  }
+
+  function drag(from: string, to: string): void {
+    dispatchPointer(capOrSurface(from), "pointerdown");
+    dispatchPointer(capOrSurface(to), "pointerenter");
+    dispatchPointer(capOrSurface(to), "pointerup");
+  }
+
+  function missPointer(): void {
+    const target = surface ?? document.body;
+    dispatchPointer(target, "pointerdown");
+    dispatchPointer(target, "pointerup");
   }
 
   function key(code: string, options: { type?: string } = {}): void {
@@ -138,7 +157,9 @@ export function loadInstrument(page = "index.html"): LoadedPage {
     audio,
     surface,
     errors,
-    pointer,
+    press,
+    drag,
+    missPointer,
     key,
     close: () => dom.window.close(),
   };
