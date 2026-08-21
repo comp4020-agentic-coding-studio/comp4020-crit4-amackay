@@ -188,6 +188,23 @@ and a neutral phrase, never an explanation of the design. Avoid the words
 score* in copy **and in identifiers**: `spec/crit-4.test.ts` greps the built HTML
 for them, and Astro inlines the page script into it.
 
+## Debug mode
+
+`?debug` in the URL toggles a `.debug` class onto `<html>` from `main.ts`,
+purely client-side — nothing about the built page changes. It is a tuning aid
+for whoever is building the instrument, never something a player finds by
+playing it, and doesn't count against "no tuning-theory copy... anywhere in
+the artefact" below: it's off by default and behind a flag nobody stumbles
+into.
+
+While on, each cap shows its monzo (`|a b⟩`, the `3^a · 5^b` exponents — no
+`2`-exponent, since a pitch class has no fixed octave to place one in) and its
+nearest 12-tone-equal-temperament name, and the key label shrinks into the
+bottom-right corner to get out of the way. The ET name is a landmark for the
+ear, not a claim of exactness: `equalTemperamentNameFor` in `tuning.ts` rounds
+to the nearest semitone, and that rounding grows with distance from the root,
+per DESIGN's own near-unison analysis above.
+
 ## Spec tests: what needs changing first
 
 `spec/support/instrument-page.ts` was written for a continuous surface and does

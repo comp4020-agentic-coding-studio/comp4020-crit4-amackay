@@ -24,7 +24,11 @@ const ROWS = Array.from({ length: ROW_COUNT }, (_, i) => NODES.slice(i * perRow,
         <div class="row">
           {row.map((node) => (
             <button type="button" class="cap" data-note={node.code} style={`--hue:${node.hue}`}>
-              {node.label}
+              <span class="label">{node.label}</span>
+              <span class="debug-info">
+                <span class="monzo">|{node.a} {node.b}⟩</span>
+                <span class="et-name">{node.etName}</span>
+              </span>
             </button>
           ))}
         </div>

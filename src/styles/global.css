@@ -76,10 +76,10 @@ a {
 }
 
 .cap {
+  position: relative;
   width: var(--cap);
   height: var(--cap);
-  display: grid;
-  place-items: center;
+  padding: 0;
   /* Equal lightness and chroma across every cap (see "Colour is pitch class"
      below) means two flush caps of different hue vibrate at the seam with no
      gap to separate them; a same-hue, darker-lightness border reads as one
@@ -88,8 +88,6 @@ a {
   border-radius: 0;
   background: oklch(75% 0.12 var(--hue));
   color: oklch(28% 0.02 var(--hue));
-  font: 700 calc(var(--cap) * 0.32) / 1 system-ui, sans-serif;
-  text-transform: uppercase;
   cursor: pointer;
   transition: background-color 500ms ease-out;
   user-select: none;
@@ -99,6 +97,41 @@ a {
 .cap.active {
   background: oklch(88% 0.16 var(--hue));
   transition-duration: 15ms;
+}
+
+.label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font: 700 calc(var(--cap) * 0.32) / 1 system-ui, sans-serif;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+/* Debug mode: `?debug` in the URL, toggled onto <html> in main.ts. Never part
+   of the played instrument — a tuning aid for the person building it. */
+.debug-info {
+  display: none;
+}
+
+html.debug .label {
+  place-items: end;
+  padding: 0.3em;
+  font-size: calc(var(--cap) * 0.16);
+}
+
+html.debug .debug-info {
+  display: flex;
+  position: absolute;
+  inset: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15em;
+  font: 600 calc(var(--cap) * 0.12) / 1.2 ui-monospace, "SFMono-Regular", monospace;
+  text-transform: none;
+  pointer-events: none;
 }
 
 /* Per instruction: on a portrait phone, render the stage rotated so it reads

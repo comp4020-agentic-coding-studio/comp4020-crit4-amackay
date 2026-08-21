@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hueFor, partialsFor, pitchClassFor, ratioFor, stackPositionFor } from "./tuning.ts";
+import { equalTemperamentNameFor, hueFor, partialsFor, pitchClassFor, ratioFor, stackPositionFor } from "./tuning.ts";
 
 describe("ratioFor", () => {
   it("is 1/1 at the root", () => {
@@ -37,6 +37,28 @@ describe("partialsFor", () => {
   it("normalises amplitudes to sum to 1", () => {
     const total = partialsFor(stackPositionFor(ratioFor(2, 1))).reduce((sum, p) => sum + p.amp, 0);
     expect(total).toBeCloseTo(1, 10);
+  });
+});
+
+describe("equalTemperamentNameFor", () => {
+  it("names the root F", () => {
+    expect(equalTemperamentNameFor(ratioFor(0, 0))).toBe("F");
+  });
+
+  it("names a fifth up C, and a fifth down Bb, matching DESIGN.md's a-row", () => {
+    expect(equalTemperamentNameFor(ratioFor(1, 0))).toBe("C");
+    expect(equalTemperamentNameFor(ratioFor(-1, 0))).toBe("B♭");
+    expect(equalTemperamentNameFor(ratioFor(-3, 0))).toBe("A♭");
+    expect(equalTemperamentNameFor(ratioFor(-2, 0))).toBe("E♭");
+  });
+
+  it("always returns one of the twelve chromatic names", () => {
+    const CHROMATIC = ["F", "G♭", "G", "A♭", "A", "B♭", "B", "C", "D♭", "D", "E♭", "E"];
+    for (let a = -3; a <= 5; a += 1) {
+      for (let b = -1; b <= 2; b += 1) {
+        expect(CHROMATIC).toContain(equalTemperamentNameFor(ratioFor(a, b)));
+      }
+    }
   });
 });
 

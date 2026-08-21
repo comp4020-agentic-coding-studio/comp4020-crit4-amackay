@@ -49,3 +49,16 @@ export function partialsFor(stackPosition: number): Partial[] {
 export function hueFor(ratio: number): number {
   return (25 + 360 * pitchClassFor(ratio)) % 360;
 }
+
+// Chromatic scale ascending in semitones from the root, F, spelled with flats
+// to match DESIGN.md's own fifths-chain naming (Ab Eb Bb F C G D A E). Debug
+// mode only — nearest-12-TET is a landmark for the ear, not a claim of
+// exactness, and it drifts further from the just ratio the further a node
+// sits from the root.
+const CHROMATIC = ["F", "G♭", "G", "A♭", "A", "B♭", "B", "C", "D♭", "D", "E♭", "E"];
+
+/** The nearest 12-tone-equal-temperament name for a ratio's pitch class. */
+export function equalTemperamentNameFor(ratio: number): string {
+  const index = Math.round(pitchClassFor(ratio) * 12) % 12;
+  return CHROMATIC[index]!;
+}

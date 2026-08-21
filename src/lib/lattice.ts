@@ -1,7 +1,7 @@
-// The 10x4 grid of nodes, generated from DESIGN.md's tuning table rather than
+// The 9x4 grid of nodes, generated from DESIGN.md's tuning table rather than
 // hand-listed, so the keyboard mapping and the lattice math can't drift apart.
 
-import { hueFor, ratioFor } from "./tuning.ts";
+import { equalTemperamentNameFor, hueFor, ratioFor } from "./tuning.ts";
 
 export interface Node {
   /** KeyboardEvent.code — the keyboard mapping and the DOM handle alike. */
@@ -12,6 +12,8 @@ export interface Node {
   b: number;
   ratio: number;
   hue: number;
+  /** Nearest 12-TET name — debug mode only. See tuning.ts. */
+  etName: string;
 }
 
 interface Row {
@@ -44,13 +46,13 @@ const ROWS: Row[] = [
   },
 ];
 
-/** All 40 nodes, in row-major order matching DESIGN.md's table (top row first,
+/** All 36 nodes, in row-major order matching DESIGN.md's table (top row first,
  *  column 0 first). Column index `i` gives `a = i − 3`. */
 export const NODES: Node[] = ROWS.flatMap(({ b, codes, labels }) =>
   codes.map((code, i) => {
     const a = i - 3;
     const ratio = ratioFor(a, b);
-    return { code, label: labels[i]!, a, b, ratio, hue: hueFor(ratio) };
+    return { code, label: labels[i]!, a, b, ratio, hue: hueFor(ratio), etName: equalTemperamentNameFor(ratio) };
   }),
 );
 

@@ -4,6 +4,11 @@
 import { Instrument } from "../lib/instrument.ts";
 import { nodeFor } from "../lib/lattice.ts";
 
+// Debug mode: `?debug` in the URL shows each cap's monzo and nearest 12-TET
+// name, and shrinks the label into the corner. Never shown to a player who
+// hasn't gone looking for it — see DESIGN.md "Debug mode".
+document.documentElement.classList.toggle("debug", new URLSearchParams(location.search).has("debug"));
+
 const grid = document.querySelector<HTMLElement>("[data-instrument]");
 
 if (grid) {
