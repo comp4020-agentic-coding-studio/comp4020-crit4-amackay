@@ -46,6 +46,30 @@ live URL. **`http://localhost:4321/` returning 404 is correct**; the site is at
 - **Commit `pnpm-lock.yaml` with any dependency change**; CI installs
   `--frozen-lockfile`.
 
+## Two build quirks that break the spec harness, not the design
+
+- **A second page sharing lib code splits Rollup's build.** Once more than one
+  page's script imports the same module (e.g. `instrument.ts`), Vite factors
+  it into a shared chunk, and the page's own script becomes
+  `import {...} from "./chunk.js"` — which a classic-script `eval` can't run
+  (see `spec/support/instrument-page.ts`'s header comment for why the harness
+  needs classic-script eval at all). `inlineChunkImports` there resolves one
+  level of this by wrapping the chunk's body in an IIFE and destructuring its
+  exports into the entry's scope, rather than flattening both into one shared
+  scope where two independently-minified chunks could collide on a reused
+  single-letter name. A third page sharing the same lib code should just work
+  through it; a chunk importing another chunk (two levels deep) isn't handled.
+- **A block-scoped `function` inside a page script can silently misbehave
+  under that same classic-script `eval`.** Annex B hoists a `function`
+  declared inside an `if`/block to the nearest function/global scope in
+  sloppy mode — invisible in a real browser (page scripts run as real,
+  strict-by-default ES modules there), but live once jsdom evals the built,
+  minified script as a classic script: two unrelated top-level bindings the
+  minifier happened to give the same single-letter name can clobber each
+  other. Bit `main.ts` twice before the fix took: use `const` arrow functions
+  for anything declared inside a block in a page script, never a `function`
+  declaration.
+
 ## Working rules
 
 - **Never commit a red build, typecheck, or a test that used to pass.** The one
@@ -55,6 +79,10 @@ live URL. **`http://localhost:4321/` returning 404 is correct**; the site is at
 - Run `pnpm check` before pushing, and open the page in a browser (the
   `agent-browser` CLI works). The rendered page is the truth; for this week, the
   *sounding* page is, and nothing here can hear it.
+- **Mute the browser before testing with `agent-browser`.** Headless Chromium
+  still plays real audio through the host machine's speakers — pass
+  `--args "--mute-audio"` (or set `AGENT_BROWSER_ARGS=--mute-audio`) before
+  opening any page here, since any of them can reach `Instrument.noteOn`.
 - Paths written anywhere in this repo are relative to the repo root. Absolute
   paths tie a public repo to one machine.
 - **Commit as you go** — "the repo shows the process" is a spec line, so the

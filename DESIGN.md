@@ -66,7 +66,7 @@ toward 0 with a 120 ms time constant.
 stopping leaks oscillators for the life of the page. Disconnect on the
 oscillator's `ended` event.
 
-**Master gain starts at 0.25**, adjusted by ear at checkpoint 1. Every partial
+**Master gain is 0.25**, confirmed by ear during development. Every partial
 starts at phase 0, so a voice sums coherently at the attack and peaks at exactly
 1.0; ten simultaneous voices would peak at 10.0. Per instruction, ten-finger
 chords are not a case to engineer around — do not add limiting beyond the
@@ -187,8 +187,9 @@ in the markup, visually hidden. The instrument still needs a name for the title
 and description; the description stays in the instrument's own voice — a name
 and a neutral phrase, never an explanation of the design. Avoid the words
 *score*, *streak*, *try again*, *game over*, *you lose*, *wrong note* and *high
-score* in copy **and in identifiers**: `spec/crit-4.test.ts` greps the built HTML
-for them, and Astro inlines the page script into it.
+score* in copy **and in identifiers**: `spec/crit-4.test.ts` greps the built
+HTML for them, and the page script the build ships alongside it — inline or
+its own file, whichever Astro chooses this build.
 
 ## Debug mode
 
@@ -214,29 +215,15 @@ nav) is a standalone manual-test rig for the Shepard-tone synthesis in
 `instrument.ts`, independent of the just-intonation lattice — so an oddity
 while testing it can't be blamed on the tuning. Twelve buttons in a clock
 face, one per plain 12-TET semitone from the same root F, clockwise from 12
-o'clock. `Q W E R T Y U I O P [ ]` play them directly and polyphonically.
-`1`–`0` (`0` = ten) advance a shared cursor that many semitones clockwise and
+o'clock. `Q W E R T Y U I O P [ ]` play them directly and polyphonically, and
+so does a pointer press-and-hold on any button (no drag between them — each is
+an independent tap, not a continuous surface). `1`–`0` (`0` = ten) advance a
+shared cursor that many semitones clockwise and
 sustain the landed-on button for as long as that digit key is held —
 independently of any other key held at the same time, so holding `1` and then
 also pressing `3` sustains two separate notes, the second further round the
 circle than the first; `Shift`+digit goes anticlockwise instead. Not part of
 the graded instrument, and not bound by its "no text beyond key labels" rule.
-
-## Spec tests: what needs changing first
-
-`spec/support/instrument-page.ts` was written for a continuous surface and does
-not fit a discrete grid. Its `pointer(x, y)` dispatches at the `data-instrument`
-container, which never reaches the caps inside it, so five pointer-dependent
-tests would fail against a correct implementation. Before wiring the grid:
-
-- replace `pointer(x, y)` with a helper that targets `[data-note="…"]`
-- add a drag helper: press one cap, then `pointerenter` the next with the
-  pointer still down
-- rewrite the two expressiveness tests to press *different caps* rather than
-  different coordinates on one element
-
-The fake Web Audio API in `spec/support/fake-audio.ts` already covers every node
-type this design uses. Keep it that way — no `AudioWorklet`.
 
 ## Non-goals
 
@@ -246,26 +233,13 @@ no 7- or 11-limit axes; no sustain or pin toggle; no portamento; no mitigation
 for membrane-keyboard ghosting; no `AudioWorklet`; no tuning-theory copy,
 instructions, or self-explanation anywhere in the artefact.
 
-## Checkpoints
+## Still open
 
-Three sessions, two human touchpoints. Stop at the end of 1 and 2 and hand back
-— do not run on into the next checkpoint.
-
-**1 — Audio engine, no grid.** The full synthesis and envelope path, wired to a
-single temporary trigger. Stop there. Grid-dependent spec tests stay red; say
-which. Listening pass covers: clicks on attack and release; whether the Shepard
-illusion holds (a walked fifth-chain should never feel like it is climbing out
-of range); loudness with five or more voices held; whether the compressor pumps.
-On laptop speakers *and* headphones — the low partials vanish on laptop
-speakers, and the crit room will be laptops.
-
-**2 — Grid and keyboard.** The spec-test helper rewrite above, then the full
-grid, keyboard mapping, pointer and drag handling, and the visual design.
-Playable for two minutes at the end of it. Listening pass covers: latency,
-whether the 500 ms tail is lush or muddy, and whether the stagger and colours
-read. Tweaks come back as a short list.
-
-**3 — Polish and green, unattended.** The listed tweaks, the invariants, the
-name and description, portrait rotation on a real phone, `PROCESS.md`. Every
-check green, including `pnpm check:evidence`. `reflections/crit-4.md` is the
-repo owner's alone — never draft it.
+- **Name and description.** The title/description in `index.astro` are still
+  the template placeholders. Needs a name for the instrument and a one-line
+  description in its own voice, neither explaining the design.
+- **Portrait rotation, on an actual phone.** Verified so far only by resizing
+  a desktop browser; the CSS trick in "Portrait phones" above has never been
+  seen on a real device.
+- **`PROCESS.md`** is still the template. `reflections/crit-4.md` is the repo
+  owner's alone — never draft it.

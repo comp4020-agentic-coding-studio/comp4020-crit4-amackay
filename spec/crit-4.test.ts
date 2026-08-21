@@ -15,7 +15,7 @@
 // "a stranger can play it uninstructed" and "you can account for how you
 // directed the work" (both human, at the crit).
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { readdirSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 import { JSDOM } from "jsdom";
@@ -213,9 +213,21 @@ describe("there is no way to play it wrong", () => {
   });
 
   it("keeps no score and has no fail state", () => {
-    const text = readFileSync(join(DIST, "index.html"), "utf8");
+    const html = readFileSync(join(DIST, "index.html"), "utf8");
+    // Astro sometimes inlines the page script and sometimes (once a second
+    // page shares lib code with this one) externalises it into its own file
+    // — check both, so a forbidden word hiding in an identifier isn't
+    // invisible here just because the build happened to split it out.
+    const doc = new JSDOM(html).window.document;
+    const scripts = [...doc.querySelectorAll("script[src]")]
+      .map((el) => el.getAttribute("src")!)
+      .filter((src) => !/^[a-z]+:|^\/\//i.test(src))
+      .map((src) => join(DIST, src.replace(/^.*?\/(?=_astro\/)/, "").replace(/^\//, "")))
+      .filter((path) => existsSync(path))
+      .map((path) => readFileSync(path, "utf8"));
+
     expect(
-      text,
+      [html, ...scripts].join("\n"),
       "the page ships scoring or failure vocabulary; the spec asks for neither",
     ).not.toMatch(/\b(score|game over|you lose|wrong note|try again|streak|high ?score)\b/i);
   });
