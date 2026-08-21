@@ -13,11 +13,11 @@ import Layout from "../layouts/Layout.astro";
   </header>
   <main>
     <h1>COMP4020 prototype</h1>
-    <p data-testid="intro">
-      Replace this with your prototype. This week's brief is on the course
-      website; <code>spec/README.md</code> explains how the checks in this repo
-      relate to it.
-    </p>
+    <!-- Checkpoint 1: a temporary trigger for the audio engine, not the
+         instrument's grid. See DESIGN.md "Checkpoints". -->
+    <div data-instrument tabindex="0" role="button" aria-label="temporary trigger">
+      hold to sound a note
+    </div>
   </main>
   <script src="../scripts/main.ts"></script>
 </Layout>

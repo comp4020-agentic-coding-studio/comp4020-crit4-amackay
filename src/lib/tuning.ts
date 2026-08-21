@@ -1,0 +1,51 @@
+// The tuning and timbre math, kept as plain numeric functions so it can be
+// tested without an AudioContext. See DESIGN.md "Tuning" and "Synthesis".
+
+export const ROOT_HZ = 349.2282;
+export const PARTIAL_COUNT = 8;
+
+function frac(v: number): number {
+  return ((v % 1) + 1) % 1;
+}
+
+/** The 3-limit/5-limit ratio for a lattice node, a fifths and b thirds from
+ *  the root. */
+export function ratioFor(a: number, b: number): number {
+  return 3 ** a * 5 ** b;
+}
+
+/** Pitch class of a ratio relative to the root (0–1, wraps at the octave).
+ *  Drives colour: DESIGN.md's `hue = 25° + 360° · pc`. */
+export function pitchClassFor(ratio: number): number {
+  return frac(Math.log2(ratio));
+}
+
+/** Position of a ratio's pitch class within the fixed 32–8192 Hz partial
+ *  stack, in absolute frequency terms — what makes the tone octaveless.
+ *  DESIGN.md: `x = frac(log2(349.2282 · ratio / 32))`. */
+export function stackPositionFor(ratio: number): number {
+  return frac(Math.log2((ROOT_HZ * ratio) / 32));
+}
+
+export interface Partial {
+  freq: number;
+  amp: number;
+}
+
+/** Eight octave-spaced sine partials under a fixed Gaussian window in
+ *  log-frequency, normalised to sum to 1. DESIGN.md: `f_k = 32 · 2^(x + k)`,
+ *  `A_k = exp(−(log2(f_k / 260))² / (2 · 1.5²))`. */
+export function partialsFor(stackPosition: number): Partial[] {
+  const raw = Array.from({ length: PARTIAL_COUNT }, (_, k) => {
+    const freq = 32 * 2 ** (stackPosition + k);
+    const amp = Math.exp(-(Math.log2(freq / 260) ** 2) / (2 * 1.5 ** 2));
+    return { freq, amp };
+  });
+  const total = raw.reduce((sum, p) => sum + p.amp, 0);
+  return raw.map((p) => ({ freq: p.freq, amp: p.amp / total }));
+}
+
+/** Colour hue for a ratio's pitch class. DESIGN.md "Visual design". */
+export function hueFor(ratio: number): number {
+  return (25 + 360 * pitchClassFor(ratio)) % 360;
+}

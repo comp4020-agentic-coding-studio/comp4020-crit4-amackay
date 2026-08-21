@@ -14,3 +14,20 @@ main {
 a {
   color: #0b5fff;
 }
+
+/* Checkpoint 1's temporary trigger. Sized and touch-action'd for a listening
+   pass with several fingers held at once; the real grid replaces this. */
+[data-instrument] {
+  touch-action: none;
+  user-select: none;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 16rem;
+  margin-top: 2rem;
+  border-radius: 0.5rem;
+  background: #1a1a2e;
+  color: #eee;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
