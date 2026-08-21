@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { equalTemperamentNameFor, hueFor, partialsFor, pitchClassFor, ratioFor, stackPositionFor } from "./tuning.ts";
+import {
+  equalTemperamentNameFor,
+  equalTemperamentRatioFor,
+  hueFor,
+  partialsFor,
+  pitchClassFor,
+  ratioFor,
+  stackPositionFor,
+} from "./tuning.ts";
 
 describe("ratioFor", () => {
   it("is 1/1 at the root", () => {
@@ -59,6 +67,26 @@ describe("equalTemperamentNameFor", () => {
         expect(CHROMATIC).toContain(equalTemperamentNameFor(ratioFor(a, b)));
       }
     }
+  });
+});
+
+describe("equalTemperamentRatioFor", () => {
+  it("is 1/1 at index 0", () => {
+    expect(equalTemperamentRatioFor(0)).toBe(1);
+  });
+
+  it("is exactly a semitone-scaled power of two", () => {
+    expect(equalTemperamentRatioFor(12)).toBeCloseTo(2, 10);
+    expect(equalTemperamentRatioFor(7)).toBeCloseTo(2 ** (7 / 12), 10);
+  });
+
+  // The Shepard/12-TET test page labels each of its 12 buttons by composing
+  // this with equalTemperamentNameFor rather than exporting CHROMATIC
+  // separately — this pins that composition down as a guaranteed contract.
+  it("composes with equalTemperamentNameFor to name all twelve semitones, in order, from the root", () => {
+    const names = Array.from({ length: 12 }, (_, i) => equalTemperamentNameFor(equalTemperamentRatioFor(i)));
+    expect(names).toEqual(["F", "G♭", "G", "A♭", "A", "B♭", "B", "C", "D♭", "D", "E♭", "E"]);
+    expect(new Set(names).size).toBe(12);
   });
 });
 

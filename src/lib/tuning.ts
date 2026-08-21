@@ -62,3 +62,10 @@ export function equalTemperamentNameFor(ratio: number): string {
   const index = Math.round(pitchClassFor(ratio) * 12) % 12;
   return CHROMATIC[index]!;
 }
+
+/** 12-TET ratio for a semitone index, relative to the same root F as the
+ *  just-intonation lattice above. Used by the standalone Shepard/12-TET test
+ *  page (`shepard.astro`), independent of the 3-limit/5-limit lattice. */
+export function equalTemperamentRatioFor(semitoneIndex: number): number {
+  return 2 ** (semitoneIndex / 12);
+}

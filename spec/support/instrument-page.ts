@@ -6,15 +6,72 @@
 // `type="module"`, and jsdom executes no module scripts at all; and jsdom has
 // no audio, so the page's first `new AudioContext()` would throw. So the loader
 // installs the fake first, then runs each shipped script by hand as a classic
-// script. A bundled page script has no imports left in it, which is what makes
-// that substitution safe.
+// script.
+//
+// A single page's bundle used to have no imports left in it, which was what
+// made that substitution safe — but once a second page's script shares a lib
+// module with this one, Rollup factors the shared code into its own chunk,
+// and the entry script starts with a real `import {...} from "./chunk.js"`
+// that a classic-script eval can't run. inlineChunkImports() resolves one
+// level of that by hand: wrap the chunk's body in an IIFE returning its
+// exports, and turn the entry's import into a same-scope destructure of that
+// IIFE's result. Each chunk's own (independently minified, so collision-prone)
+// identifiers stay sealed inside its own closure this way, rather than being
+// flattened into one shared scope where two chunks could easily have each
+// picked the same single-letter name for something unrelated.
 
 import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { JSDOM } from "jsdom";
 import { type AudioLog, installFakeAudio } from "./fake-audio.ts";
 
 const DIST = resolve("dist");
+
+function inlineChunkImports(source: string, dir: string): string {
+  const importRe = /^import\s*\{([^}]*)\}\s*from\s*["']\.\/([^"']+)["'];\s*/;
+  const splitAs = (entry: string): [string, string] => {
+    const [first, second] = entry.split(/\s+as\s+/).map((s) => s.trim());
+    return [first!, second ?? first!];
+  };
+
+  let result = source;
+  let match: RegExpMatchArray | null = result.match(importRe);
+  while (match) {
+    const [whole, specifiers, chunkFile] = match as [string, string, string];
+    const chunkPath = join(dir, chunkFile);
+    if (!existsSync(chunkPath)) break;
+
+    const chunkSource = readFileSync(chunkPath, "utf8");
+    const exportMatch = chunkSource.match(/export\s*\{([^}]*)\}\s*;?\s*$/);
+    if (!exportMatch) break;
+
+    const chunkBody = chunkSource.slice(0, exportMatch.index);
+    // "local as exported, ..." -> { exported: local, ... }
+    const exported = exportMatch[1]!
+      .split(",")
+      .map((entry) => {
+        const [local, name] = splitAs(entry);
+        return `${name}: ${local}`;
+      })
+      .join(", ");
+    // "exported as local, ..." -> { exported: local, ... }
+    const imported = specifiers
+      .split(",")
+      .map((entry) => {
+        const [name, local] = splitAs(entry);
+        return `${name}: ${local}`;
+      })
+      .join(", ");
+
+    const chunkVar = `__chunk_${chunkFile.replace(/[^a-zA-Z0-9]/g, "_")}`;
+    result =
+      `const ${chunkVar} = (function(){ ${chunkBody} return { ${exported} }; })();\n` +
+      `const { ${imported} } = ${chunkVar};\n` +
+      result.slice(whole.length);
+    match = result.match(importRe);
+  }
+  return result;
+}
 
 /** The handle the tests hold the instrument by. The page must mark its
  *  playable surface with it; everything else about the markup is free. */
@@ -52,7 +109,8 @@ function scripts(document: Document): string[] {
     // not something this page should have anyway.
     if (/^[a-z]+:|^\/\//i.test(src)) return [];
     const path = join(DIST, src.replace(/^.*?\/(?=_astro\/)/, "").replace(/^\//, ""));
-    return existsSync(path) ? [readFileSync(path, "utf8")] : [];
+    if (!existsSync(path)) return [];
+    return [inlineChunkImports(readFileSync(path, "utf8"), dirname(path))];
   });
 }
 

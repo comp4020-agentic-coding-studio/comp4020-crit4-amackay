@@ -207,6 +207,21 @@ ear, not a claim of exactness: `equalTemperamentNameFor` in `tuning.ts` rounds
 to the nearest semitone, and that rounding grows with distance from the root,
 per DESIGN's own near-unison analysis above.
 
+## Shepard/12-TET test page
+
+`shepard.html` (`src/pages/shepard.astro`, linked from the main page's hidden
+nav) is a standalone manual-test rig for the Shepard-tone synthesis in
+`instrument.ts`, independent of the just-intonation lattice — so an oddity
+while testing it can't be blamed on the tuning. Twelve buttons in a clock
+face, one per plain 12-TET semitone from the same root F, clockwise from 12
+o'clock. `Q W E R T Y U I O P [ ]` play them directly and polyphonically.
+`1`–`0` (`0` = ten) advance a shared cursor that many semitones clockwise and
+sustain the landed-on button for as long as that digit key is held —
+independently of any other key held at the same time, so holding `1` and then
+also pressing `3` sustains two separate notes, the second further round the
+circle than the first; `Shift`+digit goes anticlockwise instead. Not part of
+the graded instrument, and not bound by its "no text beyond key labels" rule.
+
 ## Spec tests: what needs changing first
 
 `spec/support/instrument-page.ts` was written for a continuous surface and does

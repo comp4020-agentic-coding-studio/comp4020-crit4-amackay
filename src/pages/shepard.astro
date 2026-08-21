@@ -1,0 +1,117 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { CLOCK } from "../lib/clock.ts";
+---
+
+<Layout
+  title="Shepard/12-TET tester"
+  description="A manual test rig for the instrument's Shepard-tone synthesis, tuned to plain 12-tone equal temperament."
+>
+  <header>
+    <nav aria-label="Primary">
+      <a href="./">Instrument</a>
+    </nav>
+  </header>
+  <main>
+    <h1>Shepard tone tester</h1>
+    <p>
+      Twelve semitones in equal temperament, clockwise from F at 12 o'clock — independent of the
+      instrument's just-intonation lattice, for judging the Shepard-tone synthesis on its own terms.
+    </p>
+    <p>
+      <kbd>Q W E R T Y U I O P [ ]</kbd> play the twelve pitches directly and polyphonically.
+      <kbd>1</kbd>–<kbd>0</kbd> (<kbd>0</kbd> = ten) step a shared cursor that many semitones
+      clockwise and sustain the landed-on pitch for as long as the key is held;
+      <kbd>Shift</kbd>+digit steps anticlockwise instead.
+    </p>
+    <div class="clock" data-instrument>
+      {
+        CLOCK.map((node) => (
+          <button type="button" class="dial" data-note={node.code} style={`--angle:${node.index * 30}deg; --hue:${node.hue}`}>
+            {node.label}
+          </button>
+        ))
+      }
+    </div>
+  </main>
+  <script src="../scripts/shepard.ts"></script>
+</Layout>
+
+<style>
+  /* global.css locks <body> to exactly one viewport height with overflow
+     hidden, for the main instrument's no-scroll requirement — wrong here,
+     where the header/instructions/circle can add up to more than one
+     screen's height on a short or narrow viewport. :global() reaches past
+     this component's own scoping since <body> belongs to Layout.astro, not
+     this page; it only affects shepard.html's own bundled CSS. */
+  :global(body) {
+    height: auto;
+    min-height: 100dvh;
+    overflow: auto;
+  }
+
+  main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 2rem 1rem;
+    text-align: center;
+  }
+
+  p {
+    max-width: 40rem;
+    margin: 0;
+  }
+
+  kbd {
+    font-family: ui-monospace, monospace;
+    background: #eee;
+    border-radius: 0.2rem;
+    padding: 0.05rem 0.3rem;
+  }
+
+  /* Same "colour only, no scale" active affordance and oklch tokens as
+     .cap/.cap.active in global.css — a round, circularly-arranged sibling of
+     the main instrument's cap, not sharing its class since global.css's
+     .cap hardcodes border-radius: 0 and a different --cap sizing formula. */
+  .clock {
+    position: relative;
+    --diameter: min(70vw, 70vh);
+    width: var(--diameter);
+    height: var(--diameter);
+    /* 12 circles of diameter f*D spaced evenly around a ring of radius
+       D*(0.5 - f/2) touch when f = sin(15deg)/(1+sin(15deg)) ≈ 0.206; keep
+       comfortably under that so they don't overlap at the rim. */
+    --cap: calc(var(--diameter) * 0.17);
+    --radius: calc(var(--diameter) / 2 - var(--cap) / 2);
+    touch-action: none;
+  }
+
+  .dial {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: var(--cap);
+    height: var(--cap);
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 3px solid oklch(45% 0.1 var(--hue));
+    background: oklch(75% 0.12 var(--hue));
+    color: oklch(28% 0.02 var(--hue));
+    font: 700 calc(var(--cap) * 0.28) / 1 system-ui, sans-serif;
+    cursor: pointer;
+    transition: background-color 500ms ease-out;
+    user-select: none;
+    -webkit-user-select: none;
+    /* The clock-face double rotation: swing to this dial's angle, push out
+       to the rim, then cancel the rotation so the label stays upright. */
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(calc(var(--radius) * -1)) rotate(calc(var(--angle) * -1));
+  }
+
+  .dial.active {
+    background: oklch(88% 0.16 var(--hue));
+    transition-duration: 15ms;
+  }
+</style>
