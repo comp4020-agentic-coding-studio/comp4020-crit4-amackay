@@ -1,3 +1,9 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 :root {
   color-scheme: dark;
 }
@@ -110,5 +116,11 @@ a {
     height: 100dvw;
     transform-origin: top left;
     transform: rotate(90deg) translate(0, -100%);
+    /* The rows' axis is now the viewport's height and the stack's axis is
+       its width — the rotated box is exactly that big, but --cap's own
+       formula above still reasons in the unrotated vw/vh, so it has to be
+       recomputed with them swapped or the grid sizes itself to the narrow
+       axis twice over and leaves the rotated box mostly empty. */
+    --cap: min(calc((100vh - 3rem) / 11), calc((100vw - 1rem) / 4));
   }
 }
