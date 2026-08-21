@@ -2,6 +2,7 @@
 // DESIGN.md "Interaction" for the contract this follows.
 
 import { Instrument } from "../lib/instrument.ts";
+import { installInputChrome } from "../lib/input-chrome.ts";
 import { nodeFor } from "../lib/lattice.ts";
 
 // Debug mode: `?debug` in the URL shows each cap's monzo and nearest 12-TET
@@ -12,6 +13,8 @@ document.documentElement.classList.toggle("debug", new URLSearchParams(location.
 const grid = document.querySelector<HTMLElement>("[data-instrument]");
 
 if (grid) {
+  installInputChrome(grid);
+
   const instrument = new Instrument();
   const caps = [...grid.querySelectorAll<HTMLElement>("[data-note]")];
   const capByCode = new Map(caps.map((cap) => [cap.dataset.note!, cap]));
@@ -84,6 +87,12 @@ if (grid) {
 
   for (const type of ["pointerup", "pointercancel", "pointerleave"]) {
     grid.addEventListener(type, (event) => releasePointer((event as PointerEvent).pointerId));
+  }
+
+  // A lift that happens off the grid entirely never reaches the listeners
+  // above; releasePointer is idempotent, so catching it twice is harmless.
+  for (const type of ["pointerup", "pointercancel"]) {
+    window.addEventListener(type, (event) => releasePointer((event as PointerEvent).pointerId));
   }
 
   // A fallback for environments where pointerenter doesn't carry a drag:

@@ -12,6 +12,11 @@ html,
 body {
   margin: 0;
   height: 100%;
+  /* The playing surfaces already set this, but a pinch or a swipe that starts
+     off them is still the browser's to interpret — zoom, double-tap zoom and
+     overscroll all land mid-performance otherwise. */
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
 body {
@@ -20,10 +25,26 @@ body {
   place-items: center;
   background: oklch(18% 0.01 260);
   overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
 }
 
 a {
   color: #0b5fff;
+}
+
+/* The focus ring belongs to whoever is tabbing, and to nobody else: input-chrome.ts
+   puts .keyboard-nav on <html> for a Tab keydown and takes it off again on the
+   next interaction of any kind. Focus itself is left alone, so a keyboard
+   player keeps their place. */
+:focus {
+  outline: none;
+}
+
+html.keyboard-nav :focus-visible {
+  outline: 3px solid oklch(97% 0 0);
+  /* Inward: caps sit flush, so an outset ring would be clipped by a neighbour. */
+  outline-offset: -6px;
 }
 
 .visually-hidden {

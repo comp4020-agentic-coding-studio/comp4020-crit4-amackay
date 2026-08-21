@@ -130,6 +130,25 @@ pointer's voice. Set `touch-action: none` on the grid.
 
 Pointer and keyboard are equal citizens and work simultaneously.
 
+### Input chrome
+
+The browser's defaults get in the way of a performance, so both playable pages
+install the same suppressions (`lib/input-chrome.ts`, called from each page
+script):
+
+- **No context menu on the playing surface.** A held finger is the primary
+  gesture; the browser reads a long press as a right click. Prevented on
+  `[data-instrument]` only, so right-click still works off the surface.
+- **No browser zoom or overscroll.** `touch-action: none` and
+  `overscroll-behavior: none` on `html`/`body`, plus `maximum-scale=1,
+  user-scalable=no` on the viewport meta — otherwise a two-finger press pinch-
+  zooms and a double tap zooms in. OS-level gestures are out of a page's reach;
+  this covers the browser's share.
+- **The focus ring belongs to whoever is tabbing.** A `keyboard-nav` class on
+  `<html>`, set by a `Tab` keydown and cleared by the next interaction of any
+  kind, gates the only `:focus-visible` outline the page has. Focus itself is
+  never moved or blurred, so a keyboard player keeps their place.
+
 ## Visual design
 
 - **Layout.** The grid fills the viewport, vertically centred, on a near-black
@@ -216,14 +235,21 @@ nav) is a standalone manual-test rig for the Shepard-tone synthesis in
 while testing it can't be blamed on the tuning. Twelve buttons in a clock
 face, one per plain 12-TET semitone from the same root F, clockwise from 12
 o'clock. `Q W E R T Y U I O P [ ]` play them directly and polyphonically, and
-so does a pointer press-and-hold on any button (no drag between them — each is
-an independent tap, not a continuous surface). `1`–`0` (`0` = ten) advance a
+so does a pointer press-and-hold or drag. `1`–`0` (`0` = ten) advance a
 shared cursor that many semitones clockwise and
 sustain the landed-on button for as long as that digit key is held —
 independently of any other key held at the same time, so holding `1` and then
 also pressing `3` sustains two separate notes, the second further round the
 circle than the first; `Shift`+digit goes anticlockwise instead. Not part of
-the graded instrument, and not bound by its "no text beyond key labels" rule.
+the graded instrument.
+
+The page fills one viewport, carries no copy beyond the dial labels, and hides
+its `<h1>` and nav the way the main page does. **Drag differs from the main
+grid in one respect: it releases in the gap.** The dials don't touch, so unlike
+flush caps there is somewhere to be between them — leaving a dial silences it,
+and the next one sounds on entry. Everything else is the same two-path
+arrangement (`pointerenter` plus an `elementFromPoint` `pointermove` fallback)
+for the same reasons.
 
 ## Non-goals
 
