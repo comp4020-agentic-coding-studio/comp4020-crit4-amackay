@@ -141,7 +141,10 @@ Pointer and keyboard are equal citizens and work simultaneously.
   hue)` fill, label `oklch(28% 0.02 hue)`. Lightness and chroma are constant
   across caps — hue is the only varying channel, so equal pitch-class distances
   look equally different. The schisma pairs above are consequently near-identical
-  in colour (0.6° apart); that follows from the rule and is left alone.
+  in colour (0.6° apart); that follows from the rule and is left alone. Every
+  cap carries a 3px `oklch(45% 0.1 hue)` border — same hue, darker — because
+  two flush caps of equal lightness and chroma otherwise vibrate at the seam
+  with no gap to separate them.
 - **Active state.** While sounding: lightness → 88%, chroma → 0.16, over the
   15 ms attack; on release, fade back over ~500 ms so the visual tail matches
   the audible one. Per instruction: colour carries the affordance alone, no

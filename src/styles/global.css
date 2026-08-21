@@ -80,7 +80,11 @@ a {
   height: var(--cap);
   display: grid;
   place-items: center;
-  border: none;
+  /* Equal lightness and chroma across every cap (see "Colour is pitch class"
+     below) means two flush caps of different hue vibrate at the seam with no
+     gap to separate them; a same-hue, darker-lightness border reads as one
+     key's own edge rather than a neutral grid line. */
+  border: 3px solid oklch(45% 0.1 var(--hue));
   border-radius: 0;
   background: oklch(75% 0.12 var(--hue));
   color: oklch(28% 0.02 var(--hue));
