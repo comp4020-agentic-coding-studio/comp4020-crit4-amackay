@@ -8,6 +8,11 @@ The spec is published on the course site. Read it there; a paraphrase here would
 be one more thing to keep true. `spec/README.md` says how the checks relate to
 it.
 
+**Read `DESIGN.md` before changing anything.** It is the implementation
+authority — what the instrument is, how it sounds, and where the work stops for
+review. This file governs process and wins where the two disagree; they should
+not disagree.
+
 ## The thing this harness cannot do: hear
 
 - **A green suite says nothing about the sound.** The tests reach whether a
