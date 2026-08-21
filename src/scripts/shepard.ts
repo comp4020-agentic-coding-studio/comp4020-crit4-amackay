@@ -4,6 +4,7 @@
 
 import { Instrument } from "../lib/instrument.ts";
 import { clockNodeAt, clockNodeFor, type ClockNode } from "../lib/clock.ts";
+import { installInputChrome } from "../lib/input-chrome.ts";
 
 const STEP_BY_CODE: Record<string, number> = {
   Digit1: 1,
@@ -21,6 +22,8 @@ const STEP_BY_CODE: Record<string, number> = {
 const grid = document.querySelector<HTMLElement>("[data-instrument]");
 
 if (grid) {
+  installInputChrome(grid);
+
   const instrument = new Instrument();
   const caps = [...grid.querySelectorAll<HTMLElement>("[data-note]")];
   const capByCode = new Map(caps.map((cap) => [cap.dataset.note!, cap]));
@@ -80,16 +83,69 @@ if (grid) {
   // pressed most recently.
   let cursor = 0;
 
+  // Which pointers are down, so a dial can tell a drag from a hover. A held
+  // node isn't enough on its own: this page releases in the gap between dials,
+  // so a dragging pointer spends part of its time holding nothing.
+  const downPointers = new Set<number>();
+
+  const pressPointerAt = (pointerId: number, cap: HTMLElement): void => {
+    const pressCode = String(pointerId);
+    if (heldNodes.get(pressCode)?.code === cap.dataset.note) return; // already on this dial
+    release(pressCode);
+    press(pressCode, () => clockNodeFor(cap.dataset.note!));
+  };
+
   for (const cap of caps) {
     cap.addEventListener("pointerdown", (event) => {
+      // Touch pointers are implicitly captured to the dial pressed, so
+      // pointerenter would never fire on the ones a finger drags onto.
       cap.releasePointerCapture(event.pointerId);
-      press(String(event.pointerId), () => clockNodeFor(cap.dataset.note!));
+      downPointers.add(event.pointerId);
+      pressPointerAt(event.pointerId, cap);
+    });
+
+    cap.addEventListener("pointerenter", (event) => {
+      if (!downPointers.has(event.pointerId)) return; // hover, not a drag
+      pressPointerAt(event.pointerId, cap);
+    });
+
+    // The dials don't touch, so unlike the main grid there is somewhere to be
+    // between them: leaving one silences it rather than sustaining across.
+    // pointerenter/pointerleave don't bubble, and leave fires before the next
+    // dial's enter, so dial-to-dial is release-then-press in the right order.
+    cap.addEventListener("pointerleave", (event) => {
+      if (!downPointers.has(event.pointerId)) return;
+      release(String(event.pointerId));
     });
   }
 
-  for (const type of ["pointerup", "pointercancel", "pointerleave"]) {
-    grid.addEventListener(type, (event) => release(String((event as PointerEvent).pointerId)));
+  const liftPointer = (pointerId: number): void => {
+    downPointers.delete(pointerId);
+    release(String(pointerId));
+  };
+
+  // window, not grid: a lift outside the clock box would otherwise leave the
+  // pointer marked down, and the next hover would sound a note unbidden.
+  for (const type of ["pointerup", "pointercancel"]) {
+    window.addEventListener(type, (event) => liftPointer((event as PointerEvent).pointerId));
   }
+  grid.addEventListener("pointerleave", (event) => liftPointer((event as PointerEvent).pointerId));
+
+  // A fallback for environments where pointerenter doesn't carry a drag:
+  // resolve the dial under the pointer directly. jsdom has no layout, so this
+  // is wrapped to degrade to doing nothing rather than throwing.
+  grid.addEventListener("pointermove", (event) => {
+    if (!downPointers.has(event.pointerId)) return;
+    let hit: Element | null = null;
+    try {
+      hit = document.elementFromPoint(event.clientX, event.clientY);
+    } catch {
+      return;
+    }
+    const cap = hit?.closest<HTMLElement>("[data-note]");
+    if (cap) pressPointerAt(event.pointerId, cap);
+    else release(String(event.pointerId));
+  });
 
   window.addEventListener("keydown", (event) => {
     const step = STEP_BY_CODE[event.code];
@@ -120,5 +176,6 @@ if (grid) {
     for (const cap of holders.keys()) cap.classList.remove("active");
     holders.clear();
     heldNodes.clear();
+    downPointers.clear();
   });
 }
