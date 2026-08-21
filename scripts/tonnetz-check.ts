@@ -145,6 +145,48 @@ check("invariant breaks just above sqrt(2)/2 = 0.707", Math.abs(threshold - Math
 check("note core width 2*(sqrt(10)/2 - r) = 2.262", Math.abs(2 * (Math.sqrt(10) / 2 - R) - 2.262) < 5e-4);
 check("m3 dyad usable length sqrt(2) - 2r = 0.514", Math.abs(Math.SQRT2 - 2 * R - 0.514) < 5e-4);
 
-console.log(fails.length ? `\n${fails.length} FAILED` : "\nall checks passed");
+// 10. Is a 5x5 scan needed, or do the containing cell and its six neighbours
+// suffice? SVG hit-tests the hexagon for us, so the cheaper form ships.
+const nearestNode = (x: number, y: number): [number, number] => {
+  const m0 = Math.floor((x - y) / 4), n0 = Math.floor(x / 12 + y / 4);
+  let best: [number, number] = [m0, n0], bestD = Infinity;
+  for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) {
+    const d = len(sub([x, y], pos(m0 + i, n0 + j)));
+    if (d < bestD) { bestD = d; best = [m0 + i, n0 + j]; }
+  }
+  return best;
+};
+const scanCells = (x: number, y: number, r: number): string[] => {
+  const m0 = Math.floor((x - y) / 4), n0 = Math.floor(x / 12 + y / 4);
+  const out: string[] = [];
+  for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++)
+    if (cellDist([x, y], pos(m0 + i, n0 + j)) < r) out.push(`${m0 + i},${n0 + j}`);
+  return out.sort();
+};
+const nbrCells = (x: number, y: number, r: number): string[] => {
+  const [cm, cn] = nearestNode(x, y);
+  return [[0, 0], ...NEIGHBOURS]
+    .map(([dm, dn]) => [cm + dm!, cn + dn!] as [number, number])
+    .filter(([m, n]) => cellDist([x, y], pos(m, n)) < r)
+    .map(([m, n]) => `${m},${n}`)
+    .sort();
+};
+let agree = true;
+for (let x = 0; x < 12 && agree; x += 12 / 500)
+  for (let y = 0; y < 12 && agree; y += 12 / 500)
+    if (String(scanCells(x, y, R)) !== String(nbrCells(x, y, R))) agree = false;
+check(`containing cell + 6 neighbours == 5x5 scan at r=${R}`, agree);
 
+let nbrLimit = 0;
+for (let r = 0.45; r < 2.2; r += 0.02) {
+  let ok = true;
+  for (let x = 0; x < 12 && ok; x += 12 / 90)
+    for (let y = 0; y < 12 && ok; y += 12 / 90)
+      if (String(scanCells(x, y, r)) !== String(nbrCells(x, y, r))) ok = false;
+  if (!ok) { nbrLimit = r; break; }
+}
+check("...and keeps agreeing well past the <=3 press limit", nbrLimit > 0.9,
+  `diverges only at r=${nbrLimit.toFixed(3)}, vs the r<0.707 the design needs`);
+
+console.log(fails.length ? `\n${fails.length} FAILED` : "\nall checks passed");
 export {};

@@ -88,13 +88,18 @@ as static geometry; nothing is recomputed per frame.
 ## Touch model
 
 Press radius `r = 0.45` twelfths, hysteresis `h = 0.08`. A touch at `(x, y)`
-presses cell `(m, n)` iff `cellDist((x,y), node(m,n)) < r`, found in O(1):
+presses cell `(m, n)` iff `cellDist((x,y), node(m,n)) < r`.
 
-```
-alpha = (x - y) / 4          fifth steps
-beta  = x / 12 + y / 4       minor-third steps
-scan (floor(alpha) + i, floor(beta) + j) for i, j in -2..2
-```
+The hand-off's §4 finds the candidates by inverting the basis
+(`alpha = (x−y)/4`, `beta = x/12 + y/4`) and scanning a 5×5 neighbourhood.
+**The shipped code does not need that.** SVG hit-tests the hexagon, so a
+`pointerdown` or `pointermove` already names the containing cell, and only that
+cell plus its six lattice neighbours can also be within `r`. Seven `cellDist`
+calls, no basis inversion, and no way for the arithmetic to disagree with what
+the browser hit-tested. `scripts/tonnetz-check.ts` confirms the two forms agree
+exactly, and keeps agreeing up to `r = 1.47` — twice the 0.707 this design is
+allowed. The inversion stays in the check script, where it earns its keep as an
+independent second opinion.
 
 `cellDist` translates the shared hexagon to the node, returns 0 inside (all six
 CCW cross products ≥ 0) and otherwise the minimum point-to-segment distance
@@ -125,29 +130,49 @@ playability. Per instruction, keys map onto **lattice positions**, not onto a
 chromatic run, so a chord shape under the hand is the same shape as the
 triangle on screen.
 
-The window below (see "Sizing") makes the visible lattice exactly five columns
-of four — which is exactly QWERTY's left-hand block. Columns run left to right,
-rows top to bottom:
+The block is **the previous instrument's, unchanged**: four rows of nine, laid
+over nine lattice columns centred on the fundamental domain. Columns run left
+to right, rows top to bottom.
 
-| | | | | |
-|---|---|---|---|---|
-| `1` C | `2` G | `3` D | `4` F | `5` C |
-| `Q` E | `W` B | `E` F♯ | `R` A | `T` E |
-| `A` G♯ | `S` D♯ | `D` A♯ | `F` C♯ | `G` G♯ |
-| `Z` C | `X` G | `C` D | `V` F | `B` C |
+| | | | | | | | | |
+|---|---|---|---|---|---|---|---|---|
+| `1` G | `2` B♭ | `3` F | `4` C | `5` G | `6` B♭ | `7` F | `8` C | `9` G |
+| `Q` B | `W` D | `E` A | `R` E | `T` B | `Y` D | `U` A | `I` E | `O` B |
+| `A` E♭ | `S` G♭ | `D` D♭ | `F` A♭ | `G` E♭ | `H` G♭ | `J` D♭ | `K` A♭ | `L` E♭ |
+| `Z` G | `X` B♭ | `C` F | `V` C | `B` G | `N` B♭ | `M` F | `,` C | `.` G |
 
-Twenty caps, twenty keys, twelve distinct pitch classes. **C lands on all four
-corners** — `1`, `5`, `Z`, `B` — so both wraps are visible without a word of
-explanation, and the repeats in between (`Q`/`T`, `A`/`G`, `2`/`X`) say the
-same thing again.
+Thirty-six keys, twelve pitch classes, so **every note has exactly three keys**.
+That redundancy is not slack: the block spans three horizontal periods, and the
+top and bottom rows are one vertical period apart, so the keyboard repeats
+exactly where the screen repeats. At 1920×1080 the visible caps and the keyed
+block are the same 36 cells; at 390×844 the middle five columns are on screen
+and the outer four hang off, which costs nothing because a phone has no
+keyboard.
 
-All 21 triads whose three vertices are on the surface fit inside a 2×2 square
-of keys — a minor triad is `A`+`S`+`W`, a major is `S`+`W`+`E` — so triads are
-one-handed. `scripts/tonnetz-keys.ts` derives the table and checks the
-compactness claim; do not hand-maintain it.
+All 48 triads whose three vertices are keyed fit inside a 2×2 square of keys —
+a minor triad is `A`+`S`+`W`, a major is `S`+`W`+`E` — so triads are one-handed.
+`scripts/tonnetz-keys-wide.ts` derives the table and checks the compactness
+claim; do not hand-maintain it. (`scripts/tonnetz-keys.ts` works the same
+problem for a 4×5 left-hand block, kept because it is where the window
+arithmetic is derived.)
 
 Held keys stack, so keyboard and touch reach the same chords by the same rule:
 the sounding set is the union.
+
+### Two spec tests rest on an assumption the torus breaks
+
+`spec/crit-4.test.ts` inherited two pairs of caps from the 9×4 grid, chosen
+because they sat far apart on it:
+
+- `drag("KeyA", "KeyL")` — both E♭, eight columns apart is exactly two
+  horizontal periods, so the drag starts no second voice.
+- `press("KeyZ")` against `press("Digit9")` — both G, for the same reason.
+
+On a torus, far apart is not different. Both need new endpoints (`KeyA`→`KeyF`
+gives E♭/A♭, `KeyZ`→`KeyD` gives G/D♭, a tritone). These are edits to *which
+caps the test points at*, made necessary by the artefact, not softenings of
+what the spec asks — own commit, body says so. Every other code the suite
+presses lands on a real cap and needs nothing.
 
 ## Tuning and synthesis
 
@@ -156,8 +181,15 @@ land within a schisma of seven octaves; just intonation would make the lattice
 infinite and dissolve the wrap, the live margin and the wrapped-twin identity
 along with it.
 
-Pitch class `p` sounds `equalTemperamentRatioFor(p)` against the root, and pc 0
-is **C**. The synthesis is unchanged from what is already in `instrument.ts` and
+Pitch class `p` sounds `equalTemperamentRatioFor(p)` against the existing root,
+and **the root stays F**. The hand-off's 261.63 Hz would put C at the lattice
+origin, which is the Tonnetz convention — but nothing here depends on it. The
+tone is octaveless, there is no drone and no tonic, so which pitch class sits at
+hue 25° is arbitrary; re-rooting would cost a constant, a test rewrite and the
+shepard page's labels for no musical difference. `tuning.ts` therefore only
+loses `ratioFor`, the 3-limit/5-limit function, along with the lattice it served.
+
+The synthesis is otherwise unchanged from what is already in `instrument.ts` and
 `tuning.ts`: one voice per sounding pitch class, eight octave-spaced sine
 partials under a fixed Gaussian window in absolute log-frequency, which makes
 the tone **octaveless**.
@@ -196,9 +228,11 @@ of buttons again.
 ### DOM contract
 
 - The playable surface carries **`data-instrument`**.
-- Each cap carries **`data-note="<KeyboardEvent.code>"`** for the twenty keyed
-  caps — both the keyboard mapping and the handle the spec tests hold.
-  Unkeyed caps further out are touchable but carry no `data-note`.
+- Each cap carries **`data-note="<KeyboardEvent.code>"`** for the thirty-six
+  keyed caps — both the keyboard mapping and the handle the spec tests hold.
+  Caps further out are touchable but carry no `data-note`.
+- Each cap also carries its lattice position, so the coordinate refinement below
+  needs no basis inversion.
 
 ### Two hit-test paths, one code path
 
@@ -210,18 +244,23 @@ instrument avoided this by having no position mapping at all. This one cannot.
 
 So resolve a gesture in two steps, and never let the first one throw:
 
-1. **Element path.** `pointerdown`/`pointerenter` on a cap identifies one cell
-   directly from its `data-note`. Always available, needs no geometry.
+1. **Element path.** `pointerdown`/`pointerenter`/`pointermove` on a cap names
+   one cell — SVG has already done the point-in-hexagon test. Always available,
+   needs no geometry of our own.
 2. **Coordinate path.** If the surface reports a non-zero rect, map client
-   coordinates into twelfths through the SVG `viewBox` and run the disk
-   hit-test, which refines that one cell into the true set of one, two or three
-   pitch classes.
+   coordinates into twelfths through the SVG `viewBox` and measure `cellDist`
+   against that cell and its six neighbours, refining the one cell into the
+   true set of one, two or three pitch classes.
 
 Guard on `rect.width === 0` and fall back to the element path — degrade to
 doing nothing extra rather than throwing. In a real browser the coordinate path
 always wins; under jsdom the instrument behaves like a one-note-per-cap grid,
 which is enough for the spec tests to drive it. The geometry itself is proved
 by unit tests over plain functions, where it belongs.
+
+Note that step 2 *refines* step 1 rather than replacing it. Neither path can
+produce a cell the other did not, which is why there is no reconciliation
+logic and no way for them to disagree.
 
 ### Pointer
 
@@ -232,6 +271,17 @@ per pointer. Touch pointers are implicitly captured to the element where
 `pointerup`, `pointercancel` and `pointerleave` release that pointer's set; a
 lift off the surface entirely is caught on `window`, and releasing is
 idempotent.
+
+**Drag is `pointermove` and nothing else.** Recomputing the pointer's pitch-class
+set on every move and diffing it against the last one *is* the drag: additions
+start, removals release, the intersection keeps sounding. The previous
+instrument needed a second `elementFromPoint` path because a cap was a discrete
+trigger with no position mapping; here the position mapping is the whole
+mechanism, so **`elementFromPoint` is not used anywhere**. `pointerenter` on
+caps survives only because it is the path the jsdom harness can drive — and
+because `spec/support/instrument-page.ts` dispatches it with `bubbles: true`,
+check that a bubbled `pointerenter` reaching the surface cannot clear state
+(this exact shape produced a false failure on the shepard page once).
 
 ### Keyboard
 
@@ -274,8 +324,8 @@ never redrawn; pressing a cap toggles a class.
   repetition, and the surface reads as one continuous thing rather than a tile
   with a decorated border.
 - **Two labels per cap.** The pitch name centred and prominent; the keyboard key
-  bottom-right and quieter. Caps outside the twenty-key block carry the pitch
-  name alone.
+  bottom-right and quieter. Caps outside the keyed block carry the pitch name
+  alone — on desktop there are none, so this only shows on a tall viewport.
 - **Active state** is colour only, as before: lightness → 88%, chroma → 0.16
   over the 15 ms attack, fading back over ~500 ms so the visual tail matches the
   audible one. Nothing scales; a cap that grew would break the tiling.
@@ -290,9 +340,11 @@ single varying channel across the whole surface.
 Fit **15 twelfths to the short viewport axis**, and extend the long axis with
 more lattice until it fills — the caps are the same size either way, there is
 just more torus. The core window is `x ∈ [−1.5, 13.5]`, `y ∈ [−2, 13]`, chosen
-because it is square and holds exactly the twenty keyed caps; the vertical
-margin is asymmetric because the columns are staggered by one twelfth and a
-symmetric window catches three caps in one column instead of four.
+because it is square and gives each column four caps; the vertical margin is
+asymmetric because the columns are staggered by one twelfth, and a symmetric
+window catches three caps in one column instead of four. That comes to **36
+caps at 1920×1080 and 40 at 390×844** — the same density as the 9×4 grid it
+replaces.
 
 **Draw every cell that intersects the viewport, not every centre inside it**,
 and let SVG clip. Caps cut off at the edge are correct and wanted: they say the
@@ -333,12 +385,16 @@ for them.
 ## Debug mode
 
 `?debug` toggles a `.debug` class onto `<html>` from the page script, purely
-client-side. It shows each cap's `(m, n)` and pitch class, draws the touch
-disks, and — since they are the geometry that is otherwise invisible — the
-dyad bands, the triad spots and the fundamental-domain outline. **None of that
-needs to be polished**; it is a tuning aid for whoever is building the thing,
-not a second design. Off by default and behind a flag nobody stumbles into, so
-it does not count against "no self-explanation in the artefact".
+client-side. **None of it needs to be polished** — it is a tuning aid for
+whoever is building the thing, not a second design. Off by default and behind a
+flag nobody stumbles into, so it does not count against "no self-explanation in
+the artefact".
+
+Build only what the tuning actually needs: each cap's `(m, n)` and pitch class,
+and the touch disks, which are what makes `r` judgeable. The dyad bands, triad
+spots and fundamental-domain outline are worth drawing only if `r` turns out to
+need real work; the geometry is already proved by the check script, so they
+would be a convenience, not evidence. Skip them unless they earn it.
 
 ## Shepard test page
 
@@ -361,6 +417,8 @@ purpose. The hand-off is committed in the history as received.
 | Seeds `PROJECT.md` | Seeds this file | The repo's authority is `DESIGN.md` |
 | Silent on the keyboard | QWERTY block over the lattice | The spec asks for it and a green test already asserts it |
 | Silent on testability | Two hit-test paths, §"Two hit-test paths" | jsdom has no layout; the coordinate path alone is undrivable |
+| §4 invert the basis, scan 5×5 | Containing cell + its six neighbours | SVG already hit-tested the hexagon; verified equivalent to `r = 1.47` |
+| §7 root at 261.63 Hz (C) | Root stays F, `tuning.ts` untouched | Octaveless and tonic-less, so the root is arbitrary and re-rooting is unpaid work |
 | §8 fit `12 + 2·PAD` to the short axis | Same, plus extend the long axis | 390×844 would otherwise be half empty |
 | §6 six drawn layers | One: the caps | Per instruction — the previous instrument's aesthetic, flush and solid |
 | §6 note caps eroded by `r` | Whole hexagons, tiling flush | Nothing else is drawn, so there is no core to mark the edge of |
@@ -384,8 +442,6 @@ anywhere in the artefact.
 
 - **Name and description.** `index.astro` still carries the template
   placeholders. Ships Wednesday, so this is not optional.
-- **Sharps or flats.** `CHROMATIC` currently spells with flats against an F
-  root. Re-rooting to C wants a decision on spelling.
 - **Whether the wrap reads.** Nothing marks the margin any more, so it has to
   come across as repetition alone. Check at both marked viewports; if it
   doesn't, the knob is how far the long axis extends, not opacity.
