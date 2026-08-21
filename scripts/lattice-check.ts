@@ -10,10 +10,10 @@ interface LatticeNode {
 }
 
 const ROWS: Array<{ b: number; keys: string }> = [
-  { b: 2, keys: "123456789" },
-  { b: 1, keys: "qwertyuio" },
-  { b: 0, keys: "asdfghjkl" },
-  { b: -1, keys: "zxcvbnm,." },
+  { b: -1, keys: "123456789" },
+  { b: 0, keys: "qwertyuio" },
+  { b: 1, keys: "asdfghjkl" },
+  { b: 2, keys: "zxcvbnm,." },
 ];
 
 const nodes: LatticeNode[] = [];

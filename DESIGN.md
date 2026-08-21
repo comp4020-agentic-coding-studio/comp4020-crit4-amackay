@@ -20,19 +20,21 @@ beyond the key labels.
 ## Tuning
 
 Each node sounds the pitch class of `3^a · 5^b` against a root of pitch class F
-(reference 349.2282 Hz). Columns step the 3-axis, rows step the 5-axis. Column
-index `i = 0…8` gives `a = i − 3`, so F is the root `1/1` and the a-row is a
-chain of fifths: Ab Eb Bb F C G D A E.
+(reference 349.2282 Hz). Columns step the 3-axis, rows step the 5-axis, and the
+y-axis is inverted: going down a row multiplies by 5, it doesn't divide.
+Column index `i = 0…8` gives `a = i − 3`, so the q-row is a chain of fifths:
+Ab Eb Bb F C G D A E — the root `1/1` lands on `r`, not on any row's `f`; the
+physical `f` key now carries `3^0·5^1`, a fifth row down from the root.
 
 | Row (top→bottom) | Keys | `b` |
 |---|---|---|
-| digits | `1 2 3 4 5 6 7 8 9` | 2 |
-| q-row | `q w e r t y u i o` | 1 |
-| a-row | `a s d f g h j k l` | 0 |
-| z-row | `z x c v b n m , .` | −1 |
+| digits | `1 2 3 4 5 6 7 8 9` | −1 |
+| q-row | `q w e r t y u i o` | 0 |
+| a-row | `a s d f g h j k l` | 1 |
+| z-row | `z x c v b n m , .` | 2 |
 
 **The near-unisons are intended, not a bug.** A nine-wide chain of fifths wraps
-far enough to collide with the 5-axis: three pairs (`9`~`q`, `o`~`a`, `l`~`z`)
+far enough to collide with the 5-axis: three pairs (`1`~`o`, `q`~`l`, `a`~`.`)
 sit a schisma apart — 1.95 cents, beating about once every three seconds — and
 28 pairs fall within 30 cents, the 19.6-cent ones being syntonic-comma pairs.
 Per instruction: players discovering audible beats is part of the instrument.

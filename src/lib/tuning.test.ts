@@ -6,7 +6,7 @@ describe("ratioFor", () => {
     expect(ratioFor(0, 0)).toBe(1);
   });
 
-  it("steps a fifth's pitch class per column, per DESIGN.md's a-row", () => {
+  it("steps a fifth's pitch class per column, per DESIGN.md's q-row", () => {
     expect(pitchClassFor(ratioFor(1, 0))).toBeCloseTo(pitchClassFor(3 / 2), 10);
   });
 });
@@ -45,7 +45,7 @@ describe("equalTemperamentNameFor", () => {
     expect(equalTemperamentNameFor(ratioFor(0, 0))).toBe("F");
   });
 
-  it("names a fifth up C, and a fifth down Bb, matching DESIGN.md's a-row", () => {
+  it("names a fifth up C, and a fifth down Bb, matching DESIGN.md's q-row", () => {
     expect(equalTemperamentNameFor(ratioFor(1, 0))).toBe("C");
     expect(equalTemperamentNameFor(ratioFor(-1, 0))).toBe("B♭");
     expect(equalTemperamentNameFor(ratioFor(-3, 0))).toBe("A♭");

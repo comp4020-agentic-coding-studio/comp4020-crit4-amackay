@@ -22,25 +22,27 @@ interface Row {
   labels: string[];
 }
 
-// Rows top to bottom, per DESIGN.md's tuning table.
+// Rows top to bottom, per DESIGN.md's tuning table. The y-axis is inverted:
+// going down a row multiplies by 5 (b increases), so b runs -1..2 top to
+// bottom, not 2..-1.
 const ROWS: Row[] = [
   {
-    b: 2,
+    b: -1,
     codes: ["Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "Digit8", "Digit9"],
     labels: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
   },
   {
-    b: 1,
+    b: 0,
     codes: ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY", "KeyU", "KeyI", "KeyO"],
     labels: ["Q", "W", "E", "R", "T", "Y", "U", "I", "O"],
   },
   {
-    b: 0,
+    b: 1,
     codes: ["KeyA", "KeyS", "KeyD", "KeyF", "KeyG", "KeyH", "KeyJ", "KeyK", "KeyL"],
     labels: ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
   },
   {
-    b: -1,
+    b: 2,
     codes: ["KeyZ", "KeyX", "KeyC", "KeyV", "KeyB", "KeyN", "KeyM", "Comma", "Period"],
     labels: ["Z", "X", "C", "V", "B", "N", "M", ",", "."],
   },
