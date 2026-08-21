@@ -84,3 +84,5 @@ for (const cap of caps) {
   }
 }
 console.log(`  ${compact}/${total - offSurface} on-surface triads fit a 2x2 key square (${offSurface} run off the surface)`);
+
+export {};

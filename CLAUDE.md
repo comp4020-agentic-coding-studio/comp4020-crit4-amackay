@@ -13,7 +13,7 @@ authority — what the instrument is, how it sounds, and where the work stops fo
 review. This file governs process and wins where the two disagree; they should
 not disagree.
 
-## The thing this harness cannot do: hear
+## Two things this harness cannot do: hear, and measure
 
 - **A green suite says nothing about the sound.** The tests reach whether a
   gesture reaches the audio graph, not timbre, tuning, latency, or whether a
@@ -24,6 +24,15 @@ not disagree.
   gesture-to-parameter mapping: plain functions taking numbers and returning
   numbers, with the `AudioNode` calls at the edge. Logic bugs and audio-graph
   bugs must never be confusable.
+- **jsdom has no layout**, so every `getBoundingClientRect()` is zero-sized and
+  `elementFromPoint` is useless. Any client-coordinate arithmetic divides by
+  zero, and the `NaN` it produces throws the moment it reaches an `AudioParam`
+  in a real browser. A position-mapped instrument therefore needs a second,
+  element-based path that a test can drive, and a `rect.width === 0` guard in
+  front of the coordinate one — see DESIGN.md "Two hit-test paths".
+- **The same seam answers both.** Geometry as plain functions over numbers gets
+  exhaustive unit tests and property tests; the page wiring gets the spec
+  tests. Never make the spec suite the only thing proving the geometry.
 
 ## The stack: Astro, base path and all
 
@@ -76,6 +85,16 @@ live URL. **`http://localhost:4321/` returning 404 is correct**; the site is at
   exception: a spec test written before the thing it describes is *meant* to be
   red. `spec/crit-4.test.ts` was committed failing on purpose — red-to-green is
   the record of the work.
+- **A spec test encodes the spec, not the artefact.** When the artefact changes
+  identity, a spec test may need editing — but only where it reached for a
+  detail of the old design (a particular `data-note`, a particular cap), never
+  to soften what the spec asks. Change it in its own commit, say in the body
+  which line of the spec it still serves, and never let the edit and the
+  feature that makes it pass land together.
+- **Redesigns land atomically.** A page swap that touches markup, script and
+  spec codes at once goes in one commit rather than a red sequence; do the
+  provable parts (geometry, tuning, refcounting) as green commits first so the
+  atomic one is as small as it can be.
 - Run `pnpm check` before pushing, and open the page in a browser (the
   `agent-browser` CLI works). The rendered page is the truth; for this week, the
   *sounding* page is, and nothing here can hear it.
@@ -94,7 +113,7 @@ live URL. **`http://localhost:4321/` returning 404 is correct**; the site is at
 
 ## The checks
 
-`pnpm check` is the loop; read the failure, which names the contract. Four
+`pnpm check` is the loop; read the failure, which names the contract. Five
 things it won't tell you:
 
 - **CI runs only once the repo is public.** The flip at the cutoff triggers the
@@ -105,6 +124,10 @@ things it won't tell you:
   crawls that; the old `linkinator ./dist` one-liner no longer matches CI.
 - **`.githooks/pre-commit`** blocks key-shaped strings before they are pushed.
   The course API key lives in gitignored `.claude/`; keep it there.
+- **Nothing here renders at the marked sizes.** The site is judged live in
+  Chrome at exactly **1920×1080** and **390×844**, both fully marked. Check
+  both in the device toolbar; the phone one is where a size-dependent design
+  breaks.
 
 Nothing here measures accessibility, performance, or sound.
 

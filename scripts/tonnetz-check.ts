@@ -146,3 +146,5 @@ check("note core width 2*(sqrt(10)/2 - r) = 2.262", Math.abs(2 * (Math.sqrt(10) 
 check("m3 dyad usable length sqrt(2) - 2r = 0.514", Math.abs(Math.SQRT2 - 2 * R - 0.514) < 5e-4);
 
 console.log(fails.length ? `\n${fails.length} FAILED` : "\nall checks passed");
+
+export {};
