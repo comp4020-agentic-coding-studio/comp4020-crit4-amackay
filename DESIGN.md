@@ -20,10 +20,11 @@ disk overlaps: one cell sounds a note, two sound a dyad, three sound a triad.
 The geometry — not a clamp — guarantees those are the only possibilities, that
 every dyad is a third or a fifth, and that every triad is major or minor.
 
-Sliding a finger from a cell into a band and on to a triad spot is the signature
-gesture: notes join and leave underneath it while the common tones stay
-sounding. Two fingers reach seventh chords. There is no score, no fail state,
-no instructions, and no text on the page beyond the cap labels.
+Sliding a finger from the middle of a cell toward a corner where three of them
+meet is the signature gesture: notes join and leave underneath it while the
+common tones stay sounding. Two fingers reach seventh chords. There is no
+score, no fail state, no instructions, and no text on the page beyond the cap
+labels.
 
 ## The lattice
 
@@ -104,9 +105,13 @@ A pitch class joins a pointer's set at `cellDist < r` and leaves only at
 `cellDist > r + h`, so a held finger on a boundary does not flicker.
 
 At `r = 0.45` the surface divides **56.6% single note / 32.2% dyad / 11.2%
-triad** by area. Triads are the scarce, deliberate target; the visual design
-has to make them findable, because a stranger will not go looking. The
-≤3 invariant holds for any `r < √2/2 ≈ 0.707` and breaks at 0.708 —
+triad** by area — and per instruction **none of that is drawn**. `r` is
+invisible. The caps tile flush and the chords live in the seams between them,
+so a player who taps gets notes and a player who moves gets chords. That is
+discovery rather than instruction, and it is the same bargain the previous
+instrument made: the thing looks simpler than it is, and rewards moving.
+
+The ≤3 invariant holds for any `r < √2/2 ≈ 0.707` and breaks at 0.708 —
 `scripts/tonnetz-check.ts` measures the threshold rather than assuming it.
 
 Every point of the surface presses at least one cell. There is no gap, no dead
@@ -244,40 +249,41 @@ overscroll, and a focus ring that belongs only to whoever is tabbing.
 
 ## Visual design
 
-Static SVG, in twelfth units with y negated so the drawing is upright. Every
+**Per instruction, the caps are the only thing drawn.** The hand-off's §6
+layers the surface six deep; five of those layers go. No dyad bands, no triad
+spots, no fundamental-domain outline. What is left is the previous
+instrument's aesthetic carried over intact — flush caps, solid colour, no
+gaps, no ornament — with the hexagonal shapes and the wrapping as the only
+things that differ.
+
+Static SVG in twelfth units with y negated so the drawing is upright. Every
 coordinate is an integer, so the surface is emitted once at build time and
 never redrawn; pressing a cap toggles a class.
 
-Layers, bottom to top, per the hand-off's §6:
-
-1. **Dyad bands** — each Voronoi edge stroked `2r = 0.9` wide, butt caps,
-   neutral and low-opacity.
-2. **Triad spots** — disks of radius `r` at the circumcenters. Major warm,
-   minor cool.
-3. **Cell outlines** — the same segments, hairline.
-4. **Note caps** — the hexagon eroded by `r` (the same six half-planes at
-   `|w|/2 − r`), filled with the pitch-class colour.
-5. **Cap labels.**
-6. **Fundamental-domain outline.**
-
-Layers 1 and 2 are the whole affordance argument: they are the only thing that
-tells a stranger the space *between* the caps is playable, and triads are only
-11% of the area. If a triad is hard to find by eye, that is a bug in this
-layer, not in the tuning.
-
+- **Caps are whole Voronoi hexagons**, tiling flush edge to edge. Not eroded by
+  `r`: the erosion existed to show where the single-note core stopped, and
+  nothing here shows that.
 - **Colour is pitch class**, as before: `hue = 25° + 360°·pc`, `oklch(75% 0.12
-  hue)` fill on `oklch(18% 0.01 260)` ground, with a darker `oklch(45% 0.1 hue)`
-  edge. Lightness and chroma are constant across caps — hue is the only varying
-  channel, so equal pitch-class distances look equally different. The major/minor
-  warm/cool split on layer 2 is a *different* layer answering a different
-  question, and does not break that rule.
+  hue)` fill, with a darker `oklch(45% 0.1 hue)` edge. Lightness and chroma are
+  constant across caps — hue is the only varying channel, so equal pitch-class
+  distances look equally different. The edge is not decoration: two flush caps
+  of equal lightness and chroma vibrate at the seam without one.
+- **No reduced opacity anywhere**, per instruction. A cap outside the
+  fundamental domain is drawn exactly like its twin inside it, because it *is*
+  its twin — same note, same colour, same name. The wrap shows itself by
+  repetition, and the surface reads as one continuous thing rather than a tile
+  with a decorated border.
+- **Two labels per cap.** The pitch name centred and prominent; the keyboard key
+  bottom-right and quieter. Caps outside the twenty-key block carry the pitch
+  name alone.
 - **Active state** is colour only, as before: lightness → 88%, chroma → 0.16
   over the 15 ms attack, fading back over ~500 ms so the visual tail matches the
-  audible one. Nothing scales; a cap that grew would shove its neighbours.
-- **Outside the fundamental domain**, everything is identical at ~0.35 opacity
-  and fully interactive. The ghosting is the only cue that says "this repeats",
-  and it must not read as "this is disabled".
-- **Motion.** Only the transition above. No idle animation.
+  audible one. Nothing scales; a cap that grew would break the tiling.
+- **Motion.** Only that transition. No idle animation.
+
+The major/minor warm/cool convention the hand-off locked in its §1 applies only
+to the triad spots, so it has nothing to colour and is dropped. Hue stays the
+single varying channel across the whole surface.
 
 ### Sizing
 
@@ -288,16 +294,27 @@ because it is square and holds exactly the twenty keyed caps; the vertical
 margin is asymmetric because the columns are staggered by one twelfth and a
 symmetric window catches three caps in one column instead of four.
 
+**Draw every cell that intersects the viewport, not every centre inside it**,
+and let SVG clip. Caps cut off at the edge are correct and wanted: they say the
+surface continues.
+
+Extending the long axis is what carries the "make the wrapping obvious"
+job, now that opacity no longer marks the margin. At 1920×1080 the surface is
+about 2.2 fundamental domains wide by 1.25 tall; at 390×844 it is 1.25 wide by
+2.7 tall. Each marked viewport shows the repeat clearly along one axis. Whether
+that is enough is a question for the eye, not for a test.
+
 At the two marked viewports:
 
-| Viewport | Twelfth | Triad spot | Note core |
+| Viewport | Twelfth | Cap across (min) | Triad region (undrawn) |
 |---|---|---|---|
-| 1920×1080 | 72 px | 65 px | 163 px |
-| 390×844 | 26 px | 23 px ≈ 6.2 mm | 59 px ≈ 15.6 mm |
+| 1920×1080 | 72 px | 228 px | 65 px |
+| 390×844 | 26 px | 82 px ≈ 22 mm | 23 px ≈ 6.2 mm |
 
-Triad spots on the phone land just under the ~7 mm touch guideline. That is the
-known trade the hand-off called out, and it is accepted: notes and dyads stay
-comfortable, and `r` is the knob if a listen says otherwise.
+Caps are generous at both sizes. The triad region on the phone lands just under
+the ~7 mm touch guideline — the known trade the hand-off called out, accepted
+here because notes and dyads stay comfortable and `r` is the knob if a listen
+says otherwise.
 
 Because the surface is square and extends on the long axis, **there is no
 portrait special case** — the rotate-the-whole-stage hack the previous
@@ -316,9 +333,12 @@ for them.
 ## Debug mode
 
 `?debug` toggles a `.debug` class onto `<html>` from the page script, purely
-client-side. It shows each cap's `(m, n)` and pitch class, and draws the touch
-disks. Off by default and behind a flag nobody stumbles into, so it does not
-count against "no self-explanation in the artefact".
+client-side. It shows each cap's `(m, n)` and pitch class, draws the touch
+disks, and — since they are the geometry that is otherwise invisible — the
+dyad bands, the triad spots and the fundamental-domain outline. **None of that
+needs to be polished**; it is a tuning aid for whoever is building the thing,
+not a second design. Off by default and behind a flag nobody stumbles into, so
+it does not count against "no self-explanation in the artefact".
 
 ## Shepard test page
 
@@ -342,7 +362,12 @@ purpose. The hand-off is committed in the history as received.
 | Silent on the keyboard | QWERTY block over the lattice | The spec asks for it and a green test already asserts it |
 | Silent on testability | Two hit-test paths, §"Two hit-test paths" | jsdom has no layout; the coordinate path alone is undrivable |
 | §8 fit `12 + 2·PAD` to the short axis | Same, plus extend the long axis | 390×844 would otherwise be half empty |
-| §1 press radius, margin, wrap, colour convention | Taken as locked | Verified numerically; nothing to argue with |
+| §6 six drawn layers | One: the caps | Per instruction — the previous instrument's aesthetic, flush and solid |
+| §6 note caps eroded by `r` | Whole hexagons, tiling flush | Nothing else is drawn, so there is no core to mark the edge of |
+| §6 margin at ~0.35 opacity | Full opacity, no distinction | Per instruction — a wrapped cap *is* its twin, and repetition is the cue |
+| §6 fundamental-domain outline | Not drawn (debug only) | Per instruction — the wrap needs margin, not emphasis |
+| §1 major = red, minor = blue | Dropped | It only ever coloured the triad spots, which are gone |
+| §1 press radius, margin, wrap | Taken as locked | Verified numerically; nothing to argue with |
 
 Deliberately not revisited, per the hand-off: equilateral triangles (impossible
 with straight wrap), the scalene √5/2 layout, single-touch tetrads. Aspect stays
@@ -359,13 +384,14 @@ anywhere in the artefact.
 
 - **Name and description.** `index.astro` still carries the template
   placeholders. Ships Wednesday, so this is not optional.
-- **Cap labels.** Note name, key letter, both, or neither. Note names make the
-  wrap legible at a glance; key letters make the keyboard discoverable; two
-  labels on twenty caps may be one too many. Settle by eye.
 - **Sharps or flats.** `CHROMATIC` currently spells with flats against an F
   root. Re-rooting to C wants a decision on spelling.
-- **Whether triads are findable.** 11.2% of the area, and no test can tell.
-  Needs a listen and a look.
+- **Whether the wrap reads.** Nothing marks the margin any more, so it has to
+  come across as repetition alone. Check at both marked viewports; if it
+  doesn't, the knob is how far the long axis extends, not opacity.
+- **Whether chords get discovered.** 11.2% of the area is triad and none of it
+  is drawn, so a player finds chords by moving or not at all. No test can tell.
+  Needs a stranger, or at least a listen.
 - **`PROCESS.md`** describes the previous instrument and goes stale the moment
   `index` changes; rewrite it at the end, not before, since it cites commits.
 - **`reflections/crit-4.md`** is missing and is the repo owner's alone. Never
