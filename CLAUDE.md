@@ -102,6 +102,10 @@ live URL. **`http://localhost:4321/` returning 404 is correct**; the site is at
   still plays real audio through the host machine's speakers — pass
   `--args "--mute-audio"` (or set `AGENT_BROWSER_ARGS=--mute-audio`) before
   opening any page here, since any of them can reach `Instrument.noteOn`.
+- **`astro check` typechecks `scripts/` as one global scope.** A `scripts/*.ts`
+  file with no import or export is a *global* script to TS, so two of them
+  sharing a top-level name (`pos`, `pc`, `total`) is a redeclaration error.
+  End every standalone script with `export {};`.
 - **A note name written in a comment is not evidence.** `pc(m, n)` is. A
   comment naming `(0,2)` as Gb (it is B) put the debug fundamental domain's
   corner one fifth out of place, and survived two re-derivations of the

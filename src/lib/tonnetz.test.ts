@@ -245,7 +245,7 @@ describe("hysteresis", () => {
 });
 
 describe("boundary presses: 25/50/25 split, one edge per boundary type", () => {
-  // tonnetz-equilateral-patch.md "Tests": walking t from 0 to 1 along an
+  // DESIGN.md "The hexagon": walking t from 0 to 1 along an
   // edge, the first and last quarter press the corner's triad (3 pcs) and
   // the middle half presses just the dyad (2 pcs) — identical on all three
   // boundary types because the hexagon is equilateral. HEX[0]-HEX[1] is the

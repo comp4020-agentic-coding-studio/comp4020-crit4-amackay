@@ -4,14 +4,18 @@ The implementation authority for this prototype. `CLAUDE.md` governs how to work
 in the repo; this file governs what to build. Where they disagree, `CLAUDE.md`
 wins on process and this file wins on the artefact.
 
-The design arrived as `tonnetz-touch-handoff.md`, written in a conversation that
-had never seen this repo. Its lattice is verified numerically by
-`scripts/tonnetz-check.ts`. Its assumptions about audio, input and testing did
-not survive contact with what is already here; the "Reconciled from the
-hand-off" section below records what changed and why. Its button geometry was
-then superseded by `tonnetz-equilateral-patch.md`, which replaced the Voronoi
-cell with an equilateral hexagon and locked the press radius — see "The
-hexagon" and "Touch model". This file is the authority, not either document.
+The design arrived as a hand-off written in a conversation that had never seen
+this repo, and was amended once, by a patch that replaced the Voronoi button
+cell with the equilateral hexagon and locked the press radius. Both documents
+are in the history; neither is authoritative and neither needs reading. What
+survived of them is here, and the lattice is verified numerically by
+`scripts/tonnetz-check.ts`.
+
+Things dropped on purpose, so a later session does not helpfully restore them:
+the hand-off's six drawn layers (one is drawn — the caps), its reduced-opacity
+margin, its drawn fundamental-domain outline, its caps eroded by the press
+radius, and its major-red/minor-blue triad colouring. All per instruction, and
+all covered under "Visual design".
 
 ## What it is
 
@@ -227,25 +231,17 @@ which costs nothing because a phone has no keyboard.
 Held keys stack, so keyboard and touch reach the same chords by the same rule:
 the sounding set is the union.
 
-### Two spec tests rest on an assumption the torus breaks
+### Test endpoints have to be checked against the current period
 
-`spec/crit-4.test.ts` inherited two pairs of caps from the 9×4 grid, chosen
-because they sat far apart on it:
-
-- `drag("KeyA", "KeyL")` — both E♭, eight columns apart is exactly two
-  horizontal periods, so the drag starts no second voice.
-- `press("KeyZ")` against `press("Digit9")` — both G, for the same reason.
-
-On a torus, far apart is not different. Both need new endpoints — now
-`KeyA`→`KeyS` (E/C) and `KeyZ`→`KeyD` (A/A♭). `KeyF` served as the drag's
-second endpoint for a while and stopped working when the block was rederived:
-it is three columns from `KeyA`, which is exactly one horizontal period, so
-both became E. Any endpoint pair here has to be checked against the *current*
-period, not inherited; `scripts/tonnetz-keys-wide.ts` prints the check.
-
-These are edits to *which caps the test points at*, made necessary by the
-artefact, not softenings of what the spec asks — own commit, body says so.
-Every other code the suite presses lands on a real cap and needs nothing.
+`spec/crit-4.test.ts` needs two pairs of caps that sound *different* — one for
+the drag, one for "two gestures, two sounds". On a torus, picking them far
+apart does not achieve that, and the safe distance changes whenever the key
+block does: `drag("KeyA", "KeyL")` broke on the wrap, its replacement `KeyF`
+broke again when the block was rederived (three columns is exactly one
+horizontal period), and the pairs are now `KeyA`/`KeyS` and `KeyZ`/`KeyD`.
+`scripts/tonnetz-keys-wide.ts` prints the check. These are edits to *which caps
+a test points at*, never softenings of what the spec asks — own commit, body
+says so.
 
 ## Tuning and synthesis
 
@@ -456,8 +452,8 @@ one input that has no footprint of its own.
 
 ## Visual design
 
-**Per instruction, the caps are the only thing drawn.** The hand-off's §6
-layers the surface six deep; five of those layers go. No dyad bands, no triad
+**Per instruction, the caps are the only thing drawn.** The hand-off layered
+the surface six deep; five of those layers go. No dyad bands, no triad
 spots, no fundamental-domain outline. What is left is the previous
 instrument's aesthetic carried over intact — flush caps, solid colour, no
 gaps, no ornament — with the hexagonal shapes and the wrapping as the only
@@ -614,81 +610,6 @@ testing cannot be blamed on the geometry — and now that the instrument is
 itself 12-TET, it tests exactly the same notes. Re-rooting the chromatic naming
 to C changes its labels and nothing else. Not part of the graded instrument.
 
-## Reconciled from the hand-off
-
-Recorded so a later session does not "restore" something that was dropped on
-purpose. The hand-off is committed in the history as received.
-
-| Hand-off says | This repo does | Why |
-|---|---|---|
-| §7 audio: `261.63 · 2^(pc/12)`, one octave, register open | Existing octaveless Shepard synthesis | A pitch-class torus and an octaveless tone are the same idea twice; there is no register to choose |
-| §7 voice triads from the root upward | Nothing to do | Shepard tones have no inversion |
-| §6 `hsl(pc·30°, 62%, 50%)` | Existing `hue = 25° + 360°·pc` in oklch | Already established, perceptually uniform, constant L and C |
-| Seeds `PROJECT.md` | Seeds this file | The repo's authority is `DESIGN.md` |
-| Silent on the keyboard | QWERTY block over the lattice | The spec asks for it and a green test already asserts it |
-| Silent on testability | Two hit-test paths, §"Two hit-test paths" | jsdom has no layout; the coordinate path alone is undrivable |
-| §4 invert the basis, scan 5×5 | Containing cell + its six neighbours | SVG already hit-tested the hexagon; verified equivalent to `r = 1.85` |
-| §7 root at 261.63 Hz (C) | Root stays F, `tuning.ts` untouched | Octaveless and tonic-less, so the root is arbitrary and re-rooting is unpaid work |
-| §8 fit `12 + 2·PAD` to the short axis | Same, plus extend the long axis | 390×844 would otherwise be half empty |
-| §6 six drawn layers | One: the caps | Per instruction — the previous instrument's aesthetic, flush and solid |
-| §6 note caps eroded by `r` | Whole hexagons, tiling flush | Nothing else is drawn, so there is no core to mark the edge of |
-| §6 margin at ~0.35 opacity | Full opacity, no distinction | Per instruction — a wrapped cap *is* its twin, and repetition is the cue |
-| §6 fundamental-domain outline | Not drawn (debug only) | Per instruction — the wrap needs margin, not emphasis |
-| §1 major = red, minor = blue | Dropped | It only ever coloured the triad spots, which are gone |
-| §1 press radius, margin, wrap | Margin and wrap as locked; `r` since superseded | `r = 0.45` was verified numerically and held until `tonnetz-equilateral-patch.md` replaced the Voronoi cell with the equilateral hexagon and locked `r = √5/4` to the 25/50/25 edge rule |
-| §1 Voronoi cells | Equilateral hexagon, per the patch | Bisector-based construction is now wrong, not merely stale — see "The hexagon" |
-
-Deliberately not revisited, per the hand-off: equilateral triangles (impossible
-with straight wrap), the scalene √5/2 layout, single-touch tetrads. Aspect stays
-an internal parameter even though it is 1 everywhere.
-
-## Build order
-
-`main` is green and complete, and the cutoff is Wednesday 07:00. So the work is
-staged to never commit red and to leave a shippable fallback standing the whole
-way: everything provable lands first as ordinary green commits, and the one
-commit that genuinely cannot be split is made as small as those can make it.
-
-**1. `src/lib/tonnetz.ts` — the geometry, as plain functions over numbers.**
-Lattice positions and pitch classes, the shared hexagon, `cellDist`, the six
-neighbours, the press set with hysteresis, the visible-cell enumeration for a
-given viewport, and the derived key table. Unit and property tests assert what
-"The lattice" and "Touch model" above claim — including the ≤3 invariant over a
-grid of touch points. `scripts/tonnetz-check.ts` stays as an independent second
-opinion; it is not the contract. Touches no page, so it is green on its own.
-
-**2. A voice layer over `Instrument`.** Landed as a per-pitch-class refcount;
-since replaced by one voice per `holder:pitchClass`, per "One voice per
-gesture" above. `Instrument` injected either way, so the tests need no
-`AudioContext`. Also green on its own, and also touches no page.
-
-**3. The two spec cap-pairs, on their own.** `drag("KeyA", "KeyL")` →
-`("KeyA", "KeyS")` and `press("Digit9")` → `press("KeyD")`, per "Two spec tests
-rest on an assumption the torus breaks" above. These land **before** the swap
-and in their own commit, because `CLAUDE.md` requires a spec-test edit never to
-ship alongside the feature that makes it pass. That is possible here only
-because the new pairs are distinct nodes on the *current* 9×4 grid too, so the
-commit is green both before and after the artefact changes — confirm that
-before committing, and if it is ever not true, the edit waits rather than
-merging into stage 4.
-
-**4. The swap, atomic.** `index.astro` emitting the SVG surface, the new
-`main.ts`, the stylesheet, and the deletion of `lattice.ts`,
-`scripts/lattice-check.ts` and `ratioFor` with its tests. One commit: the
-artefact changes identity, and a page swap cannot be half-done without a red
-tree. Stages 1–3 exist to make this commit as close to "wiring" as possible.
-
-**5. Look, listen, finish.** Both marked viewports in Chrome, muted. Then the
-name and description, `PROCESS.md`, and deleting `tonnetz-touch-handoff.md`
-now that this file supersedes it — the hand-off stays in the history, the way
-the previous one does.
-
-**The work stops for review at the end of stage 4.** Nothing in this repo can
-hear, and stage 5's real questions — whether the wrap reads, whether chords get
-discovered, whether the drag sounds like voice leading rather than retriggering
-— are answerable only by a person at the two marked sizes. Report the suite
-green and stop there; do not tune `r` by reasoning.
-
 ## Non-goals
 
 No recorded audio; no octave controls or register management; no configurable
@@ -699,26 +620,16 @@ anywhere in the artefact.
 ## Known issues
 
 - **On some Linux desktops the pointer disappears while a key is held**, so
-  playing the keyboard and the mouse together loses the mouse cursor until the
-  key is released. **This is the desktop environment, not the page** — it
-  reproduces on a blank browser tab, and there is no `cursor: none`, pointer
-  lock or `setPointerCapture` anywhere here (see "The page never owns the
-  cursor"). Many Linux setups hide the pointer while typing, either as a
-  desktop setting or via a helper like `unclutter` or `xbanish`; a held key
-  keeps that state latched, so the pointer stays hidden rather than reappearing
-  on motion. A web page cannot override it, and the things that could fake a
-  way around it — drawing our own cursor with `cursor: none`, or pointer
-  lock — are exactly what that section forbids, for better reasons than this
-  costs.
-
-  **Partly mitigated already, and by accident.** Hiding the pointer is only
-  visual: pointer events keep flowing, so the press-radius disk keeps tracking
-  the whole time a key is held. During the affected moments there is still a
-  visible position indicator, which is more than a blank tab manages. Verified
-  with real key auto-repeat over CDP — 180 repeats, disk tracking throughout.
-
-  Accepted rather than fixed. The real fix is a per-desktop setting and belongs
-  to whoever's desktop it is.
+  playing keyboard and mouse together loses the cursor until the key is
+  released. **This is the desktop environment, not the page** — it reproduces
+  on a blank browser tab, and there is no `cursor: none`, pointer lock or
+  `setPointerCapture` anywhere here. Many Linux setups hide the pointer while
+  typing; a held key keeps that latched. The only fixes available to a page are
+  the ones "The page never owns the cursor" forbids, for better reasons than
+  this costs. Partly mitigated by accident: the hiding is only visual, pointer
+  events keep flowing, so the press-radius disk keeps tracking throughout
+  (verified over CDP with 180 real auto-repeats). Accepted, not fixed — the
+  real fix belongs to whoever's desktop it is.
 
 ## Still open
 
@@ -734,15 +645,3 @@ anywhere in the artefact.
   12-TET. **Deliberately deferred** — it needs ears, not reasoning, and the
   feature is worth having before it is worth tuning. See "One voice per
   gesture".
-- **Name and description.** `index.astro` still carries the template
-  placeholders. Ships Wednesday, so this is not optional.
-- **Whether the wrap reads.** Nothing marks the margin any more, so it has to
-  come across as repetition alone. Check at both marked viewports; if it
-  doesn't, the knob is how far the long axis extends, not opacity.
-- **Whether chords get discovered.** 11.2% of the area is triad and none of it
-  is drawn, so a player finds chords by moving or not at all. No test can tell.
-  Needs a stranger, or at least a listen.
-- **`PROCESS.md`** describes the previous instrument and goes stale the moment
-  `index` changes; rewrite it at the end, not before, since it cites commits.
-- **`reflections/crit-4.md`** is missing and is the repo owner's alone. Never
-  draft it.

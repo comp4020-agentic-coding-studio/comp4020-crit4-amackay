@@ -46,7 +46,7 @@ check("edge lengths P5=3.162 M3=4.000 m3=4.243", new Set(nbVecs).size === 3, nbV
 // 4. Triangle circumcenters at integer offsets, all at circumradius sqrt(5).
 // That sqrt(5) is the triangulation's, not the button's — the press radius R
 // above is a different quantity that happens to be derived from the same
-// surd (tonnetz-equilateral-patch.md warns about exactly this collision).
+// surd (the two collide, which is exactly the trap this checks for).
 const ccLower: [number, number] = [1, 2];
 const ccUpper: [number, number] = [1, 4];
 const lowerTri: [number, number][] = [pos(0, 0), pos(1, 0), pos(0, 1)];
@@ -61,7 +61,7 @@ check("upper triangle is a major triad rooted at pc(m,n)+3",
   String([pc(1, 0), pc(1, 1), pc(0, 1)].map((p) => (p - 3 + 12) % 12).sort((a, b) => a - b)) === "0,4,7");
 
 // 5. The button hexagon is equilateral — deliberately not the Voronoi cell
-// (see tonnetz-equilateral-patch.md): every edge is the same length, sqrt(5).
+// (DESIGN.md "The hexagon"): every edge is the same length, sqrt(5).
 const hexEdges = HEX.map((v, i) => len(sub(HEX[(i + 1) % 6]!, v)).toFixed(3));
 check("all six edges equal length sqrt(5)=2.236", new Set(hexEdges).size === 1, hexEdges.join(" "));
 
@@ -136,7 +136,7 @@ check("every two-press is a third or a fifth", bad2.length === 0, bad2.slice(0, 
 
 // 8. The <=3 invariant's threshold: should break just above sqrt(5)/2 = 1.118
 // (uniform across all three edge types, unlike the old per-edge apothems —
-// tonnetz-equilateral-patch.md "Change 2").
+// DESIGN.md "Touch model").
 let threshold = 0;
 for (let r = 0.40; r < 1.30; r += 0.001) {
   let over = false;
@@ -148,7 +148,7 @@ for (let r = 0.40; r < 1.30; r += 0.001) {
 check("invariant breaks just above sqrt(5)/2 = 1.118", Math.abs(threshold - Math.sqrt(5) / 2) < 0.02, `broke at r=${threshold.toFixed(3)}`);
 check("locked r sits at exactly half the threshold (2x margin)", Math.abs(R - (Math.sqrt(5) / 2) / 2) < 1e-12);
 
-// 9. Derived target sizes from tonnetz-equilateral-patch.md "Derived constants".
+// 9. Derived target sizes, DESIGN.md "The hexagon" and "Sizing".
 check("triad spot diameter 2r = sqrt(5)/2 = 1.118", Math.abs(2 * R - Math.sqrt(5) / 2) < 1e-9);
 const E = len(sub(HEX[1]!, HEX[0]!));
 check("dyad zone usable length E/2 = sqrt(5)/2 = 1.118", Math.abs(E / 2 - Math.sqrt(5) / 2) < 1e-9);
