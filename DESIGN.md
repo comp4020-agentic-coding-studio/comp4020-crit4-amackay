@@ -219,10 +219,10 @@ opinion. Neither is hand-maintained. (`scripts/tonnetz-keys.ts` works the same
 problem for a 4×5 left-hand block, kept because it is where the window
 arithmetic is derived; it predates the reorientation.)
 
-At 1920×1080 the visible caps are 24 in four rows, all of them keyed, with the
-labelled domain centred and unlabelled wrapped copies either side; the block's
-outer columns hang off. At 390×844 fourteen are keyed and on screen, which
-costs nothing because a phone has no keyboard.
+At 1920×1080 the screen shows 38 caps in six rows, 26 of them keyed, with the
+labelled domain centred and unlabelled wrapped copies around it; the block's
+outer columns hang off the sides. At 390×844 sixteen are keyed and on screen,
+which costs nothing because a phone has no keyboard.
 
 Held keys stack, so keyboard and touch reach the same chords by the same rule:
 the sounding set is the union.
@@ -535,12 +535,19 @@ single varying channel across the whole surface.
 
 ### Sizing
 
-Fit **14 twelfths to the short viewport axis**, and extend the long axis with
+Fit **15 twelfths to the short viewport axis**, and extend the long axis with
 more lattice until it fills — the caps are the same size either way, there is
-just more torus. That is the fundamental domain plus one twelfth of padding on
-each side (`FIT_PADDING`, still a placeholder), centred on the domain: the
-guaranteed-visible square is the twelve labelled caps and a little air. That
-comes to **24 caps at 1920×1080 and 34 at 390×844**.
+just more torus. That is the fundamental domain plus `FIT_PADDING = 1.5`
+twelfths on each side, centred on it: the guaranteed-visible square is the
+twelve labelled caps, ringed by the wrapped surface on every side, which is
+what says the surface continues rather than ends. That comes to **38 caps at
+1920×1080 and 40 at 390×844**.
+
+1.5 is exactly half the 3-twelfth row spacing, so on the wide viewport a whole
+row of wrapped caps sits flush against the top edge and another against the
+bottom, cut in half by it: of those 38, twelve are half-caps on the edge and 26
+are whole. A player meets the repeat at the frame rather than having to go
+looking for it.
 
 **Draw every cell that intersects the viewport, not every centre inside it**,
 and let SVG clip. Caps cut off at the edge are correct and wanted: they say the
@@ -548,24 +555,21 @@ surface continues.
 
 Extending the long axis is what carries the "make the wrapping obvious"
 job, now that opacity no longer marks the margin. At 1920×1080 the surface is
-about 2.1 fundamental domains wide by 1.2 tall; at 390×844 it is 1.2 wide by
-2.5 tall. Each marked viewport shows the repeat clearly along one axis. Whether
+about 2.2 fundamental domains wide by 1.25 tall; at 390×844 it is 1.25 wide by
+2.7 tall. Each marked viewport shows the repeat clearly along one axis. Whether
 that is enough is a question for the eye, not for a test.
 
 At the two marked viewports:
 
 | Viewport | Twelfth | Cap across (min) | Triad region (undrawn) |
 |---|---|---|---|
-| 1920×1080 | 77 px | 241 px | 86 px |
-| 390×844 | 28 px | 87 px ≈ 23 mm | 31 px ≈ 8.3 mm |
-
-At 7.4 mm per twelfth the phone's fundamental domain is about 89 × 89 mm.
+| 1920×1080 | 72 px | 225 px | 80 px |
+| 390×844 | 26 px | 81 px ≈ 22 mm | 29 px ≈ 7.7 mm |
 
 Caps are generous at both sizes. The triad region is `2r = √5/2 ≈ 1.118`
 twelfths, so a 7 mm spot needs `14/√5 ≈ 6.26` mm per twelfth — a 75 × 75 mm
-fundamental domain. The phone gives 7.4 (it was 6.9 at 15 twelfths to the short
-axis), so the triad region clears the ~7 mm touch guideline it used to sit just
-under. That is a side effect of
+fundamental domain. The phone gives 6.9, so the triad region clears the ~7 mm
+touch guideline it used to sit just under. That is a side effect of
 locking `r` to the 25/50/25 rule rather than a target that was aimed at, and
 nothing here can measure whether it makes chords easier to hit; `r` stays the
 knob if a listen says otherwise.
@@ -595,8 +599,9 @@ the artefact".
 Build only what the tuning actually needs: each cap's `(m, n)` and pitch class,
 and the touch disks, which are what makes `r` judgeable. Two reference squares
 survive from working out where the lattice should sit — the fundamental domain
-and the fit window — because they are what `FIT_PADDING` will be judged
-against. The rotate/flip/pan/zoom controls that went with them are gone: the
+and the fit window — because they are what `FIT_PADDING` was judged against,
+and what any later change to it would be judged against again. The
+rotate/flip/pan/zoom controls that went with them are gone: the
 orientation they were exploring is now the basis itself, and a transform on top
 of the caps would have put the pointer hit test (which reads untransformed
 lattice coordinates) out of step with what is drawn.
@@ -729,10 +734,6 @@ anywhere in the artefact.
   12-TET. **Deliberately deferred** — it needs ears, not reasoning, and the
   feature is worth having before it is worth tuning. See "One voice per
   gesture".
-- **`FIT_PADDING`.** One twelfth of air around the fundamental domain is a
-  placeholder, not a decision — it sets how much of the surrounding wrapped
-  surface is guaranteed visible. Now a source edit and a reload rather than a
-  button, since the debug view controls are gone.
 - **Name and description.** `index.astro` still carries the template
   placeholders. Ships Wednesday, so this is not optional.
 - **Whether the wrap reads.** Nothing marks the margin any more, so it has to

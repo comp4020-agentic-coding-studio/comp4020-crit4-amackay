@@ -27,8 +27,8 @@ const [CX, CY] = [CENTRE_X, CENTRE_Y];
 const caps = drawnCells();
 
 // The visibility rect: concentric with the fundamental domain, padded on every
-// side. Padding amount is TBD — 1 twelfth is a placeholder.
-const FIT_PADDING = 1;
+// side.
+const FIT_PADDING = 1.5;
 const FIT_SIZE = DOMAIN_SIZE + 2 * FIT_PADDING;
 
 // y negated throughout so the drawing is upright (lattice y is up, SVG y is
@@ -169,11 +169,10 @@ const capClip = `polygon(${screenHex
   }
 
   .stage {
-    /* Was a hardcoded 15 twelfths (DESIGN.md "Sizing"); now driven by
-       --fit-size (FIT_SIZE above) so the visibility rect is actually what
-       the short viewport axis fits to, reaching the screen edge, rather
-       than a fixed reference drawn at some other scale. Still a debug-only
-       placeholder until FIT_PADDING is settled. */
+    /* Driven by --fit-size (FIT_SIZE above) rather than a hardcoded number,
+       so the debug fit-window rect is actually what the short viewport axis
+       fits to and reaches the screen edge, instead of being a reference drawn
+       at some other scale. DESIGN.md "Sizing". */
     --twelfth: calc(100vmin / var(--fit-size));
     position: relative;
     width: calc(var(--twelfth) * 34);

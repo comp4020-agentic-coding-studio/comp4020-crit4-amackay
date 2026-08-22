@@ -57,7 +57,7 @@ for (const row of KEYS) {
 console.log("  (* = hinted, i.e. inside the fundamental domain)");
 
 // What each marked viewport actually shows, at FIT_SIZE twelfths on the short axis.
-const FIT_SIZE = 14, [CX, CY] = [X0 + SIZE / 2, Y0 + SIZE / 2];
+const FIT_SIZE = 15, [CX, CY] = [X0 + SIZE / 2, Y0 + SIZE / 2];
 console.log(`\nvisible caps at the marked viewports (${FIT_SIZE} twelfths short axis, centred on ${CX}, ${CY}):`);
 for (const [label, w, h] of [["1920x1080", 1920, 1080], ["390x844", 390, 844]] as [string, number, number][]) {
   const short = Math.min(w, h);

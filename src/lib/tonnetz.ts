@@ -47,7 +47,7 @@ export const DOMAIN_Y0 = (9 + 12) / 2; // 10.5
 export const DOMAIN_SIZE = 12;
 
 /** The drawn window, centred on the domain. EXTENT covers both marked
- *  viewports' long axis with slack at FIT_SIZE = 14; MARGIN is just past the
+ *  viewports' long axis with slack at FIT_SIZE = 15; MARGIN is just past the
  *  hexagon's farthest corner (sqrt(7.25) ~= 2.693 — no single circumradius any
  *  more) so a hexagon merely intersecting the window still gets drawn.
  *  DESIGN.md "Sizing". */
