@@ -9,11 +9,12 @@ import { equalTemperamentNameFor, equalTemperamentRatioFor, hueFor } from "../li
 // this same pre-drawn lattice — the square shape is what makes that work with
 // no portrait special case. EXTENT covers both marked viewports' long axis
 // (26.7 at 1920x1080, 32.5 at 390x844) with some slack. MARGIN is just past
-// the hexagon's circumradius (sqrt(5)) so a hexagon merely intersecting the
+// the hexagon's farthest corner (sqrt(7.25) ~= 2.693 -- no single circumradius
+// any more, DESIGN.md "The hexagon") so a hexagon merely intersecting the
 // window, not centred inside it, still gets drawn — DESIGN.md "Sizing".
 const [CX, CY] = [6, 5.5];
 const EXTENT = 17;
-const MARGIN = 2.3;
+const MARGIN = 2.8;
 
 const caps = visibleCells(CX - EXTENT, CX + EXTENT, CY - EXTENT, CY + EXTENT, MARGIN);
 
@@ -45,7 +46,8 @@ const viewBox = `${CX - EXTENT} ${-(CY + EXTENT)} ${EXTENT * 2} ${EXTENT * 2}`;
 // be clipped to itself and no effect on it can reach a neighbour — DESIGN.md
 // "Effects stay inside the cap". Derived from HEX rather than hand-written:
 // there is one hexagon in this repo and it is in tonnetz.ts. On this one the
-// six vertices land on exact quarters, so nothing here rounds.
+// six vertices still land on exact fractions of the box (x at quarters,
+// y at fifths, since the y offsets are now halves), so nothing here rounds.
 const screenHex = HEX.map(([hx, hy]): [number, number] => [hx, -hy]);
 const clipXs = screenHex.map(([x]) => x);
 const clipYs = screenHex.map(([, y]) => y);

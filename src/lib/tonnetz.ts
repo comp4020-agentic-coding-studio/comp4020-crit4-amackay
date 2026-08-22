@@ -4,19 +4,21 @@
 // script is not the contract, this module is.
 
 /** Press radius and hysteresis, in twelfths. DESIGN.md "Touch model". */
-export const R = 0.45;
+export const R = Math.sqrt(5) / 4;
 export const H = 0.08;
 
 export type Vec = [number, number];
 
-/** The shared Voronoi hexagon's six vertex offsets, CCW, from a cell's node. */
+/** The shared button hexagon's six vertex offsets, CCW, from a cell's node.
+ *  Equilateral (all edges √5) but not Voronoi — deliberately not the
+ *  perpendicular-bisector cell. DESIGN.md "The hexagon". */
 export const HEX: Vec[] = [
-  [2, 1],
-  [1, 2],
-  [-1, 2],
-  [-2, -1],
-  [-1, -2],
-  [1, -2],
+  [2, 0.5],
+  [1, 2.5],
+  [-1, 1.5],
+  [-2, -0.5],
+  [-1, -2.5],
+  [1, -1.5],
 ];
 
 /** The six lattice neighbours of (m, n), as (dm, dn) offsets. */
@@ -51,7 +53,7 @@ function len(v: Vec): number {
   return Math.hypot(v[0], v[1]);
 }
 
-/** Distance from `point` to the Voronoi cell centred at `node`: 0 inside the
+/** Distance from `point` to the button hexagon centred at `node`: 0 inside the
  *  hexagon, otherwise the minimum point-to-segment distance over its six
  *  edges. Ported verbatim from scripts/tonnetz-check.ts. */
 export function cellDist(point: Vec, node: Vec): number {

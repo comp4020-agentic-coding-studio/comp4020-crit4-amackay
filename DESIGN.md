@@ -5,18 +5,21 @@ in the repo; this file governs what to build. Where they disagree, `CLAUDE.md`
 wins on process and this file wins on the artefact.
 
 The design arrived as `tonnetz-touch-handoff.md`, written in a conversation that
-had never seen this repo. Its geometry is verified numerically by
-`scripts/tonnetz-check.ts` — every claim it makes holds. Its assumptions about
-audio, input and testing did not survive contact with what is already here; the
-"Reconciled from the hand-off" section below records what changed and why. This
-file is the authority, not the hand-off.
+had never seen this repo. Its lattice is verified numerically by
+`scripts/tonnetz-check.ts`. Its assumptions about audio, input and testing did
+not survive contact with what is already here; the "Reconciled from the
+hand-off" section below records what changed and why. Its button geometry was
+then superseded by `tonnetz-equilateral-patch.md`, which replaced the Voronoi
+cell with an equilateral hexagon and locked the press radius — see "The
+hexagon" and "Touch model". This file is the authority, not either document.
 
 ## What it is
 
 One fundamental domain of the 12-TET pitch-class torus, drawn as a square
 Tonnetz that wraps straight on both axes and keeps going past the edges. Every
-pitch class is a Voronoi cell. A touch is a disk, and it presses every cell the
-disk overlaps: one cell sounds a note, two sound a dyad, three sound a triad.
+pitch class is an equilateral hexagon. A touch is a disk, and it presses every
+cell the disk overlaps: one cell sounds a note, two sound a dyad, three sound a
+triad.
 The geometry — not a clamp — guarantees those are the only possibilities, that
 every dyad is a third or a fifth, and that every triad is major or minor.
 
@@ -65,34 +68,54 @@ The derived major-third step is `F − B = (0, −4)`: pitch class rises as the
 screen descends, and the four columns at `x = 0, 3, 6, 9` are the four
 augmented triads.
 
-### Voronoi geometry — all integer
+### The hexagon
 
-Because the aspect ratio is 1:1, every circumcenter is an integer offset from
-its cell's origin vertex:
+Because the aspect ratio is 1:1, every triangle's circumcenter is an integer
+offset from its cell's origin vertex:
 
 ```
 minor triad spot = node + (2, 1)
 major triad spot = node + (4, 1)
 ```
 
-both at circumradius `R = √5`. Each cell is the hexagon with vertex offsets
+both at circumradius `√5` — a fact about the triangulation, and unaffected by
+what follows.
+
+The button is *not* the Voronoi cell those circumcenters would define. Each cap
+is the **equilateral** hexagon with vertex offsets
 
 ```
-(2, 1), (1, 2), (-1, 2), (-2, -1), (-1, -2), (1, -2)     CCW
+(2, 1/2), (1, 5/2), (-1, 3/2), (-2, -1/2), (-1, -5/2), (1, -3/2)     CCW
 ```
 
-equivalently the intersection of six half-planes, one per neighbour
-`w ∈ {±F, ±B, ±(0,4)}` at perpendicular distance `|w|/2`. Voronoi edges are
-`√10` across a fifth, `2` across a major third, `√2` across a minor third;
-crossing one is a neo-Riemannian move (P, R, L respectively).
+All six edges are `√5`. Node-to-boundary distances vary by neighbour type
+instead of by a shared `|w|/2`: `0.7√5 ≈ 1.565` across a fifth, `0.8√5 ≈
+1.789` across a major third, `0.9√5 ≈ 2.012` across a minor third; crossing
+one is a neo-Riemannian move (P, R, L respectively). There is no single
+node-to-corner radius any more — corner distances range `√3.25 ≈ 1.803` to
+`√7.25 ≈ 2.693` — so anything that needs "the" corner reaches for the
+explicit vertex list, not a circumradius.
 
-**Every coordinate above is an integer.** The whole surface can be emitted once
-as static geometry; nothing is recomputed per frame.
+**Every coordinate above is an exact half-integer.** The whole surface can be
+emitted once as static geometry; nothing is recomputed per frame.
+
+The cell area is still 12 — the lattice's own fundamental-domain area — so the
+hexagon tiles the plane under `F` and `B` exactly as the Voronoi cell did.
+That, not the bisector construction, is what makes the caps meet flush.
 
 ## Touch model
 
-Press radius `r = 0.45` twelfths, hysteresis `h = 0.08`. A touch at `(x, y)`
-presses cell `(m, n)` iff `cellDist((x,y), node(m,n)) < r`.
+Press radius `r = √5/4 ≈ 0.559` twelfths, hysteresis `h = 0.08` (absolute, not
+a fraction of `r`). A touch at `(x, y)` presses cell `(m, n)` iff
+`cellDist((x,y), node(m,n)) < r`.
+
+`r` is locked to that value by a design rule the equilateral hexagon makes
+uniform: along **every** button boundary the first quarter of the edge presses
+one triad, the middle half presses the dyad, and the last quarter presses the
+other triad. Adjacent triad corners are `√5` apart, so the 25/50/25 split is
+exactly `4r = √5`. Because all six edges are the same length, that split is
+identical on all three boundary types — which is the whole reason for the
+shape.
 
 The hand-off's §4 finds the candidates by inverting the basis
 (`alpha = (x−y)/4`, `beta = x/12 + y/4`) and scanning a 5×5 neighbourhood.
@@ -101,9 +124,9 @@ The hand-off's §4 finds the candidates by inverting the basis
 cell plus its six lattice neighbours can also be within `r`. Seven `cellDist`
 calls, no basis inversion, and no way for the arithmetic to disagree with what
 the browser hit-tested. `scripts/tonnetz-check.ts` confirms the two forms agree
-exactly, and keeps agreeing up to `r = 1.47` — twice the 0.707 this design is
-allowed. The inversion stays in the check script, where it earns its keep as an
-independent second opinion.
+exactly, and keeps agreeing up to `r = 1.85` — well past the 1.118 this design
+is allowed. The inversion stays in the check script, where it earns its keep as
+an independent second opinion.
 
 `cellDist` translates the shared hexagon to the node, returns 0 inside (all six
 CCW cross products ≥ 0) and otherwise the minimum point-to-segment distance
@@ -113,7 +136,7 @@ outside the domain and its wrapped twin are the same note and must sound once.
 A pitch class joins a pointer's set at `cellDist < r` and leaves only at
 `cellDist > r + h`, so a held finger on a boundary does not flicker.
 
-At `r = 0.45` the surface divides **56.6% single note / 32.2% dyad / 11.2%
+At `r = √5/4` the surface divides **47.0% single note / 35.2% dyad / 17.7%
 triad** by area — and per instruction **none of that is drawn as fixed
 geometry on the caps**. The caps tile flush and the chords live in the seams
 between them, so a player who taps gets notes and a player who moves gets
@@ -123,8 +146,10 @@ moving. Per later instruction, the one visible trace of `r` is the mouse
 cursor itself — see "Mouse preview" below — which only a pointer that has no
 size of its own needs.
 
-The ≤3 invariant holds for any `r < √2/2 ≈ 0.707` and breaks at 0.708 —
-`scripts/tonnetz-check.ts` measures the threshold rather than assuming it.
+The ≤3 invariant holds for any `r < √5/2 ≈ 1.118` and breaks at 1.119 — one
+uniform threshold on every edge, again because the hexagon is equilateral, and
+the locked `r` sits at exactly half it. `scripts/tonnetz-check.ts` measures the
+threshold rather than assuming it.
 
 Every point of the surface presses at least one cell. There is no gap, no dead
 zone, and therefore no way to touch the instrument and get silence.
@@ -401,7 +426,7 @@ Static SVG in twelfth units with y negated so the drawing is upright. Every
 coordinate is an integer, so the surface is emitted once at build time and
 never redrawn; pressing a cap toggles a class.
 
-- **Caps are whole Voronoi hexagons**, tiling flush edge to edge. Not eroded by
+- **Caps are whole hexagons**, tiling flush edge to edge. Not eroded by
   `r`: the erosion existed to show where the single-note core stopped, and
   nothing here shows that.
 - **Colour is pitch class**: `hue = 25° + 360°·pc`. At any one state lightness
@@ -492,13 +517,16 @@ At the two marked viewports:
 
 | Viewport | Twelfth | Cap across (min) | Triad region (undrawn) |
 |---|---|---|---|
-| 1920×1080 | 72 px | 228 px | 65 px |
-| 390×844 | 26 px | 82 px ≈ 22 mm | 23 px ≈ 6.2 mm |
+| 1920×1080 | 72 px | 225 px | 80 px |
+| 390×844 | 26 px | 81 px ≈ 22 mm | 29 px ≈ 7.7 mm |
 
-Caps are generous at both sizes. The triad region on the phone lands just under
-the ~7 mm touch guideline — the known trade the hand-off called out, accepted
-here because notes and dyads stay comfortable and `r` is the knob if a listen
-says otherwise.
+Caps are generous at both sizes. The triad region is `2r = √5/2 ≈ 1.118`
+twelfths, so a 7 mm spot needs `14/√5 ≈ 6.26` mm per twelfth — a 75 × 75 mm
+fundamental domain. The phone gives 6.9, so the triad region now clears the
+~7 mm touch guideline it used to sit just under. That is a side effect of
+locking `r` to the 25/50/25 rule rather than a target that was aimed at, and
+nothing here can measure whether it makes chords easier to hit; `r` stays the
+knob if a listen says otherwise.
 
 Because the surface is square and extends on the long axis, **there is no
 portrait special case** — the rotate-the-whole-stage hack the previous
@@ -549,7 +577,7 @@ purpose. The hand-off is committed in the history as received.
 | Seeds `PROJECT.md` | Seeds this file | The repo's authority is `DESIGN.md` |
 | Silent on the keyboard | QWERTY block over the lattice | The spec asks for it and a green test already asserts it |
 | Silent on testability | Two hit-test paths, §"Two hit-test paths" | jsdom has no layout; the coordinate path alone is undrivable |
-| §4 invert the basis, scan 5×5 | Containing cell + its six neighbours | SVG already hit-tested the hexagon; verified equivalent to `r = 1.47` |
+| §4 invert the basis, scan 5×5 | Containing cell + its six neighbours | SVG already hit-tested the hexagon; verified equivalent to `r = 1.85` |
 | §7 root at 261.63 Hz (C) | Root stays F, `tuning.ts` untouched | Octaveless and tonic-less, so the root is arbitrary and re-rooting is unpaid work |
 | §8 fit `12 + 2·PAD` to the short axis | Same, plus extend the long axis | 390×844 would otherwise be half empty |
 | §6 six drawn layers | One: the caps | Per instruction — the previous instrument's aesthetic, flush and solid |
@@ -557,7 +585,8 @@ purpose. The hand-off is committed in the history as received.
 | §6 margin at ~0.35 opacity | Full opacity, no distinction | Per instruction — a wrapped cap *is* its twin, and repetition is the cue |
 | §6 fundamental-domain outline | Not drawn (debug only) | Per instruction — the wrap needs margin, not emphasis |
 | §1 major = red, minor = blue | Dropped | It only ever coloured the triad spots, which are gone |
-| §1 press radius, margin, wrap | Taken as locked | Verified numerically; nothing to argue with |
+| §1 press radius, margin, wrap | Margin and wrap as locked; `r` since superseded | `r = 0.45` was verified numerically and held until `tonnetz-equilateral-patch.md` replaced the Voronoi cell with the equilateral hexagon and locked `r = √5/4` to the 25/50/25 edge rule |
+| §1 Voronoi cells | Equilateral hexagon, per the patch | Bisector-based construction is now wrong, not merely stale — see "The hexagon" |
 
 Deliberately not revisited, per the hand-off: equilateral triangles (impossible
 with straight wrap), the scalene √5/2 layout, single-touch tetrads. Aspect stays

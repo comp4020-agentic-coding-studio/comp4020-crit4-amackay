@@ -62,6 +62,45 @@ describe("neighbours and triads", () => {
   });
 });
 
+describe("the button hexagon", () => {
+  it("is equilateral: all six edges are sqrt(5)", () => {
+    for (let i = 0; i < 6; i++) {
+      const [ax, ay] = HEX[i]!;
+      const [bx, by] = HEX[(i + 1) % 6]!;
+      expect(Math.hypot(bx - ax, by - ay)).toBeCloseTo(Math.sqrt(5), 12);
+    }
+  });
+
+  it("is centrally symmetric about its node", () => {
+    for (let i = 0; i < 3; i++) {
+      const [ax, ay] = HEX[i]!;
+      const [bx, by] = HEX[i + 3]!;
+      expect([bx, by]).toEqual([-ax, -ay]);
+    }
+  });
+
+  it("has area 12, so it tiles the plane under F and B", () => {
+    // The lattice's fundamental domain area is |det[F,B]| = 12. A cell of any
+    // other area could not tile flush, which is what the caps do on screen.
+    let twice = 0;
+    for (let i = 0; i < 6; i++) {
+      const [ax, ay] = HEX[i]!;
+      const [bx, by] = HEX[(i + 1) % 6]!;
+      twice += ax * by - bx * ay;
+    }
+    expect(twice / 2).toBeCloseTo(12, 12);
+  });
+
+  it("is convex and wound CCW", () => {
+    for (let i = 0; i < 6; i++) {
+      const [ax, ay] = HEX[i]!;
+      const [bx, by] = HEX[(i + 1) % 6]!;
+      const [cx, cy] = HEX[(i + 2) % 6]!;
+      expect((bx - ax) * (cy - by) - (by - ay) * (cx - bx)).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe("cellDist", () => {
   it("is 0 at the node itself", () => {
     expect(cellDist([5, 5], [5, 5])).toBe(0);
@@ -155,6 +194,36 @@ describe("hysteresis", () => {
     const heldSet = pressedPitchClasses(point!, [0, 0], new Set([p0]));
     expect(heldSet.has(p0)).toBe(true);
   });
+});
+
+describe("boundary presses: 25/50/25 split, one edge per boundary type", () => {
+  // tonnetz-equilateral-patch.md "Tests": walking t from 0 to 1 along an
+  // edge, the first and last quarter press the corner's triad (3 pcs) and
+  // the middle half presses just the dyad (2 pcs) — identical on all three
+  // boundary types because the hexagon is equilateral. HEX[0]-HEX[1] is the
+  // m3 boundary, HEX[1]-HEX[2] is M3, HEX[2]-HEX[3] is P5 (DESIGN.md "The
+  // hexagon"). A small band around t=0.25 and t=0.75 is excluded for
+  // float/hysteresis tolerance.
+  const EDGES: [string, number][] = [
+    ["m3", 0],
+    ["M3", 1],
+    ["P5", 2],
+  ];
+  const BAND = 0.02;
+
+  for (const [label, i] of EDGES) {
+    it(`${label} boundary: 3 presses in the outer quarters, 2 in the middle half`, () => {
+      const [ax, ay] = HEX[i]!;
+      const [bx, by] = HEX[(i + 1) % 6]!;
+      for (let t = 0; t <= 1; t += 0.01) {
+        if (Math.abs(t - 0.25) < BAND || Math.abs(t - 0.75) < BAND) continue;
+        const point: [number, number] = [ax + t * (bx - ax), ay + t * (by - ay)];
+        const set = pressedPitchClasses(point, [0, 0]);
+        const expected = t < 0.25 || t > 0.75 ? 3 : 2;
+        expect(set.size, `${label} t=${t.toFixed(2)}`).toBe(expected);
+      }
+    });
+  }
 });
 
 describe("visibleCells", () => {
