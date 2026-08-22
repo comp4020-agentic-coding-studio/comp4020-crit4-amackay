@@ -584,48 +584,45 @@ portrait special case** — the rotate-the-whole-stage hack the previous
 instrument needed is gone, along with the risk that it had never been seen on a
 real device.
 
-**One exception to "zero runtime layout JS": a `transform: scale()`
-correction for "Request Desktop Site."** "There is no portrait special case"
-above is about relayout — this instrument never watches the viewport and
-reflows. It says nothing about a browser lying about the viewport it hands
-the page in the first place. A mobile browser with "Request Desktop Site"
-enabled substitutes its own wide virtual viewport (commonly ~980px) for
-`width=device-width`, which a page has no API to detect or opt out of — and
-because this layout is pure `100vmin` CSS, it renders at a correct
-*proportion* but the browser then zoom-fits the falsely wide page onto the
-real screen, so the whole stage appears miniaturized.
+**One exception to "zero runtime layout JS": a `visualViewport` correction
+for "Request Desktop Site."** "There is no portrait special case" above is
+about relayout — this instrument never watches the viewport and reflows. It
+says nothing about a browser lying about the viewport it hands the page in
+the first place. A mobile browser with "Request Desktop Site" enabled
+substitutes its own virtual layout viewport for `width=device-width`, which a
+page has no API to detect or opt out of.
 
-Two more direct fixes were tried and both failed on a real Android Chrome
-phone before this one, which is worth keeping on record since either looks
-like the obvious answer:
+**It is a wrong-axis bug, not a wrong-scale one.** On a portrait phone the
+substituted viewport is landscape-shaped, so `100vmin` picks its *height* —
+a number with no relationship to the screen — as the short axis, and the
+whole fit derives from that. Two symptoms identify it: `clientWidth` (layout)
+and `innerWidth` (visual) diverge by roughly the error factor, and dead
+background shows below the stage, because `body`'s `height: 100%` is the same
+phantom height. Because the axis is wrong rather than the multiplier, no
+uniform scale correction can fix it; three were tried on a real Android
+Chrome phone first, and each only traded "too small" for "too big":
 
-- Rewriting the `<meta viewport>` tag's `content` back to the real width once
-  the mismatch is detected. The attribute updates, but the browser never
-  re-derives layout from it, and its own guess at the viewport width kept
-  changing after load regardless of what the tag said.
-- Counter-scaling `<body>` with CSS `zoom`. This *is* still honoured at
-  runtime, but it overshot badly: `zoom` isn't paint-only in Chromium, it can
-  also perturb how descendants' own `vw`/`vmin` resolve — exactly the
-  mechanism `.stage`'s sizing depends on — so the correction and the original
-  bug compounded instead of cancelling.
+- Rewriting the `<meta viewport>` tag's `content` back to the real width. The
+  attribute updates, but the browser never re-derives layout from it.
+- Counter-scaling `<body>` with CSS `zoom` — which isn't paint-only in
+  Chromium: it also perturbs how descendants' own `vw`/`vmin` resolve, i.e.
+  the very mechanism being corrected.
+- `transform: scale()` on a wrapper, which is at least paint-only, but is
+  still a single multiplier applied to a mis-derived base.
 
-`transform: scale()` doesn't have that problem: it never touches layout or
-viewport-unit resolution for descendants, so `Layout.astro` wraps `<slot />`
-in a `#vp-fix-root` div (`display: contents` normally, i.e. invisible to the
-box tree and the default on every ordinary visit) and, only when the gates
-below hold, switches it to `display: block` and applies `transform:
-scale()` — counter-scaling by the ratio the browser is about to shrink it by
-via its own zoom-to-fit, netting to 1:1 against the real screen.
-`getBoundingClientRect()`, which the instrument's own touch hit-testing
-already relies on, reports the post-transform box for free, so pointer
-interaction needs no changes. Re-derived on every layout change via
-`ResizeObserver` rather than trusting a single snapshot, since the browser's
-own guess was observed moving after load, not just at it. Every gate fails
-closed: any doubt means it does nothing, since a false positive would break
-the legitimate narrow-desktop-window case this `vmin` layout is built to
-support. The meta-tag rewrite stays alongside it too, harmless where it
-doesn't help and possibly load-bearing on a browser that behaves better than
-the one this was diagnosed against.
+So `Layout.astro` derives the size from `visualViewport` instead: it reports
+what is genuinely on screen no matter what the layout viewport claims, so
+`min(visualViewport.width, visualViewport.height) / FIT_SIZE` is the
+px-per-twelfth the design asks for, set as an explicit `--twelfth` that
+overrides the `100vmin` one. The `#vp-fix-root` wrapper around `<slot />`
+(`display: contents`, invisible to the box tree, on every ordinary visit) is
+pinned to the visual viewport's box so the stage centres on the visible area
+rather than the phantom one. `FIT_SIZE` is read back off `--fit-size` rather
+than restated. Recomputed on `visualViewport`'s own resize event, with a
+re-entry guard and a sub-pixel threshold so it cannot oscillate against the
+listeners that drive it. The gate is the physical `screen`, which is hardware
+and cannot be restyled by a browser mode, so it fails closed: a genuine
+narrow desktop window has no touch and a large screen, and never matches.
 
 ## Accessibility floor
 
