@@ -584,6 +584,26 @@ portrait special case** — the rotate-the-whole-stage hack the previous
 instrument needed is gone, along with the risk that it had never been seen on a
 real device.
 
+**One exception to "zero runtime layout JS": a load-time viewport-meta
+correction.** "There is no portrait special case" above is about relayout —
+this instrument never watches the viewport and reflows. It says nothing about
+a browser lying about the viewport it hands the page in the first place. A
+mobile browser with "Request Desktop Site" enabled substitutes its own wide
+virtual viewport (commonly ~980px) for `width=device-width`, which a page has
+no API to detect or opt out of — and because this layout is pure `100vmin`
+CSS, it renders at a correct *proportion* but the browser then zoom-fits the
+falsely wide page onto the real screen, so the whole stage appears
+miniaturized. `Layout.astro` carries one small inline, synchronous script in
+`<head>`, placed after the viewport meta tag, that compares `screen.width`/
+`height` (the real hardware) against the layout viewport it was actually
+given and — only when touch-capable, the physical screen is phone-sized, and
+the layout viewport is implausibly wider than that — rewrites the meta tag
+back to the real width. It runs once, at load, never on
+`resize`/`orientationchange` (toggling desktop-site mode reloads the page
+anyway). Every gate fails closed: any doubt means the script does nothing,
+since a false positive would break the legitimate narrow-desktop-window case
+this `vmin` layout is built to support.
+
 ## Accessibility floor
 
 The invariants require a nav landmark, exactly one `<h1>`, a document language,
@@ -639,6 +659,10 @@ anywhere in the artefact.
   events keep flowing, so the press-radius disk keeps tracking throughout
   (verified over CDP with 180 real auto-repeats). Accepted, not fixed — the
   real fix belongs to whoever's desktop it is.
+- **"Request Desktop Site" can't be detected or turned off by a page, only
+  worked around.** See "Sizing" above for the fix and why it's scoped to
+  load-time only. No automated test can exercise it — see "The checks" and
+  CLAUDE.md's "Two things this harness cannot do."
 
 ## Still open
 

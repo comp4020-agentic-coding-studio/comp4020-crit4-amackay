@@ -24,6 +24,36 @@ const card = new URL(`${base}card.png`, Astro.site);
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+    <!-- "Request Desktop Site" substitutes its own wide virtual viewport for
+         device-width, which a page cannot detect or opt out of. This corrects
+         the meta tag back to the real screen width when that's happened, so
+         the vmin-based fit (DESIGN.md "Sizing") isn't zoomed out to fit the
+         wrong viewport. Gated to fail closed: any doubt and it does nothing,
+         since a false positive would break a genuine narrow desktop window. -->
+    <script is:inline>
+      (function () {
+        try {
+          var isTouch = "ontouchstart" in window || (navigator.maxTouchPoints || 0) > 0;
+          if (!isTouch) return;
+
+          var shortAxis = Math.min(screen.width, screen.height);
+          if (!(shortAxis > 0 && shortAxis <= 480)) return;
+
+          var layoutWidth = document.documentElement.clientWidth || window.innerWidth || 0;
+          if (!(layoutWidth > shortAxis * 1.5)) return;
+
+          var meta = document.querySelector('meta[name="viewport"]');
+          if (!meta) return;
+
+          meta.setAttribute(
+            "content",
+            "width=" + shortAxis + ", initial-scale=1, maximum-scale=1, user-scalable=no",
+          );
+        } catch (e) {
+          // Uncertain — do nothing.
+        }
+      })();
+    </script>
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta property="og:type" content="website" />
