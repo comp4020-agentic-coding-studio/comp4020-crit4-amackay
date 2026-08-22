@@ -122,6 +122,24 @@ export function containingCell(x: number, y: number): [number, number] {
  *  Deduplicates by pitch class: a cell outside the fundamental domain and its
  *  wrapped twin are the same note. A held pc survives until cellDist > R+H; an
  *  unheld pc joins only at cellDist < R. */
+/** Which of `cell` and its six neighbours' hexagons actually contains
+ *  `point`, if any. A drag's anchor should follow this every move: re-anchoring
+ *  to whichever adjacent cell the point has stepped into is what lets a chain
+ *  of coordinate-only pointermoves walk arbitrarily far across the lattice one
+ *  hex at a time, without depending on `pointerenter` retargeting to each cap
+ *  — which touch input does not reliably do. Null when point is inside none of
+ *  the seven (the gaps between hexagons, or a jump of more than one hex since
+ *  the last move) — callers should keep the previous anchor in that case. */
+export function anchorCell(point: Vec, cell: [number, number]): [number, number] | null {
+  const [cm, cn] = cell;
+  for (const [dm, dn] of [[0, 0], ...NEIGHBOURS] as [number, number][]) {
+    const m = cm + dm;
+    const n = cn + dn;
+    if (cellDist(point, pos(m, n)) === 0) return [m, n];
+  }
+  return null;
+}
+
 export function pressedPitchClasses(
   point: Vec,
   cell: [number, number],

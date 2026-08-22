@@ -4,7 +4,7 @@
 import { Instrument } from "../lib/instrument.ts";
 import { installInputChrome } from "../lib/input-chrome.ts";
 import { PitchClassVoices } from "../lib/pitch-voices.ts";
-import { nodeForCode, pc as pcOf, pressedPitchClasses } from "../lib/tonnetz.ts";
+import { anchorCell, nodeForCode, pc as pcOf, pressedPitchClasses } from "../lib/tonnetz.ts";
 
 // Debug mode: `?debug` in the URL shows each cap's (m, n). Never shown to a
 // player who hasn't gone looking for it — see DESIGN.md "Debug mode".
@@ -173,8 +173,17 @@ if (surface) {
     try {
       const point = toLatticePoint(event);
       if (!point) return false;
+      // Re-anchor to whichever of the seven cells the point has actually
+      // stepped into. Without this a drag can only ever reach the one ring
+      // around wherever pointerdown landed — fine for mouse, which also gets
+      // pointerenter on every cap it crosses, but touch does not reliably
+      // retarget pointerenter to caps a finger drags onto, so pointermove has
+      // to be able to walk the anchor forward on its own. See tonnetz.ts
+      // anchorCell.
+      const anchor = anchorCell(point, cell) ?? cell;
+      pointerCell.set(pointerId, anchor);
       const previous = pointerPcs.get(pointerId) ?? new Set<number>();
-      const next = pressedPitchClasses(point, cell, previous);
+      const next = pressedPitchClasses(point, anchor, previous);
       if (next.size === 0) return false; // every point of the surface presses something; a glitch shouldn't clear it
       pointerPcs.set(pointerId, next);
       applyPress(String(pointerId), next, previous);
@@ -220,8 +229,10 @@ if (surface) {
     try {
       const point = toLatticePoint(event);
       if (!point) return false;
+      const anchor = anchorCell(point, cell) ?? cell;
+      hoverCell.set(pointerId, anchor);
       const previous = hoverPcs.get(pointerId) ?? new Set<number>();
-      const next = pressedPitchClasses(point, cell, previous);
+      const next = pressedPitchClasses(point, anchor, previous);
       if (next.size === 0) return false;
       hoverPcs.set(pointerId, next);
       applyHover(String(pointerId), next, previous);

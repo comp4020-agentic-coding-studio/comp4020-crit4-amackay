@@ -374,6 +374,15 @@ because `spec/support/instrument-page.ts` dispatches it with `bubbles: true`,
 check that a bubbled `pointerenter` reaching the surface cannot clear state
 (this exact shape produced a false failure on the shepard page once).
 
+The coordinate refine's anchor (the cell `pressedPitchClasses` measures against,
+plus its six neighbours) has to advance on `pointermove` alone, not just on
+`pointerenter`: touch input does not reliably retarget `pointerenter` to each
+cap a finger drags across, even with capture released, so a drag that depended
+on it would stall at the first cap's ring. `tonnetz.ts`'s `anchorCell` picks
+whichever of the seven candidate cells the point has actually stepped into, and
+`refinePointerAt`/`refineHoverAt` re-anchor to it every move — a chain of
+coordinate-only pointermoves walking the lattice one hex at a time.
+
 ### Keyboard
 
 Listen on `window`, keyed by `event.code`. Hold a `Set` of active codes; ignore
