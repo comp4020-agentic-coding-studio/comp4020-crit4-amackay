@@ -592,15 +592,16 @@ the first place. A mobile browser with "Request Desktop Site" enabled
 substitutes its own virtual layout viewport for `width=device-width`, which a
 page has no API to detect or opt out of.
 
-**It is a wrong-axis bug, not a wrong-scale one.** On a portrait phone the
-substituted viewport is landscape-shaped, so `100vmin` picks its *height* —
-a number with no relationship to the screen — as the short axis, and the
-whole fit derives from that. Two symptoms identify it: `clientWidth` (layout)
-and `innerWidth` (visual) diverge by roughly the error factor, and dead
-background shows below the stage, because `body`'s `height: 100%` is the same
-phantom height. Because the axis is wrong rather than the multiplier, no
-uniform scale correction can fix it; three were tried on a real Android
-Chrome phone first, and each only traded "too small" for "too big":
+**The substituted viewport's height does not describe the screen**, and the
+fit is `100vmin`, so the fit derives from a number unrelated to what the
+player is looking at. On the Android Chrome phone this was diagnosed on,
+`vmin` resolved against roughly 590px while the visible area was 1831 layout
+px tall — a stage about 1.66× too small, with dead background below it,
+`body`'s `height: 100%` being that same wrong height.
+
+Because the *input* is wrong rather than the output being mis-scaled, no
+uniform multiplier fixes it. Three were tried on the device first and each
+only traded "too small" for "too big":
 
 - Rewriting the `<meta viewport>` tag's `content` back to the real width. The
   attribute updates, but the browser never re-derives layout from it.
@@ -610,19 +611,28 @@ Chrome phone first, and each only traded "too small" for "too big":
 - `transform: scale()` on a wrapper, which is at least paint-only, but is
   still a single multiplier applied to a mis-derived base.
 
-So `Layout.astro` derives the size from `visualViewport` instead: it reports
-what is genuinely on screen no matter what the layout viewport claims, so
-`min(visualViewport.width, visualViewport.height) / FIT_SIZE` is the
-px-per-twelfth the design asks for, set as an explicit `--twelfth` that
-overrides the `100vmin` one. The `#vp-fix-root` wrapper around `<slot />`
-(`display: contents`, invisible to the box tree, on every ordinary visit) is
-pinned to the visual viewport's box so the stage centres on the visible area
-rather than the phantom one. `FIT_SIZE` is read back off `--fit-size` rather
-than restated. Recomputed on `visualViewport`'s own resize event, with a
-re-entry guard and a sub-pixel threshold so it cannot oscillate against the
-listeners that drive it. The gate is the physical `screen`, which is hardware
-and cannot be restyled by a browser mode, so it fails closed: a genuine
-narrow desktop window has no touch and a large screen, and never matches.
+So `Layout.astro` takes both the size and the box from `visualViewport`,
+which describes what is genuinely on screen whatever the layout viewport
+claims: `min(visualViewport.width, visualViewport.height) / FIT_SIZE` becomes
+an explicit `--twelfth` overriding the `100vmin` one, and the `#vp-fix-root`
+wrapper around `<slot />` is pinned to the visible rect so the stage centres
+on that rather than on the phantom box. `FIT_SIZE` is read back off
+`--fit-size` rather than restated. On the same phone this lands the twelfth
+at 65.31px against a page scale of 0.452 — 29.5 CSS px on screen, where
+ordinary mobile rendering gives 444/15 = 29.6.
+
+`display: contents` is the wrapper's default and the whole correction is a
+no-op on every ordinary visit, where the two viewports agree. The gate is the
+physical `screen`, hardware and the one thing a browser mode cannot restyle,
+so it fails closed: a genuine narrow desktop window has no touch and a large
+screen, and never matches.
+
+**The listeners are load-bearing, not defensive.** At parse time that phone
+still reported an ordinary 443×828 viewport and only switched to the
+substituted one afterwards, so the load-time-only check this started as
+measures the wrong state and concludes there is nothing to fix. A re-entry
+guard and a sub-pixel threshold keep the recompute from oscillating against
+the resize events that drive it.
 
 ## Accessibility floor
 
@@ -680,9 +690,13 @@ anywhere in the artefact.
   (verified over CDP with 180 real auto-repeats). Accepted, not fixed — the
   real fix belongs to whoever's desktop it is.
 - **"Request Desktop Site" can't be detected or turned off by a page, only
-  worked around.** See "Sizing" above for the fix and why it's scoped to
-  load-time only. No automated test can exercise it — see "The checks" and
-  CLAUDE.md's "Two things this harness cannot do."
+  worked around.** See "Sizing" above for what it breaks and how. Corrected,
+  but only the title plate's `clamp(…, 2.1vmin, …)` still reads the
+  substituted viewport, so it sets a little larger than it does normally —
+  accepted. No automated test can exercise any of this: jsdom has no layout
+  engine and the substitution is browser chrome, not DOM. Verified by hand on
+  an Android Chrome phone; see "The checks" and CLAUDE.md's "Two things this
+  harness cannot do."
 
 ## Still open
 

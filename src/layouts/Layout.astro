@@ -31,27 +31,25 @@ const card = new URL(`${base}card.png`, Astro.site);
     <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
-    <!-- "Request Desktop Site" substitutes its own virtual layout viewport for
-         device-width, which a page cannot detect or opt out of. On a portrait
-         phone that substituted viewport is landscape-shaped, so `100vmin`
-         picks its bogus *height* as the short axis and the whole fit (DESIGN.md
-         "Sizing") is derived from a number that has nothing to do with the
-         screen. The symptom is a miniaturized stage with dead background below
-         it, because `body`'s `height: 100%` is that same wrong height.
+    <!-- "Request Desktop Site" hands the page a substituted layout viewport,
+         which it has no API to detect or opt out of, and whose height does not
+         describe the screen: measured on a real Android Chrome phone, `vmin`
+         resolved against ~590px while the visible area was 1831 layout px
+         tall. The whole fit (DESIGN.md "Sizing") derives from `100vmin`, so
+         the stage came out miniaturized with dead background below it — the
+         latter because `body`'s `height: 100%` is that same wrong height.
 
-         It is a wrong-axis bug, not a wrong-scale one, which is why three
-         uniform multipliers failed before this: rewriting the meta tag (the
-         attribute updates, the browser never re-derives layout from it),
-         `zoom` on <body> (not paint-only in Chromium — it perturbs how
-         descendants' own vw/vmin resolve, i.e. the very mechanism being
-         corrected), and `transform: scale()` on a wrapper. Each only traded
-         "too small" for "too big".
+         `visualViewport` describes what is genuinely on screen whatever the
+         layout viewport claims, so take both the size and the box from it: an
+         explicit `--twelfth` overriding the `100vmin` one, and this wrapper
+         pinned to the visible rect so the stage centres on it. `display:
+         contents` is the untouched default on every ordinary visit, where the
+         two viewports agree and this does nothing.
 
-         So derive the size from `visualViewport` instead, which reports what
-         is actually on screen regardless of what the layout viewport claims,
-         and pin the wrapper to it so the stage centres on the visible area
-         rather than on the phantom one. A no-op in normal browsing, where the
-         two viewports agree. -->
+         The listeners are load-bearing, not belt-and-braces: at parse time
+         that same phone still reported the ordinary 443x828 viewport and only
+         switched afterwards, so a load-time-only check measures the wrong
+         state and concludes there is nothing to fix. -->
     <div id="vp-fix-root" style="display: contents;">
       <slot />
     </div>
@@ -59,63 +57,40 @@ const card = new URL(`${base}card.png`, Astro.site);
       (function () {
         var root = document.getElementById("vp-fix-root");
         var stage = document.querySelector("[data-instrument]");
-        var params = new URLSearchParams(location.search);
-        var off = params.get("vpfix") === "off";
-        var forced = params.get("vpfix") === "vv";
-        var baseline = null;
         var lastTwelfth = null;
+        var applied = false;
         var busy = false;
-        var diag = {};
 
-        function metrics() {
-          var v = window.visualViewport;
-          var d = document.documentElement;
-          return {
-            screenW: screen.width,
-            screenH: screen.height,
-            dpr: window.devicePixelRatio,
-            innerW: window.innerWidth,
-            innerH: window.innerHeight,
-            clientW: d.clientWidth,
-            clientH: d.clientHeight,
-            vvW: v ? Math.round(v.width) : null,
-            vvH: v ? Math.round(v.height) : null,
-            vvScale: v ? Math.round(v.scale * 1000) / 1000 : null,
-            vvLeft: v ? Math.round(v.offsetLeft) : null,
-            vvTop: v ? Math.round(v.offsetTop) : null,
-          };
-        }
-
-        // The layout viewport is untrustworthy on a phone that has been handed
-        // a desktop-shaped one. Gate on the physical screen, which is hardware
-        // and cannot be restyled by a browser mode, so a genuine narrow desktop
-        // window (large screen, no touch) can never match.
-        function anomalous(m) {
+        // Gate on the physical screen: hardware, and the one thing a browser
+        // mode cannot restyle. A genuine narrow desktop window has no touch
+        // and a large screen, so it never matches and never gets touched.
+        function anomalous() {
           var isTouch = "ontouchstart" in window || (navigator.maxTouchPoints || 0) > 0;
-          var shortAxis = Math.min(m.screenW, m.screenH);
-          return isTouch && shortAxis > 0 && shortAxis <= 480 && m.clientW > shortAxis * 1.5;
+          var shortAxis = Math.min(screen.width, screen.height);
+          return (
+            isTouch &&
+            shortAxis > 0 &&
+            shortAxis <= 480 &&
+            document.documentElement.clientWidth > shortAxis * 1.5
+          );
         }
 
         // FIT_SIZE lives in index.astro and reaches the DOM as --fit-size; read
-        // it rather than restating the constant here.
+        // it back rather than restating the constant here.
         function fitSize() {
           var n = stage ? parseFloat(getComputedStyle(stage).getPropertyValue("--fit-size")) : NaN;
           return n > 0 ? n : 15;
         }
 
         function apply() {
-          if (busy) return; // resizing in here can re-enter through our own listeners
+          if (busy) return; // resizing in here re-enters through our own listeners
           busy = true;
           try {
-            var m = metrics();
-            if (!baseline) baseline = m;
             var v = window.visualViewport;
-            var on = !off && !!v && !!stage && (forced || anomalous(m));
-            diag = { m: m, on: on, anomalous: anomalous(m) };
-            if (on) {
+            if (v && stage && anomalous()) {
               var t = Math.min(v.width, v.height) / fitSize();
-              // Threshold, so sub-pixel jitter can't ping-pong with the
-              // resize listeners that brought us here.
+              // Threshold, so sub-pixel jitter cannot ping-pong with those
+              // same listeners.
               if (lastTwelfth === null || Math.abs(t - lastTwelfth) > 0.25) {
                 lastTwelfth = t;
                 stage.style.setProperty("--twelfth", t + "px");
@@ -126,13 +101,17 @@ const card = new URL(`${base}card.png`, Astro.site);
                   "overflow:hidden;left:" + v.offsetLeft + "px;top:" + v.offsetTop + "px;" +
                   "width:" + v.width + "px;height:" + v.height + "px;",
               );
-              diag.twelfth = Math.round(t * 100) / 100;
+              applied = true;
+            } else if (applied) {
+              stage.style.removeProperty("--twelfth");
+              root.setAttribute("style", "display: contents;");
+              lastTwelfth = null;
+              applied = false;
             }
           } catch (e) {
-            diag.error = String(e);
+            // A viewport quirk must never be what stops the instrument loading.
           }
           busy = false;
-          if (window.__vpRender) window.__vpRender();
         }
 
         apply();
@@ -140,47 +119,6 @@ const card = new URL(`${base}card.png`, Astro.site);
         window.addEventListener("orientationchange", apply);
         window.addEventListener("load", apply);
         if (window.visualViewport) window.visualViewport.addEventListener("resize", apply);
-
-        // Temporary, for diagnosing this on a real device. Remove once the fix
-        // is confirmed. ?debugviewport reports the metrics captured before any
-        // correction alongside the live ones, and scales its own text by the
-        // page's zoom-out factor so it stays readable in a screenshot.
-        if (params.has("debugviewport")) {
-          var box;
-          window.__vpRender = function () {
-            if (!box) {
-              box = document.createElement("pre");
-              box.style.cssText =
-                "position:fixed;top:0;left:0;z-index:99999;background:#000;color:#0f0;" +
-                "padding:8px;margin:0;white-space:pre;line-height:1.25;";
-              document.body.appendChild(box);
-            }
-            var m = diag.m || {};
-            var b = baseline || {};
-            var meta = document.querySelector('meta[name="viewport"]');
-            box.style.fontSize = Math.max(12, Math.round(13 * ((m.innerW || 1) / (m.screenW || 1)))) + "px";
-            box.textContent = [
-              "BASELINE (pre-fix)",
-              " screen    " + b.screenW + "x" + b.screenH + "  dpr " + b.dpr,
-              " client    " + b.clientW + "x" + b.clientH,
-              " inner     " + b.innerW + "x" + b.innerH,
-              " visualVP  " + b.vvW + "x" + b.vvH + "  scale " + b.vvScale,
-              "LIVE",
-              " client    " + m.clientW + "x" + m.clientH,
-              " inner     " + m.innerW + "x" + m.innerH,
-              " visualVP  " + m.vvW + "x" + m.vvH + "  scale " + m.vvScale,
-              " vv offset " + m.vvLeft + "," + m.vvTop,
-              "FIX",
-              " anomalous " + diag.anomalous + "   active " + diag.on,
-              " twelfth   " + diag.twelfth + "px  (fit " + fitSize() + ")",
-              " meta      " + (meta && meta.getAttribute("content")),
-              diag.error ? " error " + diag.error : "",
-            ]
-              .filter(Boolean)
-              .join("\n");
-          };
-          window.__vpRender();
-        }
       })();
     </script>
   </body>
