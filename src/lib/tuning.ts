@@ -45,10 +45,8 @@ export function hueFor(ratio: number): number {
 }
 
 // Chromatic scale ascending in semitones from the root, F, spelled with flats
-// to match DESIGN.md's own fifths-chain naming (Ab Eb Bb F C G D A E). Debug
-// mode only — nearest-12-TET is a landmark for the ear, not a claim of
-// exactness, and it drifts further from the just ratio the further a node
-// sits from the root.
+// to match DESIGN.md's own fifths-chain naming (Ab Eb Bb F C G D A E). These
+// are the names the caps carry.
 const CHROMATIC = ["F", "G♭", "G", "A♭", "A", "B♭", "B", "C", "D♭", "D", "E♭", "E"];
 
 /** The nearest 12-tone-equal-temperament name for a ratio's pitch class. */
@@ -58,8 +56,8 @@ export function equalTemperamentNameFor(ratio: number): string {
 }
 
 /** 12-TET ratio for a semitone index, relative to the same root F as the
- *  just-intonation lattice above. Used by the standalone Shepard/12-TET test
- *  page (`shepard.astro`), independent of the 3-limit/5-limit lattice. */
+ *  just-intonation lattice above, and independent of the 3-limit/5-limit
+ *  lattice. Every cap's ratio, hue and name is derived from this. */
 export function equalTemperamentRatioFor(semitoneIndex: number): number {
   return 2 ** (semitoneIndex / 12);
 }

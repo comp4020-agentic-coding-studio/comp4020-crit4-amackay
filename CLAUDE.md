@@ -57,17 +57,19 @@ live URL. **`http://localhost:4321/` returning 404 is correct**; the site is at
 
 ## Two build quirks that break the spec harness, not the design
 
-- **A second page sharing lib code splits Rollup's build.** Once more than one
-  page's script imports the same module (e.g. `instrument.ts`), Vite factors
-  it into a shared chunk, and the page's own script becomes
+- **Adding a second page would split Rollup's build and break the spec
+  harness.** The site is one page, which is the only reason the built bundle
+  has no imports left in it for the harness to choke on. Let a second page's
+  script import the same module (e.g. `instrument.ts`) and Vite factors it
+  into a shared chunk, leaving the page's own script starting
   `import {...} from "./chunk.js"` — which a classic-script `eval` can't run
   (see `spec/support/instrument-page.ts`'s header comment for why the harness
-  needs classic-script eval at all). `inlineChunkImports` there resolves one
-  level of this by wrapping the chunk's body in an IIFE and destructuring its
-  exports into the entry's scope, rather than flattening both into one shared
-  scope where two independently-minified chunks could collide on a reused
-  single-letter name. A third page sharing the same lib code should just work
-  through it; a chunk importing another chunk (two levels deep) isn't handled.
+  needs classic-script eval at all). The harness used to carry an
+  `inlineChunkImports` for exactly this, wrapping the chunk's body in an IIFE
+  and destructuring its exports into the entry's scope; it was removed with
+  the Shepard page. If a second page comes back, recover it from git history
+  rather than rediscovering the problem — and note it only ever handled one
+  level, not a chunk importing another chunk.
 - **A block-scoped `function` inside a page script can silently misbehave
   under that same classic-script `eval`.** Annex B hoists a `function`
   declared inside an `if`/block to the nearest function/global scope in

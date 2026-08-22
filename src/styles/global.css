@@ -69,5 +69,5 @@ html.keyboard-nav :focus-visible {
 
 /* The instrument's own surface sizing and cap styling live in a scoped
    <style> in index.astro, next to the markup they style — see DESIGN.md
-   "Visual design" and "Sizing". This file keeps only what's genuinely shared
-   with shepard.astro. */
+   "Visual design" and "Sizing". This file keeps only the document-level
+   reset and the page frame the instrument sits in. */

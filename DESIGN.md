@@ -254,8 +254,8 @@ Pitch class `p` sounds `equalTemperamentRatioFor(p)` against the existing root,
 and **the root stays F**. The hand-off's 261.63 Hz would put C at the lattice
 origin, which is the Tonnetz convention — but nothing here depends on it. The
 tone is octaveless, there is no drone and no tonic, so which pitch class sits at
-hue 25° is arbitrary; re-rooting would cost a constant, a test rewrite and the
-shepard page's labels for no musical difference. `tuning.ts` therefore only
+hue 25° is arbitrary; re-rooting would cost a constant and a test rewrite for
+no musical difference. `tuning.ts` therefore only
 loses `ratioFor`, the 3-limit/5-limit function, along with the lattice it served.
 
 The synthesis is otherwise unchanged from what is already in `instrument.ts` and
@@ -372,7 +372,7 @@ mechanism, so **`elementFromPoint` is not used anywhere**. `pointerenter` on
 caps survives only because it is the path the jsdom harness can drive — and
 because `spec/support/instrument-page.ts` dispatches it with `bubbles: true`,
 check that a bubbled `pointerenter` reaching the surface cannot clear state
-(this exact shape produced a false failure on the shepard page once).
+(this exact shape produced a false failure once).
 
 The coordinate refine's anchor (the cell `pressedPitchClasses` measures against,
 plus its six neighbours) has to advance on `pointermove` alone, not just on
@@ -660,14 +660,6 @@ rotate/flip/pan/zoom controls that went with them are gone: the
 orientation they were exploring is now the basis itself, and a transform on top
 of the caps would have put the pointer hit test (which reads untransformed
 lattice coordinates) out of step with what is drawn.
-
-## Shepard test page
-
-`shepard.html` stays. It is a twelve-button clock face driving the same
-synthesis in plain 12-TET, independent of the lattice, so an oddity heard while
-testing cannot be blamed on the geometry — and now that the instrument is
-itself 12-TET, it tests exactly the same notes. Re-rooting the chromatic naming
-to C changes its labels and nothing else. Not part of the graded instrument.
 
 ## Non-goals
 

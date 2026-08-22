@@ -69,9 +69,9 @@ describe("equalTemperamentRatioFor", () => {
     expect(equalTemperamentRatioFor(7)).toBeCloseTo(2 ** (7 / 12), 10);
   });
 
-  // The Shepard/12-TET test page labels each of its 12 buttons by composing
-  // this with equalTemperamentNameFor rather than exporting CHROMATIC
-  // separately — this pins that composition down as a guaranteed contract.
+  // index.astro labels every cap by composing this with
+  // equalTemperamentNameFor rather than exporting CHROMATIC separately — this
+  // pins that composition down as a guaranteed contract.
   it("composes with equalTemperamentNameFor to name all twelve semitones, in order, from the root", () => {
     const names = Array.from({ length: 12 }, (_, i) => equalTemperamentNameFor(equalTemperamentRatioFor(i)));
     expect(names).toEqual(["F", "G♭", "G", "A♭", "A", "B♭", "B", "C", "D♭", "D", "E♭", "E"]);

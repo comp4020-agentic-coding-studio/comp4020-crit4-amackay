@@ -52,10 +52,11 @@ reading guide to the history, not a restatement of the design.
    `import {...} from "./chunk.js"`, which the jsdom harness cannot execute.
    Concatenating both scripts into one scope was rejected as moment 1 in a new
    shape — two independently minified chunks can pick the same single-letter
-   name. `instrument-page.ts` instead wraps the chunk in its own closure and
-   destructures its exports into the entry's scope, so the identifiers cannot
-   collide. The fix belongs to the test infrastructure, not to either page.
-   [`01ac973`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit4-amackay/commit/01ac973)
+   name. `instrument-page.ts` instead wrapped the chunk in its own closure and
+   destructured its exports into the entry's scope, so the identifiers could
+   not collide. The fix belonged to the test infrastructure, not to either
+   page, and was removed along with the second page once the site went back to
+   one. [`01ac973`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit4-amackay/commit/01ac973)
 
 ## What the checks cannot reach
 
