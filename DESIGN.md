@@ -584,25 +584,32 @@ portrait special case** — the rotate-the-whole-stage hack the previous
 instrument needed is gone, along with the risk that it had never been seen on a
 real device.
 
-**One exception to "zero runtime layout JS": a load-time viewport-meta
-correction.** "There is no portrait special case" above is about relayout —
-this instrument never watches the viewport and reflows. It says nothing about
-a browser lying about the viewport it hands the page in the first place. A
-mobile browser with "Request Desktop Site" enabled substitutes its own wide
-virtual viewport (commonly ~980px) for `width=device-width`, which a page has
-no API to detect or opt out of — and because this layout is pure `100vmin`
-CSS, it renders at a correct *proportion* but the browser then zoom-fits the
-falsely wide page onto the real screen, so the whole stage appears
-miniaturized. `Layout.astro` carries one small inline, synchronous script in
-`<head>`, placed after the viewport meta tag, that compares `screen.width`/
-`height` (the real hardware) against the layout viewport it was actually
-given and — only when touch-capable, the physical screen is phone-sized, and
-the layout viewport is implausibly wider than that — rewrites the meta tag
-back to the real width. It runs once, at load, never on
-`resize`/`orientationchange` (toggling desktop-site mode reloads the page
-anyway). Every gate fails closed: any doubt means the script does nothing,
-since a false positive would break the legitimate narrow-desktop-window case
-this `vmin` layout is built to support.
+**One exception to "zero runtime layout JS": a `zoom` correction for
+"Request Desktop Site."** "There is no portrait special case" above is about
+relayout — this instrument never watches the viewport and reflows. It says
+nothing about a browser lying about the viewport it hands the page in the
+first place. A mobile browser with "Request Desktop Site" enabled substitutes
+its own wide virtual viewport (commonly ~980px) for `width=device-width`,
+which a page has no API to detect or opt out of — and because this layout is
+pure `100vmin` CSS, it renders at a correct *proportion* but the browser then
+zoom-fits the falsely wide page onto the real screen, so the whole stage
+appears miniaturized.
+
+The obvious fix — rewrite the `<meta viewport>` tag's `content` back to the
+real width once the mismatch is detected — turned out not to work: confirmed
+on a real Android Chrome phone, the attribute updates but the browser never
+re-derives layout from it, and its own guess at the viewport width kept
+changing after load regardless of what the tag said. What the browser *does*
+still honour at runtime is CSS `zoom`, so `Layout.astro` counter-scales
+`<body>` by the same ratio the browser is about to shrink it by, netting to
+1:1 against the real screen — and re-derives that ratio on every layout
+change via `ResizeObserver` rather than trusting a single snapshot, since the
+browser's own guess was observed moving after load, not just at it. Every
+gate fails closed: any doubt means it does nothing, since a false positive
+would break the legitimate narrow-desktop-window case this `vmin` layout is
+built to support. The meta-tag rewrite stays too, harmless where it doesn't
+help and possibly load-bearing on a browser that behaves better than the one
+this was diagnosed against.
 
 ## Accessibility floor
 
