@@ -109,8 +109,8 @@ live URL. **`http://localhost:4321/` returning 404 is correct**; the site is at
   sharing a top-level name (`pos`, `pc`, `total`) is a redeclaration error.
   End every standalone script with `export {};`.
 - **A note name written in a comment is not evidence.** `pc(m, n)` is. A
-  comment naming `(0,2)` as Gb (it is B) put the debug fundamental domain's
-  corner one fifth out of place, and survived two re-derivations of the
+  comment naming `(0,2)` as Gb (it is B) put the fundamental domain's corner
+  one fifth out of place, and survived two re-derivations of the
   transform because each one re-read the comment instead of re-evaluating the
   function. Same rule for intervals and neighbours: evaluate, don't quote.
 - Paths written anywhere in this repo are relative to the repo root. Absolute

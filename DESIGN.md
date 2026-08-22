@@ -643,24 +643,6 @@ again*, *game over*, *you lose*, *wrong note* and *high score* in copy **and in
 identifiers** — `spec/crit-4.test.ts` greps the built HTML and the page script
 for them.
 
-## Debug mode
-
-`?debug` toggles a `.debug` class onto `<html>` from the page script, purely
-client-side. **None of it needs to be polished** — it is a tuning aid for
-whoever is building the thing, not a second design. Off by default and behind a
-flag nobody stumbles into, so it does not count against "no self-explanation in
-the artefact".
-
-Build only what the tuning actually needs: each cap's `(m, n)` and pitch class,
-and the touch disks, which are what makes `r` judgeable. Two reference squares
-survive from working out where the lattice should sit — the fundamental domain
-and the fit window — because they are what `FIT_PADDING` was judged against,
-and what any later change to it would be judged against again. The
-rotate/flip/pan/zoom controls that went with them are gone: the
-orientation they were exploring is now the basis itself, and a transform on top
-of the caps would have put the pointer hit test (which reads untransformed
-lattice coordinates) out of step with what is drawn.
-
 ## Non-goals
 
 No recorded audio; no octave controls or register management; no configurable

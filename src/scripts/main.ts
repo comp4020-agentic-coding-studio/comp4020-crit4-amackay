@@ -6,10 +6,6 @@ import { installInputChrome } from "../lib/input-chrome.ts";
 import { PitchClassVoices } from "../lib/pitch-voices.ts";
 import { anchorCell, nodeForCode, pc as pcOf, pressedPitchClasses } from "../lib/tonnetz.ts";
 
-// Debug mode: `?debug` in the URL shows each cap's (m, n). Never shown to a
-// player who hasn't gone looking for it — see DESIGN.md "Debug mode".
-document.documentElement.classList.toggle("debug", new URLSearchParams(location.search).has("debug"));
-
 const surface = document.querySelector<HTMLElement>("[data-instrument]");
 
 if (surface) {
@@ -200,8 +196,8 @@ if (surface) {
   // is about to press (DESIGN.md "Touch model"'s r, drawn for once) and the
   // caps that disk overlaps light up — the same pressedPitchClasses geometry
   // as a real press, just never reaching Instrument or PitchClassVoices. Mouse
-  // only: a touch has no hover to preview, and per DESIGN.md "Debug mode" /
-  // "Visual design" this stays the one exception to "none of that is drawn".
+  // only: a touch has no hover to preview, and per DESIGN.md "Visual design"
+  // this stays the one exception to "none of that is drawn".
   const hoverCell = new Map<number, [number, number]>();
   const hoverPcs = new Map<number, Set<number>>();
 

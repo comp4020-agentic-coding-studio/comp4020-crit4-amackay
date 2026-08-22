@@ -4,8 +4,6 @@ import {
   CENTRE_X,
   CENTRE_Y,
   DOMAIN_SIZE,
-  DOMAIN_X0,
-  DOMAIN_Y0,
   EXTENT,
   HEX,
   R,
@@ -104,30 +102,6 @@ const capClip = `polygon(${screenHex
           </g>
         ))
       }
-      {
-        /* The fundamental domain, after the caps in document order so its
-           outline draws on top of their opaque fills instead of under them. */
-      }
-      <rect
-        class="debug-only debug-fundamental-domain"
-        x={DOMAIN_X0}
-        y={-(DOMAIN_Y0 + DOMAIN_SIZE)}
-        width={DOMAIN_SIZE}
-        height={DOMAIN_SIZE}
-      />
-      {
-        /* Debug-only reference frame, never part of the played instrument: what
-           the *viewport* fitting guarantees regardless of aspect ratio,
-           DESIGN.md "Sizing". Concentric with the domain because both are
-           derived from the same corner. */
-      }
-      <rect
-        class="debug-only debug-fit-window"
-        x={CX - FIT_SIZE / 2}
-        y={-(CY + FIT_SIZE / 2)}
-        width={FIT_SIZE}
-        height={FIT_SIZE}
-      />
     </svg>
     <div class="cursor-dot" data-cursor aria-hidden="true"></div>
   </main>
@@ -169,9 +143,9 @@ const capClip = `polygon(${screenHex
 
   .stage {
     /* Driven by --fit-size (FIT_SIZE above) rather than a hardcoded number,
-       so the debug fit-window rect is actually what the short viewport axis
-       fits to and reaches the screen edge, instead of being a reference drawn
-       at some other scale. DESIGN.md "Sizing". */
+       so the one constant reaches both the CSS here and Layout.astro's
+       viewport correction, which reads it back off this element rather than
+       restating it. DESIGN.md "Sizing". */
     --twelfth: calc(100vmin / var(--fit-size));
     position: relative;
     width: calc(var(--twelfth) * 34);
@@ -283,33 +257,4 @@ const capClip = `polygon(${screenHex
     opacity: 0.75;
   }
 
-  /* Debug mode: `?debug` in the URL, toggled onto <html> in main.ts. Never
-     part of the played instrument — a tuning aid for whoever is building it.
-     Hidden by default so a player who hasn't gone looking never sees it. */
-  .debug-only {
-    display: none;
-  }
-
-  html.debug .debug-only {
-    display: block;
-  }
-
-  .debug-fit-window,
-  .debug-fundamental-domain {
-    fill: none;
-    stroke-width: 0.06;
-    pointer-events: none;
-  }
-
-  /* Fixed in view space, DESIGN.md "Sizing" — the region guaranteed visible
-     regardless of viewport aspect ratio. */
-  .debug-fit-window {
-    stroke: oklch(90% 0.2 140 / 0.8);
-    stroke-dasharray: 0.3 0.2;
-  }
-
-  /* The 12x12 fundamental domain, at the corner tonnetz.ts derives. */
-  .debug-fundamental-domain {
-    stroke: oklch(90% 0.2 30 / 0.8);
-  }
 </style>
