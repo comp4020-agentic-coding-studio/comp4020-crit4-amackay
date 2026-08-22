@@ -584,32 +584,48 @@ portrait special case** — the rotate-the-whole-stage hack the previous
 instrument needed is gone, along with the risk that it had never been seen on a
 real device.
 
-**One exception to "zero runtime layout JS": a `zoom` correction for
-"Request Desktop Site."** "There is no portrait special case" above is about
-relayout — this instrument never watches the viewport and reflows. It says
-nothing about a browser lying about the viewport it hands the page in the
-first place. A mobile browser with "Request Desktop Site" enabled substitutes
-its own wide virtual viewport (commonly ~980px) for `width=device-width`,
-which a page has no API to detect or opt out of — and because this layout is
-pure `100vmin` CSS, it renders at a correct *proportion* but the browser then
-zoom-fits the falsely wide page onto the real screen, so the whole stage
-appears miniaturized.
+**One exception to "zero runtime layout JS": a `transform: scale()`
+correction for "Request Desktop Site."** "There is no portrait special case"
+above is about relayout — this instrument never watches the viewport and
+reflows. It says nothing about a browser lying about the viewport it hands
+the page in the first place. A mobile browser with "Request Desktop Site"
+enabled substitutes its own wide virtual viewport (commonly ~980px) for
+`width=device-width`, which a page has no API to detect or opt out of — and
+because this layout is pure `100vmin` CSS, it renders at a correct
+*proportion* but the browser then zoom-fits the falsely wide page onto the
+real screen, so the whole stage appears miniaturized.
 
-The obvious fix — rewrite the `<meta viewport>` tag's `content` back to the
-real width once the mismatch is detected — turned out not to work: confirmed
-on a real Android Chrome phone, the attribute updates but the browser never
-re-derives layout from it, and its own guess at the viewport width kept
-changing after load regardless of what the tag said. What the browser *does*
-still honour at runtime is CSS `zoom`, so `Layout.astro` counter-scales
-`<body>` by the same ratio the browser is about to shrink it by, netting to
-1:1 against the real screen — and re-derives that ratio on every layout
-change via `ResizeObserver` rather than trusting a single snapshot, since the
-browser's own guess was observed moving after load, not just at it. Every
-gate fails closed: any doubt means it does nothing, since a false positive
-would break the legitimate narrow-desktop-window case this `vmin` layout is
-built to support. The meta-tag rewrite stays too, harmless where it doesn't
-help and possibly load-bearing on a browser that behaves better than the one
-this was diagnosed against.
+Two more direct fixes were tried and both failed on a real Android Chrome
+phone before this one, which is worth keeping on record since either looks
+like the obvious answer:
+
+- Rewriting the `<meta viewport>` tag's `content` back to the real width once
+  the mismatch is detected. The attribute updates, but the browser never
+  re-derives layout from it, and its own guess at the viewport width kept
+  changing after load regardless of what the tag said.
+- Counter-scaling `<body>` with CSS `zoom`. This *is* still honoured at
+  runtime, but it overshot badly: `zoom` isn't paint-only in Chromium, it can
+  also perturb how descendants' own `vw`/`vmin` resolve — exactly the
+  mechanism `.stage`'s sizing depends on — so the correction and the original
+  bug compounded instead of cancelling.
+
+`transform: scale()` doesn't have that problem: it never touches layout or
+viewport-unit resolution for descendants, so `Layout.astro` wraps `<slot />`
+in a `#vp-fix-root` div (`display: contents` normally, i.e. invisible to the
+box tree and the default on every ordinary visit) and, only when the gates
+below hold, switches it to `display: block` and applies `transform:
+scale()` — counter-scaling by the ratio the browser is about to shrink it by
+via its own zoom-to-fit, netting to 1:1 against the real screen.
+`getBoundingClientRect()`, which the instrument's own touch hit-testing
+already relies on, reports the post-transform box for free, so pointer
+interaction needs no changes. Re-derived on every layout change via
+`ResizeObserver` rather than trusting a single snapshot, since the browser's
+own guess was observed moving after load, not just at it. Every gate fails
+closed: any doubt means it does nothing, since a false positive would break
+the legitimate narrow-desktop-window case this `vmin` layout is built to
+support. The meta-tag rewrite stays alongside it too, harmless where it
+doesn't help and possibly load-bearing on a browser that behaves better than
+the one this was diagnosed against.
 
 ## Accessibility floor
 

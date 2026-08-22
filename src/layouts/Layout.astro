@@ -36,18 +36,32 @@ const card = new URL(`${base}card.png`, Astro.site);
          meta tag above at runtime turned out not to be enough on its own —
          confirmed on a real Android Chrome phone: the attribute updates but
          the browser never re-derives layout from it, and its own guess at the
-         viewport width kept changing after load besides. What the browser
-         *does* still honour is `zoom`, so counter-scale <body> by exactly the
-         ratio the browser is about to shrink it by by its own zoom-to-fit —
-         net effect is 1:1 to the real screen — and re-derive that on every
-         resize via ResizeObserver rather than a single snapshot, since the
-         browser's own guess is a moving target here. Every gate fails closed:
-         any doubt and this does nothing, since a false positive would break a
-         genuine narrow desktop window, which this vmin layout must still
-         support untouched. DESIGN.md "Sizing" documents this exception. -->
+         viewport width kept changing after load besides. A `zoom` correction
+         on <body> was tried next and overshot badly: `zoom` isn't paint-only
+         in Chromium, it can also perturb how descendants' own `vw`/`vmin`
+         resolve — exactly the mechanism `.stage` is built on, so the
+         correction and the bug compounded instead of cancelling.
+         `transform: scale()` doesn't have that problem: it never touches
+         layout or viewport-unit resolution, so it's applied here to a
+         dedicated wrapper (not <body> itself, so the diagnostic overlay below
+         stays unaffected) — counter-scaling by the ratio the browser is about
+         to shrink it by via its own zoom-to-fit, net effect 1:1 against the
+         real screen. `getBoundingClientRect()`, which the instrument's own
+         touch hit-testing already relies on, reports the post-transform box
+         for free, so pointer interaction needs no changes. Re-derived on
+         every layout change via ResizeObserver rather than a single
+         snapshot, since the browser's own guess was seen moving after load,
+         not just at it. Every gate fails closed: any doubt and this does
+         nothing, since a false positive would break a genuine narrow desktop
+         window, which this vmin layout must still support untouched.
+         DESIGN.md "Sizing" documents this exception. -->
+    <div id="vp-fix-root" style="display: contents;">
+      <slot />
+    </div>
     <script is:inline>
       (function () {
         var diag = null;
+        var root = document.getElementById("vp-fix-root");
 
         function measure() {
           var isTouch = "ontouchstart" in window || (navigator.maxTouchPoints || 0) > 0;
@@ -71,11 +85,13 @@ const card = new URL(`${base}card.png`, Astro.site);
                 );
               }
               var ratio = Math.min(6, Math.max(1, m.layoutWidth / m.shortAxis));
-              document.body.style.zoom = String(ratio);
-              m.zoom = ratio;
+              root.style.display = "block";
+              root.style.transform = "scale(" + ratio + ")";
+              m.scale = ratio;
             } else {
-              document.body.style.zoom = "";
-              m.zoom = 1;
+              root.style.transform = "";
+              root.style.display = "contents";
+              m.scale = 1;
             }
             diag = m;
           } catch (e) {
@@ -88,8 +104,8 @@ const card = new URL(`${base}card.png`, Astro.site);
         if ("ResizeObserver" in window) new ResizeObserver(apply).observe(document.documentElement);
         window.addEventListener("load", apply);
 
-        // Temporary: investigating a real-device report that the meta-tag
-        // rewrite alone had no visible effect. Remove once confirmed fixed.
+        // Temporary: investigating a real-device report of the correction
+        // overshooting/undershooting. Remove once confirmed fixed.
         // ?debugviewport prints live values so a screenshot beats guessing.
         if (new URLSearchParams(location.search).has("debugviewport")) {
           var box;
@@ -108,7 +124,7 @@ const card = new URL(`${base}card.png`, Astro.site);
               "shortAxis: " + (diag && diag.shortAxis),
               "layoutWidth (live): " + (diag && diag.layoutWidth),
               "applies: " + (diag && diag.applies),
-              "body zoom: " + (diag && diag.zoom),
+              "wrapper scale: " + (diag && diag.scale),
               "innerWidth: " + window.innerWidth,
               "clientWidth: " + document.documentElement.clientWidth,
               "meta content: " + (meta && meta.getAttribute("content")),
@@ -121,6 +137,5 @@ const card = new URL(`${base}card.png`, Astro.site);
         }
       })();
     </script>
-    <slot />
   </body>
 </html>
