@@ -1,38 +1,35 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { HEX, R, codeForCell, visibleCells } from "../lib/tonnetz.ts";
+import {
+  CENTRE_X,
+  CENTRE_Y,
+  DOMAIN_SIZE,
+  DOMAIN_X0,
+  DOMAIN_Y0,
+  EXTENT,
+  HEX,
+  R,
+  drawnCells,
+  nodeForCell,
+} from "../lib/tonnetz.ts";
 import { equalTemperamentNameFor, equalTemperamentRatioFor, hueFor } from "../lib/tuning.ts";
 
 // The drawn window: a square big enough that 1 twelfth = 100vmin/FIT_SIZE
-// (see the <style> below, FIT_SIZE defined further down) shows FIT_SIZE
-// twelfths on whichever viewport axis is shorter and extends the long axis
-// into more of this same pre-drawn lattice — the square shape is what makes
-// that work with no portrait special case. EXTENT covers both marked
-// viewports' long axis with slack to spare at FIT_SIZE=14 (was sized for 15).
-// MARGIN is just past
-// the hexagon's farthest corner (sqrt(7.25) ~= 2.693 -- no single circumradius
-// any more, DESIGN.md "The hexagon") so a hexagon merely intersecting the
-// window, not centred inside it, still gets drawn — DESIGN.md "Sizing".
-const [CX, CY] = [6, 5.5];
-const EXTENT = 17;
-const MARGIN = 2.8;
+// (see the <style> below) shows FIT_SIZE twelfths on whichever viewport axis
+// is shorter and extends the long axis into more of this same pre-drawn
+// lattice — the square shape is what makes that work with no portrait special
+// case. Its centre, extent and margin are all derived from the fundamental
+// domain in tonnetz.ts rather than restated here: the camera and the domain
+// moving independently is exactly how the corner ended up a fifth out of
+// place once already. DESIGN.md "Sizing".
+const [CX, CY] = [CENTRE_X, CENTRE_Y];
 
-const caps = visibleCells(CX - EXTENT, CX + EXTENT, CY - EXTENT, CY + EXTENT, MARGIN);
+const caps = drawnCells();
 
-// Debug-only positioning decision, still being explored — see main.ts's
-// debug-transform block for the rotate/flip that goes with this. The
-// fundamental domain's corner sits at the midpoint between a Gb node and its
-// adjacent Db, a fifth away (DESIGN.md's P5 neighbour): Gb at (m,n)=(1,2) has
-// pos (9,5); its +F neighbour (2,2) is Db at pos (12,4). Every other corner of
-// the same 12x12 square is a Gb/Db midpoint too, by (12,0)/(0,12) periodicity.
-const DOMAIN_X0 = (9 + 12) / 2; // 10.5
-const DOMAIN_Y0 = (5 + 4) / 2; // 4.5
-
-// The visibility rect: concentric with the (repositioned) fundamental domain,
-// padded on every side. Padding amount is TBD — 1 twelfth is a placeholder to
-// eyeball against, tune with the zoom controls in the meantime.
+// The visibility rect: concentric with the fundamental domain, padded on every
+// side. Padding amount is TBD — 1 twelfth is a placeholder.
 const FIT_PADDING = 1;
-const FIT_SIZE = 12 + 2 * FIT_PADDING;
+const FIT_SIZE = DOMAIN_SIZE + 2 * FIT_PADDING;
 
 // y negated throughout so the drawing is upright (lattice y is up, SVG y is
 // down) — done once here, per cap, never by transforming the whole group.
@@ -41,14 +38,16 @@ const shortKey = (code: string): string => code.replace(/^Key|^Digit/, "");
 const renderCaps = caps.map((cap) => {
   const points = HEX.map(([hx, hy]) => `${cap.x + hx},${-(cap.y + hy)}`).join(" ");
   const ratio = equalTemperamentRatioFor(cap.pc);
-  const code = codeForCell(cap.m, cap.n);
+  const node = nodeForCell(cap.m, cap.n);
   return {
     m: cap.m,
     n: cap.n,
     pc: cap.pc,
     points,
-    code,
-    key: code ? shortKey(code) : undefined,
+    code: node?.code,
+    // Only the fundamental domain's twelve caps are labelled; the rest of the
+    // block plays without a hint. DESIGN.md "Keyboard".
+    key: node?.hint ? shortKey(node.code) : undefined,
     x: cap.x,
     y: -cap.y,
     hue: hueFor(ratio),
@@ -91,47 +90,37 @@ const capClip = `polygon(${screenHex
     style={`--press-diameter:${R * 2}; --cap-clip:${capClip}; --fit-size:${FIT_SIZE}`}
   >
     <svg viewBox={viewBox} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <g id="debug-transform">
-        {
-          renderCaps.map((cap) => (
-            <g class="cap" data-m={cap.m} data-n={cap.n} data-pc={cap.pc} data-note={cap.code} style={`--hue:${cap.hue}`}>
-              <polygon points={cap.points} />
-              <text class="name" x={cap.x} y={cap.y}>
-                {cap.name}
-              </text>
-              {cap.key && (
-                <text class="key" x={cap.x + 0.9} y={cap.y + 0.9}>
-                  {cap.key}
-                </text>
-              )}
-            </g>
-          ))
-        }
-        {
-          /* The fundamental domain: still 12x12, but repositioned per the
-             DOMAIN_X0/Y0 decision above rather than the plain [0,12)^2 tile.
-             Lives inside the transformed group so it moves with the debug
-             rotate/flip/pan/zoom controls below, alongside the caps. After
-             the caps in document order so its outline draws on top of their
-             opaque fills instead of being hidden underneath. */
-        }
-        <rect
-          class="debug-only debug-fundamental-domain"
-          x={DOMAIN_X0}
-          y={-(DOMAIN_Y0 + 12)}
-          width="12"
-          height="12"
-        />
-      </g>
       {
-        /* Debug-only reference frame, never part of the played instrument.
-           Fixed in view space (not the transformed group above) because it
-           shows what the *viewport* fitting guarantees regardless of aspect
-           ratio, DESIGN.md "Sizing". Concentric with the (repositioned)
-           fundamental domain, padded by FIT_PADDING above -- only actually
-           concentric once main.ts's debug-transform block pans the rotated
-           domain's centre onto (CX,CY), where this rect is fixed. After
-           #debug-transform in document order so it draws on top. */
+        renderCaps.map((cap) => (
+          <g class="cap" data-m={cap.m} data-n={cap.n} data-pc={cap.pc} data-note={cap.code} style={`--hue:${cap.hue}`}>
+            <polygon points={cap.points} />
+            <text class="name" x={cap.x} y={cap.y}>
+              {cap.name}
+            </text>
+            {cap.key && (
+              <text class="key" x={cap.x + 0.9} y={cap.y + 0.9}>
+                {cap.key}
+              </text>
+            )}
+          </g>
+        ))
+      }
+      {
+        /* The fundamental domain, after the caps in document order so its
+           outline draws on top of their opaque fills instead of under them. */
+      }
+      <rect
+        class="debug-only debug-fundamental-domain"
+        x={DOMAIN_X0}
+        y={-(DOMAIN_Y0 + DOMAIN_SIZE)}
+        width={DOMAIN_SIZE}
+        height={DOMAIN_SIZE}
+      />
+      {
+        /* Debug-only reference frame, never part of the played instrument: what
+           the *viewport* fitting guarantees regardless of aspect ratio,
+           DESIGN.md "Sizing". Concentric with the domain because both are
+           derived from the same corner. */
       }
       <rect
         class="debug-only debug-fit-window"
@@ -143,32 +132,15 @@ const capClip = `polygon(${screenHex
     </svg>
     <div class="cursor-dot" data-cursor aria-hidden="true"></div>
   </main>
-  {
-    /* Debug-only, hacky on purpose: manual rotate/flip/pan/zoom of the whole
-       lattice, to eyeball positioning against the two debug rects above
-       before committing to real sizing numbers. Never part of the played
-       instrument — DESIGN.md "Debug mode". */
-  }
-  <div class="debug-only debug-controls" aria-hidden="true">
-    <button type="button" data-debug-action="rotate">⟳ 90°</button>
-    <button type="button" data-debug-action="flip-h">Flip H</button>
-    <button type="button" data-debug-action="flip-v">Flip V</button>
-    <button type="button" data-debug-action="pan-up">↑</button>
-    <button type="button" data-debug-action="pan-down">↓</button>
-    <button type="button" data-debug-action="pan-left">←</button>
-    <button type="button" data-debug-action="pan-right">→</button>
-    <button type="button" data-debug-action="zoom-in">Zoom +</button>
-    <button type="button" data-debug-action="zoom-out">Zoom −</button>
-    <button type="button" data-debug-action="reset">Reset</button>
-  </div>
   <script src="../scripts/main.ts"></script>
 </Layout>
 
 <style>
-  /* 1 twelfth = 100vmin/15: the short viewport axis always shows exactly 15
-     twelfths (DESIGN.md "Sizing"), and vmin's continuous scaling reveals more
-     of this same pre-drawn square on the long axis with no separate portrait
-     case. The body (global.css) centres and clips the excess. */
+  /* 1 twelfth = 100vmin/--fit-size: the short viewport axis always shows
+     exactly FIT_SIZE twelfths (DESIGN.md "Sizing"), and vmin's continuous
+     scaling reveals more of this same pre-drawn square on the long axis with
+     no separate portrait case. The body (global.css) centres and clips the
+     excess. */
   /* The title sits over the surface rather than in the flow: the stage is a
      square much larger than the viewport and centred in it (see "Sizing"), so
      a second grid row would push the lattice off-centre and change what the
@@ -324,10 +296,6 @@ const capClip = `polygon(${screenHex
     display: block;
   }
 
-  html.debug .debug-controls {
-    display: flex;
-  }
-
   .debug-fit-window,
   .debug-fundamental-domain {
     fill: none;
@@ -342,35 +310,8 @@ const capClip = `polygon(${screenHex
     stroke-dasharray: 0.3 0.2;
   }
 
-  /* Inside #debug-transform, so it moves with the rotate/flip/pan/zoom
-     controls below — [0,12)x[0,12) in lattice space. */
+  /* The 12x12 fundamental domain, at the corner tonnetz.ts derives. */
   .debug-fundamental-domain {
     stroke: oklch(90% 0.2 30 / 0.8);
-  }
-
-  /* Hacky on purpose: a fixed panel of plain buttons, not styled to match the
-     instrument — this never ships, DESIGN.md "Debug mode". */
-  .debug-controls {
-    position: fixed;
-    bottom: 0.5rem;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 3;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.3rem;
-    max-width: 90vw;
-    padding: 0.4rem;
-    background: oklch(18% 0.01 260 / 0.85);
-    border-radius: 0.5rem;
-  }
-
-  .debug-controls button {
-    font: 600 0.8rem system-ui, sans-serif;
-    padding: 0.3rem 0.6rem;
-    border: 1px solid oklch(70% 0.02 260);
-    border-radius: 0.3rem;
-    background: oklch(28% 0.02 260);
-    color: oklch(96% 0.01 260);
   }
 </style>

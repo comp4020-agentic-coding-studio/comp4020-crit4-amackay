@@ -35,14 +35,15 @@ artefact carries no exposition about itself is untouched.
 
 ## The lattice
 
-Work in *twelfths*, y up, fundamental domain [0,12) × [0,12).
+Work in *twelfths*, y up. Any 12 × 12 square is a fundamental domain; where
+the instrument puts one is a separate decision, below.
 
 ```
-F = (3, -1)    fifth,       +7 semitones
-B = (3,  3)    minor third, +3 semitones
+F = (-1, 3)    fifth,       +7 semitones
+B = ( 3, 3)    minor third, +3 semitones
 ```
 
-Vertex `(m, n)` sits at `m·F + n·B = (3(m+n), 3n − m)` and sounds
+Vertex `(m, n)` sits at `m·F + n·B = (3n − m, 3(m+n))` and sounds
 
 ```
 pc(m, n) = (7m + 3n) mod 12
@@ -50,9 +51,27 @@ pc(m, n) = (7m + 3n) mod 12
 
 The formula is valid for every integer pair, which is what makes the surface
 outside the fundamental domain live at zero cost: **never reduce `(m, n)` into
-the domain.** Translating by `(12, 0)` (i.e. `m+3, n+1`) or `(0, 12)`
+the domain.** Translating by `(0, 12)` (i.e. `m+3, n+1`) or `(12, 0)`
 (`m−3, n+3`) preserves the pitch class, so the square really is a fundamental
 domain and it really does hold each of the twelve exactly once.
+
+**Where the domain sits.** Its low corner is `(4.5, 10.5)`, the midpoint
+between Gb `(1,2)` at `(5,9)` and its `+F` neighbour Db `(2,2)` at `(4,12)` —
+so every corner of the square falls between a Gb and a Db, a fifth apart, and
+the twelve caps read on screen as
+
+```
+Gb  D   Bb
+B   G   Eb
+E   C   Ab
+A   F   Db
+```
+
+Four rows of three, each row stepping a major third and staggering one twelfth
+right as the screen descends. The corner is a real constant, not a framing
+choice: put it a fifth out and every row shifts, which is invisible to any
+test that only counts caps. `tonnetz.ts` derives the camera from it rather than
+restating it, and `tonnetz.test.ts` pins the layout above.
 
 Edge lengths run fifth < major third < minor third — `√10 ≈ 3.162`, `4`,
 `√18 ≈ 4.243` — so the shortest edge is the simplest relationship. All
@@ -64,9 +83,10 @@ every triangle is a triad:
 - upper triangle: `(m+1,n), (m+1,n+1), (m,n+1)` — **major**, rooted at
   `pc(m,n)+3`
 
-The derived major-third step is `F − B = (0, −4)`: pitch class rises as the
-screen descends, and the four columns at `x = 0, 3, 6, 9` are the four
-augmented triads.
+The derived major-third step is `F − B = (−4, 0)`: pitch class rises by a major
+third as the screen runs left, so each **row** cycles one of the four augmented
+triads, repeating every three caps. That period of three is what makes the key
+block below cover each pitch class an even three times.
 
 ### The hexagon
 
@@ -74,8 +94,8 @@ Because the aspect ratio is 1:1, every triangle's circumcenter is an integer
 offset from its cell's origin vertex:
 
 ```
-minor triad spot = node + (2, 1)
-major triad spot = node + (4, 1)
+minor triad spot = node + (1, 2)
+major triad spot = node + (1, 4)
 ```
 
 both at circumradius `√5` — a fact about the triangulation, and unaffected by
@@ -85,13 +105,18 @@ The button is *not* the Voronoi cell those circumcenters would define. Each cap
 is the **equilateral** hexagon with vertex offsets
 
 ```
-(2, 1/2), (1, 5/2), (-1, 3/2), (-2, -1/2), (-1, -5/2), (1, -3/2)     CCW
+(5/2, 1), (1/2, 2), (-3/2, 1), (-5/2, -1), (-1/2, -2), (3/2, -1)     CCW
 ```
 
 All six edges are `√5`. Node-to-boundary distances vary by neighbour type
 instead of by a shared `|w|/2`: `0.7√5 ≈ 1.565` across a fifth, `0.8√5 ≈
 1.789` across a major third, `0.9√5 ≈ 2.012` across a minor third; crossing
-one is a neo-Riemannian move (P, R, L respectively). There is no single
+one is a neo-Riemannian move (P, R, L respectively). Which edge is which comes
+from the basis, not from the order they happen to be written in: each edge's
+midpoint is half the neighbour vector it separates, making `HEX[0]-HEX[1]` the
+minor third, `HEX[1]-HEX[2]` the fifth and `HEX[2]-HEX[3]` the major third.
+An equilateral hexagon presses identically on all three, so nothing but that
+check can catch the labels being wrong. There is no single
 node-to-corner radius any more — corner distances range `√3.25 ≈ 1.803` to
 `√7.25 ≈ 2.693` — so anything that needs "the" corner reaches for the
 explicit vertex list, not a circumradius.
@@ -162,31 +187,42 @@ playability. Per instruction, keys map onto **lattice positions**, not onto a
 chromatic run, so a chord shape under the hand is the same shape as the
 triangle on screen.
 
-The block is **the previous instrument's, unchanged**: four rows of nine, laid
-over nine lattice columns centred on the fundamental domain. Columns run left
-to right, rows top to bottom.
+The block is **the previous instrument's, unchanged**: four rows of nine. Its
+middle three columns are exactly the fundamental domain, and **those twelve
+caps are the only ones that carry a printed key hint**. The other twenty-four
+keys play, silently — a player finds them by reaching outward from a labelled
+one, or not at all.
 
 | | | | | | | | | |
 |---|---|---|---|---|---|---|---|---|
-| `1` G | `2` B♭ | `3` F | `4` C | `5` G | `6` B♭ | `7` F | `8` C | `9` G |
-| `Q` B | `W` D | `E` A | `R` E | `T` B | `Y` D | `U` A | `I` E | `O` B |
-| `A` E♭ | `S` G♭ | `D` D♭ | `F` A♭ | `G` E♭ | `H` G♭ | `J` D♭ | `K` A♭ | `L` E♭ |
-| `Z` G | `X` B♭ | `C` F | `V` C | `B` G | `N` B♭ | `M` F | `,` C | `.` G |
+| `1` G♭ | `2` D | `3` B♭ | **`4` G♭** | **`5` D** | **`6` B♭** | `7` G♭ | `8` D | `9` B♭ |
+| `Q` B | `W` G | `E` E♭ | **`R` B** | **`T` G** | **`Y` E♭** | `U` B | `I` G | `O` E♭ |
+| `A` E | `S` C | `D` A♭ | **`F` E** | **`G` C** | **`H` A♭** | `J` E | `K` C | `L` A♭ |
+| `Z` A | `X` F | `C` D♭ | **`V` A** | **`B` F** | **`N` D♭** | `M` A | `,` F | `.` D♭ |
 
-Thirty-six keys, twelve pitch classes, so **every note has exactly three keys**.
-That redundancy is not slack: the block spans three horizontal periods, and the
-top and bottom rows are one vertical period apart, so the keyboard repeats
-exactly where the screen repeats. At 1920×1080 the visible caps and the keyed
-block are the same 36 cells; at 390×844 the middle five columns are on screen
-and the outer four hang off, which costs nothing because a phone has no
-keyboard.
+Bold is hinted. Thirty-six keys, twelve pitch classes, **exactly three keys
+each** — an even split, because a row repeats every three caps (the augmented
+triad above) and the outer columns are the domain's own caps translated by
+`(m∓3, n±3)`, one horizontal period either way. That is the whole derivation:
+no scan, no window arithmetic, and the outer keys cannot drift out of step with
+the labelled ones because they *are* the labelled ones.
 
-All 48 triads whose three vertices are keyed fit inside a 2×2 square of keys —
-a minor triad is `A`+`S`+`W`, a major is `S`+`W`+`E` — so triads are one-handed.
-`scripts/tonnetz-keys-wide.ts` derives the table and checks the compactness
-claim; do not hand-maintain it. (`scripts/tonnetz-keys.ts` works the same
+The rows stagger one twelfth right going down, which is the direction a
+physical keyboard staggers too, so the block sits on the lattice the way it
+sits under the hand.
+
+All fully-keyed triads fit inside a 2×2 square of keys — a minor triad is
+`A`+`Q`+`W`, a major is `A`+`W`+`S` — so triads stay one-handed.
+`src/lib/tonnetz.test.ts` proves the split and the compactness;
+`scripts/tonnetz-keys-wide.ts` prints the table as an independent second
+opinion. Neither is hand-maintained. (`scripts/tonnetz-keys.ts` works the same
 problem for a 4×5 left-hand block, kept because it is where the window
-arithmetic is derived.)
+arithmetic is derived; it predates the reorientation.)
+
+At 1920×1080 the visible caps are 24 in four rows, all of them keyed, with the
+labelled domain centred and unlabelled wrapped copies either side; the block's
+outer columns hang off. At 390×844 fourteen are keyed and on screen, which
+costs nothing because a phone has no keyboard.
 
 Held keys stack, so keyboard and touch reach the same chords by the same rule:
 the sounding set is the union.
@@ -200,11 +236,16 @@ because they sat far apart on it:
   horizontal periods, so the drag starts no second voice.
 - `press("KeyZ")` against `press("Digit9")` — both G, for the same reason.
 
-On a torus, far apart is not different. Both need new endpoints (`KeyA`→`KeyS`
-gives E♭/G♭, `KeyZ`→`KeyD` gives G/D♭, a tritone). These are edits to *which
-caps the test points at*, made necessary by the artefact, not softenings of
-what the spec asks — own commit, body says so. Every other code the suite
-presses lands on a real cap and needs nothing.
+On a torus, far apart is not different. Both need new endpoints — now
+`KeyA`→`KeyS` (E/C) and `KeyZ`→`KeyD` (A/A♭). `KeyF` served as the drag's
+second endpoint for a while and stopped working when the block was rederived:
+it is three columns from `KeyA`, which is exactly one horizontal period, so
+both became E. Any endpoint pair here has to be checked against the *current*
+period, not inherited; `scripts/tonnetz-keys-wide.ts` prints the check.
+
+These are edits to *which caps the test points at*, made necessary by the
+artefact, not softenings of what the spec asks — own commit, body says so.
+Every other code the suite presses lands on a real cap and needs nothing.
 
 ## Tuning and synthesis
 
@@ -494,14 +535,12 @@ single varying channel across the whole surface.
 
 ### Sizing
 
-Fit **15 twelfths to the short viewport axis**, and extend the long axis with
+Fit **14 twelfths to the short viewport axis**, and extend the long axis with
 more lattice until it fills — the caps are the same size either way, there is
-just more torus. The core window is `x ∈ [−1.5, 13.5]`, `y ∈ [−2, 13]`, chosen
-because it is square and gives each column four caps; the vertical margin is
-asymmetric because the columns are staggered by one twelfth, and a symmetric
-window catches three caps in one column instead of four. That comes to **36
-caps at 1920×1080 and 40 at 390×844** — the same density as the 9×4 grid it
-replaces.
+just more torus. That is the fundamental domain plus one twelfth of padding on
+each side (`FIT_PADDING`, still a placeholder), centred on the domain: the
+guaranteed-visible square is the twelve labelled caps and a little air. That
+comes to **24 caps at 1920×1080 and 34 at 390×844**.
 
 **Draw every cell that intersects the viewport, not every centre inside it**,
 and let SVG clip. Caps cut off at the edge are correct and wanted: they say the
@@ -509,21 +548,24 @@ surface continues.
 
 Extending the long axis is what carries the "make the wrapping obvious"
 job, now that opacity no longer marks the margin. At 1920×1080 the surface is
-about 2.2 fundamental domains wide by 1.25 tall; at 390×844 it is 1.25 wide by
-2.7 tall. Each marked viewport shows the repeat clearly along one axis. Whether
+about 2.1 fundamental domains wide by 1.2 tall; at 390×844 it is 1.2 wide by
+2.5 tall. Each marked viewport shows the repeat clearly along one axis. Whether
 that is enough is a question for the eye, not for a test.
 
 At the two marked viewports:
 
 | Viewport | Twelfth | Cap across (min) | Triad region (undrawn) |
 |---|---|---|---|
-| 1920×1080 | 72 px | 225 px | 80 px |
-| 390×844 | 26 px | 81 px ≈ 22 mm | 29 px ≈ 7.7 mm |
+| 1920×1080 | 77 px | 241 px | 86 px |
+| 390×844 | 28 px | 87 px ≈ 23 mm | 31 px ≈ 8.3 mm |
+
+At 7.4 mm per twelfth the phone's fundamental domain is about 89 × 89 mm.
 
 Caps are generous at both sizes. The triad region is `2r = √5/2 ≈ 1.118`
 twelfths, so a 7 mm spot needs `14/√5 ≈ 6.26` mm per twelfth — a 75 × 75 mm
-fundamental domain. The phone gives 6.9, so the triad region now clears the
-~7 mm touch guideline it used to sit just under. That is a side effect of
+fundamental domain. The phone gives 7.4 (it was 6.9 at 15 twelfths to the short
+axis), so the triad region clears the ~7 mm touch guideline it used to sit just
+under. That is a side effect of
 locking `r` to the 25/50/25 rule rather than a target that was aimed at, and
 nothing here can measure whether it makes chords easier to hit; `r` stays the
 knob if a listen says otherwise.
@@ -551,10 +593,13 @@ flag nobody stumbles into, so it does not count against "no self-explanation in
 the artefact".
 
 Build only what the tuning actually needs: each cap's `(m, n)` and pitch class,
-and the touch disks, which are what makes `r` judgeable. The dyad bands, triad
-spots and fundamental-domain outline are worth drawing only if `r` turns out to
-need real work; the geometry is already proved by the check script, so they
-would be a convenience, not evidence. Skip them unless they earn it.
+and the touch disks, which are what makes `r` judgeable. Two reference squares
+survive from working out where the lattice should sit — the fundamental domain
+and the fit window — because they are what `FIT_PADDING` will be judged
+against. The rotate/flip/pan/zoom controls that went with them are gone: the
+orientation they were exploring is now the basis itself, and a transform on top
+of the caps would have put the pointer hit test (which reads untransformed
+lattice coordinates) out of step with what is drawn.
 
 ## Shepard test page
 
@@ -684,6 +729,10 @@ anywhere in the artefact.
   12-TET. **Deliberately deferred** — it needs ears, not reasoning, and the
   feature is worth having before it is worth tuning. See "One voice per
   gesture".
+- **`FIT_PADDING`.** One twelfth of air around the fundamental domain is a
+  placeholder, not a decision — it sets how much of the surrounding wrapped
+  surface is guaranteed visible. Now a source edit and a reload rather than a
+  button, since the debug view controls are gone.
 - **Name and description.** `index.astro` still carries the template
   placeholders. Ships Wednesday, so this is not optional.
 - **Whether the wrap reads.** Nothing marks the margin any more, so it has to

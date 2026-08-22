@@ -1,7 +1,8 @@
-// Tests a 4x9 key block (the previous instrument's exact QWERTY block) against
-// the visible lattice, as an alternative to the 4x5 left-hand block.
+// Prints the 4x9 key block over the reoriented lattice and checks the claims
+// DESIGN.md "Keyboard" makes about it, as an independent second opinion on
+// src/lib/tonnetz.ts — its own copy of the geometry on purpose.
 
-const pos = (m: number, n: number): [number, number] => [3 * (m + n), 3 * n - m];
+const pos = (m: number, n: number): [number, number] => [3 * n - m, 3 * (m + n)];
 const pcOf = (m: number, n: number): number => ((7 * m + 3 * n) % 12 + 12) % 12;
 const NAMES = ["F", "Gb", "G", "Ab", "A", "Bb", "B", "C", "Db", "D", "Eb", "E"];
 // pc is measured in semitones above the lattice origin; the repo's root is F.
@@ -22,42 +23,54 @@ const KEYS = [
   ["KeyA", "KeyS", "KeyD", "KeyF", "KeyG", "KeyH", "KeyJ", "KeyK", "KeyL"],
   ["KeyZ", "KeyX", "KeyC", "KeyV", "KeyB", "KeyN", "KeyM", "Comma", "Period"],
 ];
-const KEY_COLS = [-6, -3, 0, 3, 6, 9, 12, 15, 18];   // centred on the domain (x=6)
-const [Y0, Y1] = [-2, 13];
+// The domain's twelve caps are the block's middle three columns; the outer six
+// are those same caps one horizontal period out, since (m-3,n+3) is (+12,0).
+const [X0, Y0, SIZE] = [4.5, 10.5, 12];
+const rows = (() => {
+  const caps = visible(X0, X0 + SIZE, Y0, Y0 + SIZE);
+  const ys = [...new Set(caps.map((c) => c.y))].sort((a, b) => b - a);
+  return ys.map((y) => caps.filter((c) => c.y === y).sort((a, b) => a.x - b.x));
+})();
 
 const keyOf = new Map<string, string>();
 const capOf = new Map<string, V>();
-KEY_COLS.forEach((x, col) => {
-  visible(x, x, Y0, Y1).sort((a, b) => b.y - a.y).forEach((cap, row) => {
-    const code = KEYS[row]?.[col];
-    if (!code) return;
-    keyOf.set(`${cap.m},${cap.n}`, code);
-    capOf.set(code, cap);
-  });
-});
+const hinted = new Set<string>();
+rows.forEach((row, r) => row.forEach((cap, i) => {
+  for (const k of [-1, 0, 1]) {
+    const code = KEYS[r]?.[i + 3 + 3 * k];
+    if (!code) continue;
+    const [m, n] = [cap.m - 3 * k, cap.n + 3 * k];
+    const [x, y] = pos(m, n);
+    keyOf.set(`${m},${n}`, code);
+    capOf.set(code, { m, n, x, y, pc: pcOf(m, n) });
+    if (k === 0) hinted.add(code);
+  }
+}));
 
 console.log(`${capOf.size} keys placed, ${new Set([...capOf.values()].map((c) => c.pc)).size} distinct pitch classes\n`);
 for (const row of KEYS) {
   console.log("  " + row.map((c) => {
     const cap = capOf.get(c);
-    return `${c.replace(/^Key|^Digit/, "")}=${cap ? NAMES[cap.pc]!.padEnd(2) : "--"}`;
+    return `${c.replace(/^Key|^Digit/, "")}=${cap ? NAMES[cap.pc]!.padEnd(2) : "--"}${hinted.has(c) ? "*" : " "}`;
   }).join(" "));
 }
+console.log("  (* = hinted, i.e. inside the fundamental domain)");
 
-// What each marked viewport actually shows, at 15 twelfths on the short axis.
-console.log("\nvisible caps at the marked viewports (15 twelfths short axis, centred on x=6, y=5.5):");
+// What each marked viewport actually shows, at FIT_SIZE twelfths on the short axis.
+const FIT_SIZE = 14, [CX, CY] = [X0 + SIZE / 2, Y0 + SIZE / 2];
+console.log(`\nvisible caps at the marked viewports (${FIT_SIZE} twelfths short axis, centred on ${CX}, ${CY}):`);
 for (const [label, w, h] of [["1920x1080", 1920, 1080], ["390x844", 390, 844]] as [string, number, number][]) {
   const short = Math.min(w, h);
-  const [tw, th] = [15 * w / short, 15 * h / short];
-  const v = visible(6 - tw / 2, 6 + tw / 2, 5.5 - th / 2, 5.5 + th / 2);
+  const [tw, th] = [FIT_SIZE * w / short, FIT_SIZE * h / short];
+  const v = visible(CX - tw / 2, CX + tw / 2, CY - th / 2, CY + th / 2);
   const keyed = v.filter((c) => keyOf.has(`${c.m},${c.n}`)).length;
-  const cols = new Set(v.map((c) => c.x)).size;
-  console.log(`  ${label.padEnd(10)} ${tw.toFixed(1)}x${th.toFixed(1)} twelfths -> ${v.length} caps in ${cols} columns, ${keyed} of them keyed`);
+  const rowCount = new Set(v.map((c) => c.y)).size;
+  console.log(`  ${label.padEnd(10)} ${tw.toFixed(1)}x${th.toFixed(1)} twelfths -> ${v.length} caps in ${rowCount} rows, ${keyed} of them keyed`);
 }
 
 // Compactness, and whether every code the spec suite presses still exists.
 let compact = 0, on = 0;
-for (const cap of visible(-9, 21, -5, 16)) {
+for (const cap of visible(-12, 32, 6, 26)) {
   for (const cells of [[[0, 0], [1, 0], [0, 1]], [[1, 0], [1, 1], [0, 1]]]) {
     const ks = cells.map(([dm, dn]) => keyOf.get(`${cap.m + dm!},${cap.n + dn!}`));
     if (ks.some((k) => !k)) continue;
@@ -81,14 +94,10 @@ console.log(`spec/crit-4.test.ts presses ${USED.length} codes; ${missing.length 
 // sound *different*. On a torus, "opposite corners" can be the same note.
 const pcName = (c: string) => NAMES[capOf.get(c)!.pc]!;
 for (const [a, b, why] of [
-  ["KeyA", "KeyL", "drag() expects two voices"],
-  ["KeyZ", "Digit9", "expects two different sounds"],
+  ["KeyA", "KeyS", "drag() expects two voices"],
+  ["KeyZ", "KeyD", "expects two different sounds"],
 ] as [string, string, string][]) {
   const same = capOf.get(a)!.pc === capOf.get(b)!.pc;
   console.log(`  ${same ? "CLASH" : "ok   "} ${a}=${pcName(a)} vs ${b}=${pcName(b)} — ${why}`);
 }
-const alt = (a: string, b: string) => capOf.get(a)!.pc !== capOf.get(b)!.pc;
-console.log(`\n  replacements: KeyA->KeyF ${alt("KeyA", "KeyF") ? "ok" : "no"} (${pcName("KeyA")}/${pcName("KeyF")}), ` +
-  `KeyZ->KeyD ${alt("KeyZ", "KeyD") ? "ok" : "no"} (${pcName("KeyZ")}/${pcName("KeyD")})`);
-
 export {};

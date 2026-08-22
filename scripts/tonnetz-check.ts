@@ -2,9 +2,9 @@
 // numerically, as an independent second opinion on src/lib/tonnetz.ts — not
 // the contract, DESIGN.md "Build order".
 
-const F: [number, number] = [3, -1];   // perfect fifth, +7 semitones
+const F: [number, number] = [-1, 3];   // perfect fifth, +7 semitones
 const B: [number, number] = [3, 3];    // minor third,   +3 semitones
-const HEX: [number, number][] = [[2, 0.5], [1, 2.5], [-1, 1.5], [-2, -0.5], [-1, -2.5], [1, -1.5]];
+const HEX: [number, number][] = [[2.5, 1], [0.5, 2], [-1.5, 1], [-2.5, -1], [-0.5, -2], [1.5, -1]];
 const R = Math.sqrt(5) / 4;
 
 const pos = (m: number, n: number): [number, number] => [m * F[0] + n * B[0], m * F[1] + n * B[1]];
@@ -32,9 +32,9 @@ check("cell area 12 => 144/12 = 12 vertices", Math.abs(F[0] * B[1] - F[1] * B[0]
 
 // 2. Straight wrap: translating by 12 in x or y lands on the same pitch class.
 const wrapOk = inDomain.every(({ m, n, pc: p }) => pc(m + 3, n + 1) === p && pc(m - 3, n + 3) === p);
-check("wrap by (12,0) = (m+3,n+1) and (0,12) = (m-3,n+3) preserve pc", wrapOk);
-check("...those translations really are (12,0) and (0,12)",
-  String(sub(pos(3, 1), pos(0, 0))) === "12,0" && String(sub(pos(-3, 3), pos(0, 0))) === "0,12");
+check("wrap by (0,12) = (m+3,n+1) and (12,0) = (m-3,n+3) preserve pc", wrapOk);
+check("...those translations really are (0,12) and (12,0)",
+  String(sub(pos(3, 1), pos(0, 0))) === "0,12" && String(sub(pos(-3, 3), pos(0, 0))) === "12,0");
 
 // 3. Six lattice neighbours are pc +/-3, +/-4, +/-7.
 const NEIGHBOURS: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
@@ -47,14 +47,14 @@ check("edge lengths P5=3.162 M3=4.000 m3=4.243", new Set(nbVecs).size === 3, nbV
 // That sqrt(5) is the triangulation's, not the button's — the press radius R
 // above is a different quantity that happens to be derived from the same
 // surd (tonnetz-equilateral-patch.md warns about exactly this collision).
-const ccLower: [number, number] = [2, 1];
-const ccUpper: [number, number] = [4, 1];
+const ccLower: [number, number] = [1, 2];
+const ccUpper: [number, number] = [1, 4];
 const lowerTri: [number, number][] = [pos(0, 0), pos(1, 0), pos(0, 1)];
 const upperTri: [number, number][] = [pos(1, 0), pos(1, 1), pos(0, 1)];
 const equidistant = (c: [number, number], tri: [number, number][]) =>
   tri.every((v) => Math.abs(len(sub(c, v)) - Math.SQRT2 * Math.sqrt(2.5)) < 1e-12);
-check("lower circumcenter (2,1) equidistant sqrt(5) from its triad", equidistant(ccLower, lowerTri));
-check("upper circumcenter (4,1) equidistant sqrt(5) from its triad", equidistant(ccUpper, upperTri));
+check("lower circumcenter (1,2) equidistant sqrt(5) from its triad", equidistant(ccLower, lowerTri));
+check("upper circumcenter (1,4) equidistant sqrt(5) from its triad", equidistant(ccUpper, upperTri));
 check("lower triangle is a minor triad rooted at pc(m,n)",
   String(lowerTri.map((_, i) => pc([0, 1, 0][i]!, [0, 0, 1][i]!)).sort((a, b) => a - b)) === "0,3,7");
 check("upper triangle is a major triad rooted at pc(m,n)+3",
@@ -66,13 +66,14 @@ const hexEdges = HEX.map((v, i) => len(sub(HEX[(i + 1) % 6]!, v)).toFixed(3));
 check("all six edges equal length sqrt(5)=2.236", new Set(hexEdges).size === 1, hexEdges.join(" "));
 
 // Node-to-edge (apothem) distances differ by boundary type, per the patch:
-// 0.9*sqrt(5) (m3), 0.8*sqrt(5) (M3), 0.7*sqrt(5) (P5).
+// 0.9*sqrt(5) (m3), 0.8*sqrt(5) (M3), 0.7*sqrt(5) (P5). Edge order follows the
+// basis: HEX[0]-HEX[1] crosses m3, HEX[1]-HEX[2] P5, HEX[2]-HEX[3] M3.
 const apothem = (a: [number, number], b: [number, number]) =>
   Math.abs(a[0] * b[1] - a[1] * b[0]) / len(sub(b, a));
 const [ap01, ap12, ap23] = [apothem(HEX[0]!, HEX[1]!), apothem(HEX[1]!, HEX[2]!), apothem(HEX[2]!, HEX[3]!)];
 check("m3 apothem 0.9*sqrt(5)=2.012", Math.abs(ap01 - 0.9 * Math.sqrt(5)) < 1e-9, ap01.toFixed(4));
-check("M3 apothem 0.8*sqrt(5)=1.789", Math.abs(ap12 - 0.8 * Math.sqrt(5)) < 1e-9, ap12.toFixed(4));
-check("P5 apothem 0.7*sqrt(5)=1.565", Math.abs(ap23 - 0.7 * Math.sqrt(5)) < 1e-9, ap23.toFixed(4));
+check("P5 apothem 0.7*sqrt(5)=1.565", Math.abs(ap12 - 0.7 * Math.sqrt(5)) < 1e-9, ap12.toFixed(4));
+check("M3 apothem 0.8*sqrt(5)=1.789", Math.abs(ap23 - 0.8 * Math.sqrt(5)) < 1e-9, ap23.toFixed(4));
 
 // 6. The hit test of section 4, and the <=3-press invariant.
 const cellDist = (p: [number, number], node: [number, number]): number => {
@@ -90,7 +91,7 @@ const cellDist = (p: [number, number], node: [number, number]): number => {
 };
 
 const pressed = (x: number, y: number, r: number): number[] => {
-  const m0 = Math.floor((x - y) / 4), n0 = Math.floor(x / 12 + y / 4);
+  const m0 = Math.floor((y - x) / 4), n0 = Math.floor(y / 12 + x / 4);
   const out = new Set<number>();
   for (let i = -2; i <= 2; i++) {
     for (let j = -2; j <= 2; j++) {
@@ -152,16 +153,16 @@ check("triad spot diameter 2r = sqrt(5)/2 = 1.118", Math.abs(2 * R - Math.sqrt(5
 const E = len(sub(HEX[1]!, HEX[0]!));
 check("dyad zone usable length E/2 = sqrt(5)/2 = 1.118", Math.abs(E / 2 - Math.sqrt(5) / 2) < 1e-9);
 check("P5 note core width 2*(0.7*sqrt(5) - r) = 0.9*sqrt(5) = 2.012",
-  Math.abs(2 * (ap23 - R) - 0.9 * Math.sqrt(5)) < 1e-9);
+  Math.abs(2 * (ap12 - R) - 0.9 * Math.sqrt(5)) < 1e-9);
 check("M3 note core width 2*(0.8*sqrt(5) - r) = 1.1*sqrt(5) = 2.460",
-  Math.abs(2 * (ap12 - R) - 1.1 * Math.sqrt(5)) < 1e-9);
+  Math.abs(2 * (ap23 - R) - 1.1 * Math.sqrt(5)) < 1e-9);
 check("m3 note core width 2*(0.9*sqrt(5) - r) = 1.3*sqrt(5) = 2.907",
   Math.abs(2 * (ap01 - R) - 1.3 * Math.sqrt(5)) < 1e-9);
 
 // 10. Is a 5x5 scan needed, or do the containing cell and its six neighbours
 // suffice? SVG hit-tests the hexagon for us, so the cheaper form ships.
 const nearestNode = (x: number, y: number): [number, number] => {
-  const m0 = Math.floor((x - y) / 4), n0 = Math.floor(x / 12 + y / 4);
+  const m0 = Math.floor((y - x) / 4), n0 = Math.floor(y / 12 + x / 4);
   let best: [number, number] = [m0, n0], bestD = Infinity;
   for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) {
     const d = len(sub([x, y], pos(m0 + i, n0 + j)));
@@ -170,7 +171,7 @@ const nearestNode = (x: number, y: number): [number, number] => {
   return best;
 };
 const scanCells = (x: number, y: number, r: number): string[] => {
-  const m0 = Math.floor((x - y) / 4), n0 = Math.floor(x / 12 + y / 4);
+  const m0 = Math.floor((y - x) / 4), n0 = Math.floor(y / 12 + x / 4);
   const out: string[] = [];
   for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++)
     if (cellDist([x, y], pos(m0 + i, n0 + j)) < r) out.push(`${m0 + i},${n0 + j}`);

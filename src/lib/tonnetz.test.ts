@@ -1,17 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
   cellDist,
-  codeForCell,
   containingCell,
+  DOMAIN_SIZE,
+  DOMAIN_X0,
+  DOMAIN_Y0,
+  domainRows,
+  drawnCells,
   H,
   HEX,
   KEYED_NODES,
+  KEYS,
   NEIGHBOURS,
+  nodeForCell,
   nodeForCode,
   pc,
   pos,
   pressedPitchClasses,
   R,
+  type Vec,
   visibleCells,
 } from "./tonnetz.ts";
 
@@ -36,6 +43,47 @@ describe("the fundamental domain", () => {
     for (const { m, n, pc: p } of inDomain) {
       expect(pc(m + 3, n + 1)).toBe(p);
       expect(pc(m - 3, n + 3)).toBe(p);
+    }
+  });
+});
+
+describe("the domain as it reaches the screen", () => {
+  // The layout the instrument is positioned around, top of the screen down and
+  // each row left to right:
+  //     Gb  D   Bb
+  //     B   G   Eb
+  //     E   C   Ab
+  //     A   F   Db
+  // Pinned as pitch classes because this is the thing that was wrong: the
+  // corner sat on a B/Gb midpoint instead of a Gb/Db one, which shifted every
+  // row by one and could not be seen by any test that only counted caps.
+  const EXPECTED = [
+    [1, 9, 5],
+    [6, 2, 10],
+    [11, 7, 3],
+    [4, 0, 8],
+  ];
+
+  it("reads as four rows of three, in the intended order", () => {
+    expect(domainRows().map((row) => row.map((cap) => cap.pc))).toEqual(EXPECTED);
+  });
+
+  it("puts the corner on a Gb/Db midpoint, a fifth apart", () => {
+    // Gb (1,2) and its +F neighbour Db (2,2); the corner is their midpoint.
+    expect(pc(1, 2)).toBe(1);
+    expect(pc(2, 2)).toBe(8);
+    const [gx, gy] = pos(1, 2);
+    const [dx, dy] = pos(2, 2);
+    expect([(gx + dx) / 2, (gy + dy) / 2]).toEqual([DOMAIN_X0, DOMAIN_Y0]);
+  });
+
+  it("rows run down the screen and each row runs left to right", () => {
+    const rows = domainRows();
+    for (let r = 1; r < rows.length; r++) {
+      expect(rows[r]![0]!.y, "later rows sit lower on screen").toBeLessThan(rows[r - 1]![0]!.y);
+    }
+    for (const row of rows) {
+      for (let i = 1; i < row.length; i++) expect(row[i]!.x).toBeGreaterThan(row[i - 1]!.x);
     }
   });
 });
@@ -201,14 +249,33 @@ describe("boundary presses: 25/50/25 split, one edge per boundary type", () => {
   // edge, the first and last quarter press the corner's triad (3 pcs) and
   // the middle half presses just the dyad (2 pcs) — identical on all three
   // boundary types because the hexagon is equilateral. HEX[0]-HEX[1] is the
-  // m3 boundary, HEX[1]-HEX[2] is M3, HEX[2]-HEX[3] is P5 (DESIGN.md "The
-  // hexagon"). A small band around t=0.25 and t=0.75 is excluded for
+  // m3 boundary, HEX[1]-HEX[2] is P5, HEX[2]-HEX[3] is M3 (DESIGN.md "The
+  // hexagon"; the labels are checked against the neighbour vectors below,
+  // because an equilateral hexagon makes the split itself blind to the
+  // order). A small band around t=0.25 and t=0.75 is excluded for
   // float/hysteresis tolerance.
   const EDGES: [string, number][] = [
     ["m3", 0],
-    ["M3", 1],
-    ["P5", 2],
+    ["P5", 1],
+    ["M3", 2],
   ];
+
+  it("each edge separates the neighbour its label names", () => {
+    // Every edge's midpoint is exactly half the neighbour vector it crosses.
+    const VECTOR: Record<string, Vec> = {
+      P5: pos(1, 0),
+      m3: pos(0, 1),
+      M3: [pos(1, 0)[0] - pos(0, 1)[0], pos(1, 0)[1] - pos(0, 1)[1]],
+    };
+    for (const [label, i] of EDGES) {
+      const [ax, ay] = HEX[i]!;
+      const [bx, by] = HEX[(i + 1) % 6]!;
+      expect([(ax + bx) / 2, (ay + by) / 2], label).toEqual([
+        VECTOR[label]![0] / 2,
+        VECTOR[label]![1] / 2,
+      ]);
+    }
+  });
   const BAND = 0.02;
 
   for (const [label, i] of EDGES) {
@@ -258,26 +325,71 @@ describe("the keyed block", () => {
     expect(KEYED_NODES).toHaveLength(36);
   });
 
-  it("covers all twelve pitch classes", () => {
-    // Not an even 3-per-note split — 9 columns isn't a multiple of the
-    // 4-column horizontal period, so some notes land more often than others
-    // (e.g. the note at column phase 0 gets 3 hits per row, others 2). What
-    // matters is every pitch class is reachable from the keyboard at all.
+  it("gives every pitch class exactly three keys", () => {
+    // An even split, because the block is the domain plus one horizontal
+    // period either side and the period is exactly three columns wide.
     const byPc = new Map<number, number>();
     for (const node of KEYED_NODES) byPc.set(node.pc, (byPc.get(node.pc) ?? 0) + 1);
     expect(byPc.size).toBe(12);
-    for (const count of byPc.values()) expect(count).toBeGreaterThan(0);
+    for (const count of byPc.values()) expect(count).toBe(3);
+  });
+
+  it("hints exactly the twelve caps inside the fundamental domain", () => {
+    const hinted = KEYED_NODES.filter((node) => node.hint);
+    expect(hinted).toHaveLength(12);
+    for (const node of hinted) {
+      expect(node.x).toBeGreaterThan(DOMAIN_X0);
+      expect(node.x).toBeLessThan(DOMAIN_X0 + DOMAIN_SIZE);
+      expect(node.y).toBeGreaterThan(DOMAIN_Y0);
+      expect(node.y).toBeLessThan(DOMAIN_Y0 + DOMAIN_SIZE);
+    }
+    expect(new Set(hinted.map((node) => node.pc)).size).toBe(12);
+  });
+
+  it("keys only caps the page actually draws", () => {
+    // The block reaches ~2.3 twelfths inside the drawn window's edge; a key on
+    // a cap that was never emitted would be silently dead, since the page
+    // finds its target by data-note.
+    const drawn = new Set(drawnCells().map((cap) => `${cap.m},${cap.n}`));
+    const missing = KEYED_NODES.filter((node) => !drawn.has(`${node.m},${node.n}`));
+    expect(missing.map((node) => node.code)).toEqual([]);
   });
 
   it("round-trips code <-> cell", () => {
     for (const node of KEYED_NODES) {
       expect(nodeForCode(node.code)).toEqual(node);
-      expect(codeForCell(node.m, node.n)).toBe(node.code);
+      expect(nodeForCell(node.m, node.n)).toEqual(node);
     }
+  });
+
+  it("puts every fully-keyed triad inside a 2x2 square of keys", () => {
+    // DESIGN.md "Keyboard": triads stay one-handed. A triangle whose three
+    // vertices are all keyed must span at most two rows and two columns.
+    const at = new Map<string, [number, number]>();
+    KEYS.forEach((row, r) => row.forEach((code, c) => at.set(code, [r, c])));
+    const keyed = new Map(KEYED_NODES.map((node) => [`${node.m},${node.n}`, node]));
+    const spans: number[] = [];
+    for (const node of KEYED_NODES) {
+      const { m, n } = node;
+      const triangles = [
+        [[m, n], [m + 1, n], [m, n + 1]], // lower: minor
+        [[m + 1, n], [m + 1, n + 1], [m, n + 1]], // upper: major
+      ] as [number, number][][];
+      for (const triangle of triangles) {
+        const cells = triangle.map(([tm, tn]) => keyed.get(`${tm},${tn}`));
+        if (cells.some((cell) => !cell)) continue;
+        const at3 = cells.map((cell) => at.get(cell!.code)!);
+        const rows = at3.map(([r]) => r);
+        const cols = at3.map(([, c]) => c);
+        spans.push(Math.max(...rows) - Math.min(...rows), Math.max(...cols) - Math.min(...cols));
+      }
+    }
+    expect(spans.length, "no fully-keyed triads found at all").toBeGreaterThan(0);
+    expect(Math.max(...spans)).toBeLessThanOrEqual(1);
   });
 
   it("returns undefined for an unmapped code or cell", () => {
     expect(nodeForCode("NoSuchCap")).toBeUndefined();
-    expect(codeForCell(999, 999)).toBeUndefined();
+    expect(nodeForCell(999, 999)).toBeUndefined();
   });
 });
