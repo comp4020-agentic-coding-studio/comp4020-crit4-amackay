@@ -8,12 +8,6 @@ function frac(v: number): number {
   return ((v % 1) + 1) % 1;
 }
 
-/** The 3-limit/5-limit ratio for a lattice node, a fifths and b thirds from
- *  the root. */
-export function ratioFor(a: number, b: number): number {
-  return 3 ** a * 5 ** b;
-}
-
 /** Pitch class of a ratio relative to the root (0–1, wraps at the octave).
  *  Drives colour: DESIGN.md's `hue = 25° + 360° · pc`. */
 export function pitchClassFor(ratio: number): number {

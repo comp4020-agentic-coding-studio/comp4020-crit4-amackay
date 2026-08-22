@@ -112,7 +112,7 @@ describe("playable with whatever is at hand", () => {
   it("plays the caps a finger drags across", () => {
     const { audio } = open();
     audio.reset();
-    page?.drag("KeyA", "KeyL");
+    page?.drag("KeyA", "KeyS");
     expect(
       audio.started.length,
       "a drag across two caps should start two voices, not one continuous one",
@@ -160,7 +160,7 @@ describe("it is expressive", () => {
     const low = audio.signature;
 
     audio.reset();
-    page?.press("Digit9");
+    page?.press("KeyD");
     const high = audio.signature;
 
     expect(low, "the first gesture made no sound to compare").not.toBe("[]");

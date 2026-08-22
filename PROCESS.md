@@ -1,7 +1,7 @@
 # Process overview
 
-A 9×4 grid of glowing key-caps, each a node of a 5-limit just-intonation
-lattice sounding an octaveless Shepard tone — playable by touch, drag, or the
+A wrapping Tonnetz of hexagonal caps, each a pitch class of the 12-TET torus
+sounding an octaveless Shepard tone — playable by touch, drag, mouse or the
 matching QWERTY block. `DESIGN.md` is the implementation authority; this is a
 map to how the build actually went, not a restatement of it.
 

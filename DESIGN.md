@@ -4,268 +4,644 @@ The implementation authority for this prototype. `CLAUDE.md` governs how to work
 in the repo; this file governs what to build. Where they disagree, `CLAUDE.md`
 wins on process and this file wins on the artefact.
 
-The design was settled in a separate conversation; the handoff brief and the
-returned decisions are in the history (`git show 14c54b5`).
+The design arrived as a hand-off written in a conversation that had never seen
+this repo, and was amended once, by a patch that replaced the Voronoi button
+cell with the equilateral hexagon and locked the press radius. Both documents
+are in the history; neither is authoritative and neither needs reading. What
+survived of them is here, and the lattice is verified numerically by
+`scripts/tonnetz-check.ts`.
+
+Things dropped on purpose, so a later session does not helpfully restore them:
+the hand-off's six drawn layers (one is drawn — the caps), its reduced-opacity
+margin, its drawn fundamental-domain outline, its caps eroded by the press
+radius, and its major-red/minor-blue triad colouring. All per instruction, and
+all covered under "Visual design".
 
 ## What it is
 
-A 9×4 grid of glowing key-caps, one per node of the 5-limit just-intonation
-lattice, each sounding an octaveless Shepard tone while held — playable
-polyphonically by multi-touch, by finger-drag, or by the matching block of
-QWERTY keys.
+One fundamental domain of the 12-TET pitch-class torus, drawn as a square
+Tonnetz that wraps straight on both axes and keeps going past the edges. Every
+pitch class is an equilateral hexagon. A touch is a disk, and it presses every
+cell the disk overlaps: one cell sounds a note, two sound a dyad, three sound a
+triad.
+The geometry — not a clamp — guarantees those are the only possibilities, that
+every dyad is a third or a fifth, and that every triad is major or minor.
 
-There is no score, no fail state, no instructions, and no text on the page
-beyond the key labels.
+Sliding a finger from the middle of a cell toward a corner where three of them
+meet is the signature gesture: notes join and leave underneath it while the
+common tones stay sounding. Two fingers reach seventh chords. There is no
+score, no fail state, no instructions, and no text on the page beyond the cap
+labels and the title. The page is called **Touch-Tonnetz**, and per instruction
+that name is shown: a small centred plate at the top edge, out of flow and
+click-through, so it names the thing without becoming a header the instrument
+has to live underneath. It is a name, not an explanation — the rule that the
+artefact carries no exposition about itself is untouched.
 
-## Tuning
+## The lattice
 
-Each node sounds the pitch class of `3^a · 5^b` against a root of pitch class F
-(reference 349.2282 Hz). Columns step the 3-axis, rows step the 5-axis, and the
-y-axis is inverted: going down a row multiplies by 5, it doesn't divide.
-Column index `i = 0…8` gives `a = i − 3`, so the q-row is a chain of fifths:
-Ab Eb Bb F C G D A E — the root `1/1` lands on `r`, not on any row's `f`; the
-physical `f` key now carries `3^0·5^1`, a fifth row down from the root.
+Work in *twelfths*, y up. Any 12 × 12 square is a fundamental domain; where
+the instrument puts one is a separate decision, below.
 
-| Row (top→bottom) | Keys | `b` |
-|---|---|---|
-| digits | `1 2 3 4 5 6 7 8 9` | −1 |
-| q-row | `q w e r t y u i o` | 0 |
-| a-row | `a s d f g h j k l` | 1 |
-| z-row | `z x c v b n m , .` | 2 |
+```
+F = (-1, 3)    fifth,       +7 semitones
+B = ( 3, 3)    minor third, +3 semitones
+```
 
-**The near-unisons are intended, not a bug.** A nine-wide chain of fifths wraps
-far enough to collide with the 5-axis: three pairs (`1`~`o`, `q`~`l`, `a`~`.`)
-sit a schisma apart — 1.95 cents, beating about once every three seconds — and
-28 pairs fall within 30 cents, the 19.6-cent ones being syntonic-comma pairs.
-Per instruction: players discovering audible beats is part of the instrument.
-Do not "fix" this by narrowing the lattice further.
-`scripts/lattice-check.ts` recomputes all of it.
+Vertex `(m, n)` sits at `m·F + n·B = (3n − m, 3(m+n))` and sounds
 
-All 36 pitch classes are distinct, and per-voice loudness varies by only
-0.27 dB, so no per-node loudness correction is needed.
+```
+pc(m, n) = (7m + 3n) mod 12
+```
 
-## Synthesis
+The formula is valid for every integer pair, which is what makes the surface
+outside the fundamental domain live at zero cost: **never reduce `(m, n)` into
+the domain.** Translating by `(0, 12)` (i.e. `m+3, n+1`) or `(12, 0)`
+(`m−3, n+3`) preserves the pitch class, so the square really is a fundamental
+domain and it really does hold each of the twelve exactly once.
 
-One voice per held node. Eight sine partials, octave-spaced, under a fixed
-Gaussian amplitude window in log-frequency — the window is fixed in *absolute*
-frequency, which is what makes the tone octaveless.
+**Where the domain sits.** Its low corner is `(4.5, 10.5)`, the midpoint
+between Gb `(1,2)` at `(5,9)` and its `+F` neighbour Db `(2,2)` at `(4,12)` —
+so every corner of the square falls between a Gb and a Db, a fifth apart, and
+the twelve caps read on screen as
 
-- `x = frac(log2(349.2282 · 3^a · 5^b / 32))`
-- partials at `f_k = 32 · 2^(x + k)` for `k = 0…7` (32 Hz – 8192 Hz)
-- `A_k = exp(−(log2(f_k / 260))² / (2 · 1.5²))`, then normalise by `1 / Σ A_k`
+```
+Gb  D   Bb
+B   G   Eb
+E   C   Ab
+A   F   Db
+```
 
-Graph per voice: 8 sine `OscillatorNode`s → per-partial `GainNode`s (fixed
-`A_k`) → one voice `GainNode` (the envelope) → shared master `GainNode` →
-`DynamicsCompressorNode` (defaults) → destination.
+Four rows of three, each row stepping a major third and staggering one twelfth
+right as the screen descends. The corner is a real constant, not a framing
+choice: put it a fifth out and every row shifts, which is invisible to any
+test that only counts caps. `tonnetz.ts` derives the camera from it rather than
+restating it, and `tonnetz.test.ts` pins the layout above.
 
-**Envelope.** Attack: voice gain 0 → 1 over 15 ms. Release: `setTargetAtTime`
-toward 0 with a 120 ms time constant.
+Edge lengths run fifth < major third < minor third — `√10 ≈ 3.162`, `4`,
+`√18 ≈ 4.243` — so the shortest edge is the simplest relationship. All
+triangles are acute, so the Delaunay triangulation *is* the Tonnetz mesh and
+every triangle is a triad:
 
-**Stop the oscillators explicitly, six time constants after release** (≈720 ms).
-`setTargetAtTime` never reaches zero: stopping earlier clicks audibly, and never
-stopping leaks oscillators for the life of the page. Disconnect on the
-oscillator's `ended` event.
+- lower triangle of cell `(m,n)`: `(m,n), (m+1,n), (m,n+1)` — **minor**, rooted
+  at `pc(m,n)`
+- upper triangle: `(m+1,n), (m+1,n+1), (m,n+1)` — **major**, rooted at
+  `pc(m,n)+3`
 
-**Master gain is 0.25**, confirmed by ear during development. Every partial
-starts at phase 0, so a voice sums coherently at the attack and peaks at exactly
-1.0; ten simultaneous voices would peak at 10.0. Per instruction, ten-finger
-chords are not a case to engineer around — do not add limiting beyond the
-compressor already in the graph.
+The derived major-third step is `F − B = (−4, 0)`: pitch class rises by a major
+third as the screen runs left, so each **row** cycles one of the four augmented
+triads, repeating every three caps. That period of three is what makes the key
+block below cover each pitch class an even three times.
 
-**Silence is the rest state.** Create the `AudioContext` lazily on the first
-gesture and call `resume()` on it, always — the spec tests assert both that
-nothing sounds before the first gesture and that a resume happens on it. When no
-node is held and all tails have decayed, the page is silent. Release every
-active voice on `window` blur.
+### The hexagon
+
+Because the aspect ratio is 1:1, every triangle's circumcenter is an integer
+offset from its cell's origin vertex:
+
+```
+minor triad spot = node + (1, 2)
+major triad spot = node + (1, 4)
+```
+
+both at circumradius `√5` — a fact about the triangulation, and unaffected by
+what follows.
+
+The button is *not* the Voronoi cell those circumcenters would define. Each cap
+is the **equilateral** hexagon with vertex offsets
+
+```
+(5/2, 1), (1/2, 2), (-3/2, 1), (-5/2, -1), (-1/2, -2), (3/2, -1)     CCW
+```
+
+All six edges are `√5`. Node-to-boundary distances vary by neighbour type
+instead of by a shared `|w|/2`: `0.7√5 ≈ 1.565` across a fifth, `0.8√5 ≈
+1.789` across a major third, `0.9√5 ≈ 2.012` across a minor third; crossing
+one is a neo-Riemannian move (P, R, L respectively). Which edge is which comes
+from the basis, not from the order they happen to be written in: each edge's
+midpoint is half the neighbour vector it separates, making `HEX[0]-HEX[1]` the
+minor third, `HEX[1]-HEX[2]` the fifth and `HEX[2]-HEX[3]` the major third.
+An equilateral hexagon presses identically on all three, so nothing but that
+check can catch the labels being wrong. There is no single
+node-to-corner radius any more — corner distances range `√3.25 ≈ 1.803` to
+`√7.25 ≈ 2.693` — so anything that needs "the" corner reaches for the
+explicit vertex list, not a circumradius.
+
+**Every coordinate above is an exact half-integer.** The whole surface can be
+emitted once as static geometry; nothing is recomputed per frame.
+
+The cell area is still 12 — the lattice's own fundamental-domain area — so the
+hexagon tiles the plane under `F` and `B` exactly as the Voronoi cell did.
+That, not the bisector construction, is what makes the caps meet flush.
+
+## Touch model
+
+Press radius `r = √5/4 ≈ 0.559` twelfths, hysteresis `h = 0.08` (absolute, not
+a fraction of `r`). A touch at `(x, y)` presses cell `(m, n)` iff
+`cellDist((x,y), node(m,n)) < r`.
+
+`r` is locked to that value by a design rule the equilateral hexagon makes
+uniform: along **every** button boundary the first quarter of the edge presses
+one triad, the middle half presses the dyad, and the last quarter presses the
+other triad. Adjacent triad corners are `√5` apart, so the 25/50/25 split is
+exactly `4r = √5`. Because all six edges are the same length, that split is
+identical on all three boundary types — which is the whole reason for the
+shape.
+
+The hand-off's §4 finds the candidates by inverting the basis
+(`alpha = (x−y)/4`, `beta = x/12 + y/4`) and scanning a 5×5 neighbourhood.
+**The shipped code does not need that.** SVG hit-tests the hexagon, so a
+`pointerdown` or `pointermove` already names the containing cell, and only that
+cell plus its six lattice neighbours can also be within `r`. Seven `cellDist`
+calls, no basis inversion, and no way for the arithmetic to disagree with what
+the browser hit-tested. `scripts/tonnetz-check.ts` confirms the two forms agree
+exactly, and keeps agreeing up to `r = 1.85` — well past the 1.118 this design
+is allowed. The inversion stays in the check script, where it earns its keep as
+an independent second opinion.
+
+`cellDist` translates the shared hexagon to the node, returns 0 inside (all six
+CCW cross products ≥ 0) and otherwise the minimum point-to-segment distance
+over its edges. Deduplicate the result **by pitch class**, not by cell: a cell
+outside the domain and its wrapped twin are the same note and must sound once.
+
+A pitch class joins a pointer's set at `cellDist < r` and leaves only at
+`cellDist > r + h`, so a held finger on a boundary does not flicker.
+
+At `r = √5/4` the surface divides **47.0% single note / 35.2% dyad / 17.7%
+triad** by area — and per instruction **none of that is drawn as fixed
+geometry on the caps**. The caps tile flush and the chords live in the seams
+between them, so a player who taps gets notes and a player who moves gets
+chords. That is discovery rather than instruction, and it is the same bargain
+the previous instrument made: the thing looks simpler than it is, and rewards
+moving. Per later instruction, the one visible trace of `r` is the mouse
+cursor itself — see "Mouse preview" below — which only a pointer that has no
+size of its own needs.
+
+The ≤3 invariant holds for any `r < √5/2 ≈ 1.118` and breaks at 1.119 — one
+uniform threshold on every edge, again because the hexagon is equilateral, and
+the locked `r` sits at exactly half it. `scripts/tonnetz-check.ts` measures the
+threshold rather than assuming it.
+
+Every point of the surface presses at least one cell. There is no gap, no dead
+zone, and therefore no way to touch the instrument and get silence.
+
+## Keyboard
+
+The hand-off is silent on the keyboard; the published spec asks for mouse,
+keyboard or touch, and `spec/crit-4.test.ts` already asserts keyboard
+playability. Per instruction, keys map onto **lattice positions**, not onto a
+chromatic run, so a chord shape under the hand is the same shape as the
+triangle on screen.
+
+The block is **the previous instrument's, unchanged**: four rows of nine. Its
+middle three columns are exactly the fundamental domain, and **those twelve
+caps are the only ones that carry a printed key hint**. The other twenty-four
+keys play, silently — a player finds them by reaching outward from a labelled
+one, or not at all.
+
+| | | | | | | | | |
+|---|---|---|---|---|---|---|---|---|
+| `1` G♭ | `2` D | `3` B♭ | **`4` G♭** | **`5` D** | **`6` B♭** | `7` G♭ | `8` D | `9` B♭ |
+| `Q` B | `W` G | `E` E♭ | **`R` B** | **`T` G** | **`Y` E♭** | `U` B | `I` G | `O` E♭ |
+| `A` E | `S` C | `D` A♭ | **`F` E** | **`G` C** | **`H` A♭** | `J` E | `K` C | `L` A♭ |
+| `Z` A | `X` F | `C` D♭ | **`V` A** | **`B` F** | **`N` D♭** | `M` A | `,` F | `.` D♭ |
+
+Bold is hinted. Thirty-six keys, twelve pitch classes, **exactly three keys
+each** — an even split, because a row repeats every three caps (the augmented
+triad above) and the outer columns are the domain's own caps translated by
+`(m∓3, n±3)`, one horizontal period either way. That is the whole derivation:
+no scan, no window arithmetic, and the outer keys cannot drift out of step with
+the labelled ones because they *are* the labelled ones.
+
+The rows stagger one twelfth right going down, which is the direction a
+physical keyboard staggers too, so the block sits on the lattice the way it
+sits under the hand.
+
+All fully-keyed triads fit inside a 2×2 square of keys — a minor triad is
+`A`+`Q`+`W`, a major is `A`+`W`+`S` — so triads stay one-handed.
+`src/lib/tonnetz.test.ts` proves the split and the compactness;
+`scripts/tonnetz-keys-wide.ts` prints the table as an independent second
+opinion. Neither is hand-maintained. (`scripts/tonnetz-keys.ts` works the same
+problem for a 4×5 left-hand block, kept because it is where the window
+arithmetic is derived; it predates the reorientation.)
+
+At 1920×1080 the screen shows 38 caps in six rows, 26 of them keyed, with the
+labelled domain centred and unlabelled wrapped copies around it; the block's
+outer columns hang off the sides. At 390×844 sixteen are keyed and on screen,
+which costs nothing because a phone has no keyboard.
+
+Held keys stack, so keyboard and touch reach the same chords by the same rule:
+the sounding set is the union.
+
+### Test endpoints have to be checked against the current period
+
+`spec/crit-4.test.ts` needs two pairs of caps that sound *different* — one for
+the drag, one for "two gestures, two sounds". On a torus, picking them far
+apart does not achieve that, and the safe distance changes whenever the key
+block does: `drag("KeyA", "KeyL")` broke on the wrap, its replacement `KeyF`
+broke again when the block was rederived (three columns is exactly one
+horizontal period), and the pairs are now `KeyA`/`KeyS` and `KeyZ`/`KeyD`.
+`scripts/tonnetz-keys-wide.ts` prints the check. These are edits to *which caps
+a test points at*, never softenings of what the spec asks — own commit, body
+says so.
+
+## Tuning and synthesis
+
+12-TET throughout, per instruction. The torus only closes because twelve fifths
+land within a schisma of seven octaves; just intonation would make the lattice
+infinite and dissolve the wrap, the live margin and the wrapped-twin identity
+along with it.
+
+Pitch class `p` sounds `equalTemperamentRatioFor(p)` against the existing root,
+and **the root stays F**. The hand-off's 261.63 Hz would put C at the lattice
+origin, which is the Tonnetz convention — but nothing here depends on it. The
+tone is octaveless, there is no drone and no tonic, so which pitch class sits at
+hue 25° is arbitrary; re-rooting would cost a constant, a test rewrite and the
+shepard page's labels for no musical difference. `tuning.ts` therefore only
+loses `ratioFor`, the 3-limit/5-limit function, along with the lattice it served.
+
+The synthesis is otherwise unchanged from what is already in `instrument.ts` and
+`tuning.ts`: one voice per sounding pitch class, eight octave-spaced sine
+partials under a fixed Gaussian window in absolute log-frequency, which makes
+the tone **octaveless**.
+
+That is not a leftover — it is the reason this pairing works. The Tonnetz *is* a
+pitch-class space: it has no octave anywhere in its geometry. A Shepard tone has
+no octave anywhere in its spectrum. The hand-off's §7 left octave strategy,
+voicing and register open, and asked for triads to be voiced from the root
+upward; none of that has anything to answer here, because there is no register
+to place a note in. Two adjacent triad spots sound a seventh chord without
+anyone choosing an inversion.
+
+The graph, envelope, master gain and explicit oscillator stop are all as
+built — see `instrument.ts` and its comments. Silence remains the rest state:
+the `AudioContext` is created lazily on the first gesture and resumed on every
+gesture, and every voice is released on `window` blur.
+
+### One voice per gesture
+
+`Instrument` keys voices by an opaque string and refuses a duplicate `noteOn`,
+so what that string is made of decides how the instrument behaves when two
+gestures meet on one note. **Per instruction it is `holder:pitchClass`**, where
+a holder is a `pointerId` or a `KeyboardEvent.code` — so two fingers on the same
+cap in different spots, or a key and a mouse and a finger on the same note all
+at once, are three gestures and sound as three voices, each starting and
+stopping with the gesture that owns it. A holder owning its voices outright is
+also what makes one letting go unable to cut another's note short.
+
+The obvious alternative — refcounting holders per pitch class, one voice that
+starts at 0→1 and releases at 1→0 — solves that same cut-short problem, and is
+what this repo did until it was asked for the other thing. It costs the
+stacking: two fingers on a cap sound exactly like one.
+
+`PitchClassVoices` is that layer. It is plain logic over numbers and strings,
+belongs behind the seam, and is tested without an `AudioContext`.
+
+Recompute a holder's set on every move and diff it: start the additions,
+release the removals, leave the intersection sounding untouched. **This diff is
+the signature interaction — protect it.** Retriggering a common tone during a
+drag is the bug that would make the instrument sound like a grid of buttons
+again. The diff is per holder and consults no other, so stacking and
+no-retrigger are independent properties and neither can break the other.
+
+**Stacked unisons are not simply louder.** Two voices on one pitch class are
+two independent oscillator stacks at identical frequencies, started at
+different times, so each partial pair meets at whatever phase relation the gap
+between the two gestures produced: some reinforce, some cancel, and the result
+is a colouration that varies per press rather than a clean doubling. Total
+silence is not a risk — the eight partials are at different frequencies and so
+land at different phase offsets — but "quieter and hollower than one voice" is
+possible. If that turns out to matter when someone listens, the usual remedy is
+a few cents of unison spread per voice, which trades exact 12-TET for a
+predictable, gently beating reinforcement. **Not done, because nothing here can
+hear it.**
 
 ## Interaction
 
 ### DOM contract
 
-- The grid container carries **`data-instrument`**.
-- Each cap carries **`data-note="<KeyboardEvent.code>"`** — `KeyA`, `Digit1`,
-  `Semicolon`, `Comma`, `Period`, `Slash`, and so on. This is both the keyboard
-  mapping and the handle the spec tests hold each node by.
+- The playable surface carries **`data-instrument`**.
+- Each cap carries **`data-note="<KeyboardEvent.code>"`** for the thirty-six
+  keyed caps — both the keyboard mapping and the handle the spec tests hold.
+  Caps further out are touchable but carry no `data-note`.
+- Each cap also carries its lattice position, so the coordinate refinement below
+  needs no basis inversion.
+
+### Two hit-test paths, one code path
+
+The interesting hit test is coordinate-based, and coordinates are exactly what
+the test harness cannot supply: **jsdom has no layout, so every
+`getBoundingClientRect()` is zero-sized and any client-to-twelfths division
+yields `NaN`** — which then throws when fed to an `AudioParam`. The previous
+instrument avoided this by having no position mapping at all. This one cannot.
+
+So resolve a gesture in two steps, and never let the first one throw:
+
+1. **Element path.** `pointerdown`/`pointerenter`/`pointermove` on a cap names
+   one cell — SVG has already done the point-in-hexagon test. Always available,
+   needs no geometry of our own.
+2. **Coordinate path.** If the surface reports a non-zero rect, map client
+   coordinates into twelfths through the SVG `viewBox` and measure `cellDist`
+   against that cell and its six neighbours, refining the one cell into the
+   true set of one, two or three pitch classes.
+
+Guard on `rect.width === 0` and fall back to the element path — degrade to
+doing nothing extra rather than throwing. In a real browser the coordinate path
+always wins; under jsdom the instrument behaves like a one-note-per-cap grid,
+which is enough for the spec tests to drive it. The geometry itself is proved
+by unit tests over plain functions, where it belongs.
+
+Note that step 2 *refines* step 1 rather than replacing it. Neither path can
+produce a cell the other did not, which is why there is no reconciliation
+logic and no way for them to disagree.
+
+### Pointer
+
+Pointer Events with `touch-action: none` on the surface, `Map<pointerId, Set<pc>>`
+per pointer. Touch pointers are implicitly captured to the element where
+`pointerdown` happened, so call `releasePointerCapture(event.pointerId)` in the
+`pointerdown` handler or nothing will fire on the caps a finger drags onto.
+`pointerup`, `pointercancel` and `pointerleave` release that pointer's set; a
+lift off the surface entirely is caught on `window`, and releasing is
+idempotent.
+
+**Drag is `pointermove` and nothing else.** Recomputing the pointer's pitch-class
+set on every move and diffing it against the last one *is* the drag: additions
+start, removals release, the intersection keeps sounding. The previous
+instrument needed a second `elementFromPoint` path because a cap was a discrete
+trigger with no position mapping; here the position mapping is the whole
+mechanism, so **`elementFromPoint` is not used anywhere**. `pointerenter` on
+caps survives only because it is the path the jsdom harness can drive — and
+because `spec/support/instrument-page.ts` dispatches it with `bubbles: true`,
+check that a bubbled `pointerenter` reaching the surface cannot clear state
+(this exact shape produced a false failure on the shepard page once).
 
 ### Keyboard
 
-Listen on `window`, keyed by `event.code` so the mapping is layout-independent.
-Hold a `Set` of active codes; ignore `event.repeat`; `keydown` starts a voice and
-`keyup` releases it. Unmapped keys do nothing — never throw, never scold.
-
-**Call `preventDefault()` on mapped keys.** `/` opens Firefox's quick-find
-otherwise, and an apostrophe-style shortcut steals focus mid-performance. Do not
-blanket-preventDefault: leave Tab, F-keys and modifier combinations alone so the
-page stays escapable.
-
-### Pointer, including drag
-
-A cap is a discrete trigger — there is no position-within-node mapping, and no
-`getBoundingClientRect` arithmetic anywhere (jsdom reports zero-sized rects, so
-rect division would produce `NaN`, which also throws when fed to an `AudioParam`
-in a real browser).
-
-**Finger-drag across caps must play them.** This is the first thing a stranger
-tries, and the crit opens cold. Two facts make it harder than it sounds:
-
-- **Touch pointers are implicitly captured** to the element where `pointerdown`
-  happened, so `pointerover`/`pointerenter` never fire on the caps you drag
-  onto. Call `releasePointerCapture(event.pointerId)` in the `pointerdown`
-  handler to defeat this.
-- **jsdom has no layout**, so `document.elementFromPoint` is unusable under
-  test. Any drag path built solely on it is untestable.
-
-So handle drag two ways, both feeding one code path:
-
-1. `pointerenter` on a cap, when that pointer is currently down, starts that
-   cap's voice and releases the previous cap held by the same pointer. This is
-   the path the spec tests drive.
-2. A `pointermove` fallback on the container that resolves the cap under the
-   pointer via `elementFromPoint`, wrapped so a missing implementation degrades
-   to doing nothing rather than throwing.
-
-Track voices per `pointerId`, so multi-touch holds one voice per finger.
-`pointerup`, `pointercancel` and `pointerleave` on the grid all release that
-pointer's voice. Set `touch-action: none` on the grid.
-
-Pointer and keyboard are equal citizens and work simultaneously.
+Listen on `window`, keyed by `event.code`. Hold a `Set` of active codes; ignore
+`event.repeat`; `keydown` starts, `keyup` releases. Unmapped keys do nothing —
+never throw, never scold. `preventDefault()` on mapped keys only, so Tab,
+F-keys and modifier combinations still work and the page stays escapable.
 
 ### Input chrome
 
-The browser's defaults get in the way of a performance, so both playable pages
-install the same suppressions (`lib/input-chrome.ts`, called from each page
-script):
+`lib/input-chrome.ts` is unchanged and still called from each page script: no
+context menu on the playing surface (a held finger is the primary gesture and
+the browser reads a long press as a right click), no browser zoom or
+overscroll, and a focus ring that belongs only to whoever is tabbing.
 
-- **No context menu on the playing surface.** A held finger is the primary
-  gesture; the browser reads a long press as a right click. Prevented on
-  `[data-instrument]` only, so right-click still works off the surface.
-- **No browser zoom or overscroll.** `touch-action: none` and
-  `overscroll-behavior: none` on `html`/`body`, plus `maximum-scale=1,
-  user-scalable=no` on the viewport meta — otherwise a two-finger press pinch-
-  zooms and a double tap zooms in. OS-level gestures are out of a page's reach;
-  this covers the browser's share.
-- **The focus ring belongs to whoever is tabbing.** A `keyboard-nav` class on
-  `<html>`, set by a `Tab` keydown and cleared by the next interaction of any
-  kind, gates the only `:focus-visible` outline the page has. Focus itself is
-  never moved or blurred, so a keyboard player keeps their place.
+### Mouse preview
+
+Per instruction, the mouse gets what a finger already has for free: a visible
+sense of how big a press is. A finger covers `r`'s disk by being a finger; a
+mouse pointer has no size until it clicks, so two things stand in for that:
+
+- **A disk rides with the cursor.** A circle of diameter `2r`
+  (`--press-diameter` in `index.astro`, read from `R` in `tonnetz.ts` rather
+  than hand-typed) follows the pointer at the same px-per-twelfth scale as the
+  caps, drawn only once a mouse is confirmed present (`pointermove` carrying
+  `pointerType: "mouse"`).
+
+### The page never owns the cursor
+
+**No `cursor: none`, no pointer lock, no `setPointerCapture` — ever.** The disk
+is drawn *around* the real pointer and never in place of it. The pointer itself
+is a **crosshair**, per instruction: symmetrical, so it sits concentrically
+inside the disk instead of fighting it, and it marks the exact point the disk
+is centred on.
+
+This is a rule about trust rather than about looks. A page that hides the OS
+cursor and draws its own has taken something it cannot reliably give back: the
+substitute only moves while the script is running, only while the pointer is
+over the surface, and only if nothing has thrown. Every one of those is a way
+for a visitor to end up with no cursor at all, on a page they did not choose to
+hand their pointer to. A stuck or missing cursor reads as a site that has
+seized control, and that impression is worth more than any gain from styling
+it.
+
+The disk stays because it says something true about *this* instrument — how big
+a press is — and it costs nothing to be wrong about, because the real pointer
+is right there underneath it the whole time.
+- **Hover previews the click.** The same `pressedPitchClasses` geometry that
+  drives a real press — element path, then coordinate refine, with the same
+  hysteresis — runs on hover too, but only ever reaches a `.hover` DOM class,
+  never `Instrument` or `PitchClassVoices`. It draws as an intermediate step
+  along the *same* channels the played state uses — see the state table under
+  "Visual design". A preview is the played state's quieter cousin, not a
+  different kind of mark.
+- **Hover and pressed are not exclusive.** `.hover` tracks where the cursor
+  is, button down or not; `.active` outranks it in CSS for as long as a press
+  lasts. Clearing hover on `pointerdown` instead leaves a cap that was clicked
+  and not moved off showing neither class, so it drops all the way to rest
+  while the mouse is still on it — and no `pointermove` follows a still mouse
+  to put it back.
+- **The preview lights every copy** of each pitch class, exactly as pressing
+  does, because a wrapped cap *is* its twin. Pressing therefore changes how
+  brightly the caps are lit, never which ones — and since every copy moves
+  together there is no unlit twin left on screen to compare against, so the
+  step has to read on its own rather than by contrast.
+
+**A preview that lied would be worse than none**, so the press it predicts must
+be the press that happens. That is why the coordinate refine runs on
+`pointerdown` too and not only on `pointermove`: the element path alone names
+one cell, so a press in a seam used to sound a single note until the pointer
+first moved, quietly under-pressing every tap on a boundary — touch included.
+
+Touch and keyboard need neither: a finger already covers what it is about to
+press, and a key has no position to preview. Gated on `event.pointerType`, so
+this is the one visible trace of `r` anywhere on the surface, and only for the
+one input that has no footprint of its own.
 
 ## Visual design
 
-- **Layout.** The grid fills the viewport, vertically centred, on a near-black
-  background (`oklch(18% 0.01 260)`). Caps sit flush against each other, square
-  cornered — no background shows except outside the grid's own edge. Each row
-  upward is translated left by ⅓ of a cap width, mirroring the physical
-  keyboard stagger. The offset accumulates to a full cap width across four
-  rows, so the container needs that much horizontal slack or the top row clips.
-- **Colour is pitch class.** `hue = 25° + 360° · pc`, where
-  `pc = frac(log2(ratio))`, so the root F sits at 25°. Rest: `oklch(75% 0.12
-  hue)` fill, label `oklch(28% 0.02 hue)`. Lightness and chroma are constant
-  across caps — hue is the only varying channel, so equal pitch-class distances
-  look equally different. The schisma pairs above are consequently near-identical
-  in colour (0.6° apart); that follows from the rule and is left alone. Every
-  cap carries a 3px `oklch(45% 0.1 hue)` border — same hue, darker — because
-  two flush caps of equal lightness and chroma otherwise vibrate at the seam
-  with no gap to separate them.
-- **Active state.** While sounding: lightness → 88%, chroma → 0.16, over the
-  15 ms attack; on release, fade back over ~500 ms so the visual tail matches
-  the audible one. Per instruction: colour carries the affordance alone, no
-  scale — the caps sit flush, and a cap that grew would shove its neighbours.
-- **Type.** System sans stack, uppercase, sized to the cap. The labels are the
-  only visible text on the page.
-- **Motion.** Only the transition above. No idle animation.
+**Per instruction, the caps are the only thing drawn.** The hand-off layered
+the surface six deep; five of those layers go. No dyad bands, no triad
+spots, no fundamental-domain outline. What is left is the previous
+instrument's aesthetic carried over intact — flush caps, solid colour, no
+gaps, no ornament — with the hexagonal shapes and the wrapping as the only
+things that differ.
 
-### Portrait phones
+Static SVG in twelfth units with y negated so the drawing is upright. Every
+coordinate is an integer, so the surface is emitted once at build time and
+never redrawn; pressing a cap toggles a class.
 
-Per instruction: when the viewport is portrait, render the whole stage rotated
-90° so it appears landscape without the player touching their orientation lock.
+- **Caps are whole hexagons**, tiling flush edge to edge. Not eroded by
+  `r`: the erosion existed to show where the single-note core stopped, and
+  nothing here shows that.
+- **Colour is pitch class**: `hue = 25° + 360°·pc`. At any one state lightness
+  and chroma are constant across caps — hue is the only channel that varies
+  between caps, so equal pitch-class distances look equally different.
+- **The surface rests dark and dull, and blooms as it is played**, per
+  instruction. Lightness *and* chroma carry the state together, so a played cap
+  differs in vividness as well as brightness:
 
-```css
-@media (orientation: portrait) {
-  .stage {
-    position: fixed;
-    inset: 0 auto auto 0;
-    width: 100dvh;
-    height: 100dvw;
-    transform-origin: top left;
-    transform: rotate(90deg) translate(0, -100%);
-  }
-}
-```
+  | | lightness | chroma |
+  |---|---|---|
+  | rest | 64% | 0.07 |
+  | hover (mouse preview) | 76% | 0.115 |
+  | sounding | 89% | 0.175 |
 
-`translate` applies before `rotate`, and the swapped `width`/`height` make the
-rotated stage cover the viewport exactly. Hit-testing rotates with the element,
-so pointer events and `elementFromPoint` need no correction. Known caveat, worth
-seeing on a real phone before the cutoff: text and caps are sideways relative to
-a player who does not turn the device, which is the intended trade.
+  The wide resting-to-sounding range is the point: it is what makes a held
+  triad read across the whole surface, and what gives the hover preview room
+  to be obvious without being mistaken for a played note. Resting chroma has a
+  floor, though — below about 0.06 the twelve hues stop being tellable apart
+  and the colour stops encoding pitch class at all. 0.07 is just above it.
+  Resting lightness has a floor too: the labels are dark, and 64% keeps the
+  pitch name at 4.8:1 against its cap.
+- **The edge is one constant dark**, `oklch(36% 0.02 260)`, shared by every cap
+  rather than derived from each cap's own hue. It is not decoration: two flush
+  caps of equal lightness and chroma vibrate at the seam without one. A
+  constant edge does that separating job *equally* for every pair, where a
+  hue-varying one separated some pairs better than others and gave the surface
+  a chromatic grain that had nothing to do with the music. Per instruction.
+- **Effects stay inside the cap.** Nothing drawn on a cap may render outside
+  its own hexagon — no glow, no spill, nothing that grows past its border. The
+  reason is that caps tile flush, so anything crossing a border is resolved by
+  paint order, and paint order is an artefact of the emission loop rather than
+  anything the player should be able to see. A centred SVG stroke breaks this
+  rule by construction — half of every stroke lands on the neighbour — so
+  `.cap polygon` carries a `clip-path` of its own hexagon, derived from `HEX`
+  and applied over `fill-box`. This is the same instinct as "nothing scales"
+  below, and as the inward `outline-offset` on the focus ring in `global.css`.
+- **No reduced opacity anywhere**, per instruction. A cap outside the
+  fundamental domain is drawn exactly like its twin inside it, because it *is*
+  its twin — same note, same colour, same name. The wrap shows itself by
+  repetition, and the surface reads as one continuous thing rather than a tile
+  with a decorated border.
+- **Two labels per cap.** The pitch name centred and prominent; the keyboard key
+  bottom-right and quieter. Caps outside the keyed block carry the pitch name
+  alone — on desktop there are none, so this only shows on a tall viewport.
+- **Active state** is colour only, as before: it arrives over the 15 ms attack
+  and fades back over ~500 ms, so the visual tail matches the audible one.
+  Nothing scales; a cap that grew would break the tiling.
+- **Restrike flash.** A cap already lit gains nothing visible when a second
+  holder arrives on the same pitch class, yet a second voice really did start —
+  so it flashes: `brightness(1.3)` decaying back over 220 ms. This is the one
+  place a `filter` is used, chosen over a `fill` animation so the transient
+  lives in one line of script rather than as a second copy of the palette; it
+  is on the `polygon`, so the clip contains it. Only ever on a *re*-strike; a
+  first strike already has the 15 ms attack to announce it.
+- **Motion.** Only those transitions. No idle animation. One asymmetry is
+  deliberate: a released cap that the mouse is *still sitting on* returns to
+  the hover colour over 200 ms rather than decaying to rest over 500 ms. The
+  full tail belongs to a cap you have left; a cap under the cursor should go
+  on saying "you are here" instead of pretending it isn't hovered.
+
+The major/minor warm/cool convention the hand-off locked in its §1 applies only
+to the triad spots, so it has nothing to colour and is dropped. Hue stays the
+single varying channel across the whole surface.
+
+### Sizing
+
+Fit **15 twelfths to the short viewport axis**, and extend the long axis with
+more lattice until it fills — the caps are the same size either way, there is
+just more torus. That is the fundamental domain plus `FIT_PADDING = 1.5`
+twelfths on each side, centred on it: the guaranteed-visible square is the
+twelve labelled caps, ringed by the wrapped surface on every side, which is
+what says the surface continues rather than ends. That comes to **38 caps at
+1920×1080 and 40 at 390×844**.
+
+1.5 is exactly half the 3-twelfth row spacing, so on the wide viewport a whole
+row of wrapped caps sits flush against the top edge and another against the
+bottom, cut in half by it: of those 38, twelve are half-caps on the edge and 26
+are whole. A player meets the repeat at the frame rather than having to go
+looking for it.
+
+**Draw every cell that intersects the viewport, not every centre inside it**,
+and let SVG clip. Caps cut off at the edge are correct and wanted: they say the
+surface continues.
+
+Extending the long axis is what carries the "make the wrapping obvious"
+job, now that opacity no longer marks the margin. At 1920×1080 the surface is
+about 2.2 fundamental domains wide by 1.25 tall; at 390×844 it is 1.25 wide by
+2.7 tall. Each marked viewport shows the repeat clearly along one axis. Whether
+that is enough is a question for the eye, not for a test.
+
+At the two marked viewports:
+
+| Viewport | Twelfth | Cap across (min) | Triad region (undrawn) |
+|---|---|---|---|
+| 1920×1080 | 72 px | 225 px | 80 px |
+| 390×844 | 26 px | 81 px ≈ 22 mm | 29 px ≈ 7.7 mm |
+
+Caps are generous at both sizes. The triad region is `2r = √5/2 ≈ 1.118`
+twelfths, so a 7 mm spot needs `14/√5 ≈ 6.26` mm per twelfth — a 75 × 75 mm
+fundamental domain. The phone gives 6.9, so the triad region clears the ~7 mm
+touch guideline it used to sit just under. That is a side effect of
+locking `r` to the 25/50/25 rule rather than a target that was aimed at, and
+nothing here can measure whether it makes chords easier to hit; `r` stays the
+knob if a listen says otherwise.
+
+Because the surface is square and extends on the long axis, **there is no
+portrait special case** — the rotate-the-whole-stage hack the previous
+instrument needed is gone, along with the risk that it had never been seen on a
+real device.
 
 ## Accessibility floor
 
 The invariants require a nav landmark, exactly one `<h1>`, a document language,
-a `<title>` and a meta description on the built page. Keep the `<h1>` and nav
-in the markup, visually hidden. The instrument still needs a name for the title
-and description; the description stays in the instrument's own voice — a name
-and a neutral phrase, never an explanation of the design. Avoid the words
-*score*, *streak*, *try again*, *game over*, *you lose*, *wrong note* and *high
-score* in copy **and in identifiers**: `spec/crit-4.test.ts` greps the built
-HTML for them, and the page script the build ships alongside it — inline or
-its own file, whichever Astro chooses this build.
+a title and a meta description on the built page. The `<h1>` is now the visible
+title plate; the nav stays in the markup, visually hidden. Avoid the words *score*, *streak*, *try
+again*, *game over*, *you lose*, *wrong note* and *high score* in copy **and in
+identifiers** — `spec/crit-4.test.ts` greps the built HTML and the page script
+for them.
 
 ## Debug mode
 
-`?debug` in the URL toggles a `.debug` class onto `<html>` from `main.ts`,
-purely client-side — nothing about the built page changes. It is a tuning aid
-for whoever is building the instrument, never something a player finds by
-playing it, and doesn't count against "no tuning-theory copy... anywhere in
-the artefact" below: it's off by default and behind a flag nobody stumbles
-into.
+`?debug` toggles a `.debug` class onto `<html>` from the page script, purely
+client-side. **None of it needs to be polished** — it is a tuning aid for
+whoever is building the thing, not a second design. Off by default and behind a
+flag nobody stumbles into, so it does not count against "no self-explanation in
+the artefact".
 
-While on, each cap shows its monzo (`|a b⟩`, the `3^a · 5^b` exponents — no
-`2`-exponent, since a pitch class has no fixed octave to place one in) and its
-nearest 12-tone-equal-temperament name, and the key label shrinks into the
-bottom-right corner to get out of the way. The ET name is a landmark for the
-ear, not a claim of exactness: `equalTemperamentNameFor` in `tuning.ts` rounds
-to the nearest semitone, and that rounding grows with distance from the root,
-per DESIGN's own near-unison analysis above.
+Build only what the tuning actually needs: each cap's `(m, n)` and pitch class,
+and the touch disks, which are what makes `r` judgeable. Two reference squares
+survive from working out where the lattice should sit — the fundamental domain
+and the fit window — because they are what `FIT_PADDING` was judged against,
+and what any later change to it would be judged against again. The
+rotate/flip/pan/zoom controls that went with them are gone: the
+orientation they were exploring is now the basis itself, and a transform on top
+of the caps would have put the pointer hit test (which reads untransformed
+lattice coordinates) out of step with what is drawn.
 
-## Shepard/12-TET test page
+## Shepard test page
 
-`shepard.html` (`src/pages/shepard.astro`, linked from the main page's hidden
-nav) is a standalone manual-test rig for the Shepard-tone synthesis in
-`instrument.ts`, independent of the just-intonation lattice — so an oddity
-while testing it can't be blamed on the tuning. Twelve buttons in a clock
-face, one per plain 12-TET semitone from the same root F, clockwise from 12
-o'clock. `Q W E R T Y U I O P [ ]` play them directly and polyphonically, and
-so does a pointer press-and-hold or drag. `1`–`0` (`0` = ten) advance a
-shared cursor that many semitones clockwise and
-sustain the landed-on button for as long as that digit key is held —
-independently of any other key held at the same time, so holding `1` and then
-also pressing `3` sustains two separate notes, the second further round the
-circle than the first; `Shift`+digit goes anticlockwise instead. Not part of
-the graded instrument.
-
-The page fills one viewport, carries no copy beyond the dial labels, and hides
-its `<h1>` and nav the way the main page does. **Drag differs from the main
-grid in one respect: it releases in the gap.** The dials don't touch, so unlike
-flush caps there is somewhere to be between them — leaving a dial silences it,
-and the next one sounds on entry. Everything else is the same two-path
-arrangement (`pointerenter` plus an `elementFromPoint` `pointermove` fallback)
-for the same reasons.
+`shepard.html` stays. It is a twelve-button clock face driving the same
+synthesis in plain 12-TET, independent of the lattice, so an oddity heard while
+testing cannot be blamed on the geometry — and now that the instrument is
+itself 12-TET, it tests exactly the same notes. Re-rooting the chromatic naming
+to C changes its labels and nothing else. Not part of the graded instrument.
 
 ## Non-goals
 
-No drone; no octave controls or range management (Shepard tones delete the
-problem); no position-as-frequency layout; no configurable lattice generators;
-no 7- or 11-limit axes; no sustain or pin toggle; no portamento; no mitigation
-for membrane-keyboard ghosting; no `AudioWorklet`; no tuning-theory copy,
-instructions, or self-explanation anywhere in the artefact.
+No recorded audio; no octave controls or register management; no configurable
+generators; no 7- or 11-limit axes; no sustain, velocity or portamento; no MIDI;
+no `AudioWorklet`; no tuning-theory copy, instructions or self-explanation
+anywhere in the artefact.
+
+## Known issues
+
+- **On some Linux desktops the pointer disappears while a key is held**, so
+  playing keyboard and mouse together loses the cursor until the key is
+  released. **This is the desktop environment, not the page** — it reproduces
+  on a blank browser tab, and there is no `cursor: none`, pointer lock or
+  `setPointerCapture` anywhere here. Many Linux setups hide the pointer while
+  typing; a held key keeps that latched. The only fixes available to a page are
+  the ones "The page never owns the cursor" forbids, for better reasons than
+  this costs. Partly mitigated by accident: the hiding is only visual, pointer
+  events keep flowing, so the press-radius disk keeps tracking throughout
+  (verified over CDP with 180 real auto-repeats). Accepted, not fixed — the
+  real fix belongs to whoever's desktop it is.
 
 ## Still open
 
-- **Name and description.** The title/description in `index.astro` are still
-  the template placeholders. Needs a name for the instrument and a one-line
-  description in its own voice, neither explaining the design.
-- **Portrait rotation, on an actual phone.** Verified so far only by resizing
-  a desktop browser; the CSS trick in "Portrait phones" above has never been
-  seen on a real device.
-- **`PROCESS.md`** is still the template. `reflections/crit-4.md` is the repo
-  owner's alone — never draft it.
+- **Whether stacked unisons want a few cents of spread.** Two holders on one
+  pitch class are two oscillator stacks at *identical* frequencies started at
+  different times, so their partials meet at whatever phase relation the gap
+  between the gestures produced — reinforcing some, cancelling others. The
+  result is a colouration that varies press to press rather than a clean
+  doubling, and "quieter and hollower than one voice" is a possible outcome
+  (total silence is not: the eight partials sit at different frequencies).
+  The remedy, if a listen says it needs one, is a few cents of detune per
+  voice, buying predictable gently-beating reinforcement at the cost of exact
+  12-TET. **Deliberately deferred** — it needs ears, not reasoning, and the
+  feature is worth having before it is worth tuning. See "One voice per
+  gesture".

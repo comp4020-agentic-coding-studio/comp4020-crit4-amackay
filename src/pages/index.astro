@@ -1,16 +1,81 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { NODES } from "../lib/lattice.ts";
+import {
+  CENTRE_X,
+  CENTRE_Y,
+  DOMAIN_SIZE,
+  DOMAIN_X0,
+  DOMAIN_Y0,
+  EXTENT,
+  HEX,
+  R,
+  drawnCells,
+  nodeForCell,
+} from "../lib/tonnetz.ts";
+import { equalTemperamentNameFor, equalTemperamentRatioFor, hueFor } from "../lib/tuning.ts";
 
-// Four rows, however many columns lattice.ts generates, so the two can't drift apart.
-const ROW_COUNT = 4;
-const perRow = NODES.length / ROW_COUNT;
-const ROWS = Array.from({ length: ROW_COUNT }, (_, i) => NODES.slice(i * perRow, (i + 1) * perRow));
+// The drawn window: a square big enough that 1 twelfth = 100vmin/FIT_SIZE
+// (see the <style> below) shows FIT_SIZE twelfths on whichever viewport axis
+// is shorter and extends the long axis into more of this same pre-drawn
+// lattice — the square shape is what makes that work with no portrait special
+// case. Its centre, extent and margin are all derived from the fundamental
+// domain in tonnetz.ts rather than restated here: the camera and the domain
+// moving independently is exactly how the corner ended up a fifth out of
+// place once already. DESIGN.md "Sizing".
+const [CX, CY] = [CENTRE_X, CENTRE_Y];
+
+const caps = drawnCells();
+
+// The visibility rect: concentric with the fundamental domain, padded on every
+// side.
+const FIT_PADDING = 1.5;
+const FIT_SIZE = DOMAIN_SIZE + 2 * FIT_PADDING;
+
+// y negated throughout so the drawing is upright (lattice y is up, SVG y is
+// down) — done once here, per cap, never by transforming the whole group.
+const shortKey = (code: string): string => code.replace(/^Key|^Digit/, "");
+
+const renderCaps = caps.map((cap) => {
+  const points = HEX.map(([hx, hy]) => `${cap.x + hx},${-(cap.y + hy)}`).join(" ");
+  const ratio = equalTemperamentRatioFor(cap.pc);
+  const node = nodeForCell(cap.m, cap.n);
+  return {
+    m: cap.m,
+    n: cap.n,
+    pc: cap.pc,
+    points,
+    code: node?.code,
+    // Only the fundamental domain's twelve caps are labelled; the rest of the
+    // block plays without a hint. DESIGN.md "Keyboard".
+    key: node?.hint ? shortKey(node.code) : undefined,
+    x: cap.x,
+    y: -cap.y,
+    hue: hueFor(ratio),
+    name: equalTemperamentNameFor(ratio),
+  };
+});
+
+const viewBox = `${CX - EXTENT} ${-(CY + EXTENT)} ${EXTENT * 2} ${EXTENT * 2}`;
+
+// The same hexagon again, as fractions of its own bounding box, so a cap can
+// be clipped to itself and no effect on it can reach a neighbour — DESIGN.md
+// "Effects stay inside the cap". Derived from HEX rather than hand-written:
+// there is one hexagon in this repo and it is in tonnetz.ts. On this one the
+// six vertices still land on exact fractions of the box (x at quarters,
+// y at fifths, since the y offsets are now halves), so nothing here rounds.
+const screenHex = HEX.map(([hx, hy]): [number, number] => [hx, -hy]);
+const clipXs = screenHex.map(([x]) => x);
+const clipYs = screenHex.map(([, y]) => y);
+const [cx0, cx1] = [Math.min(...clipXs), Math.max(...clipXs)];
+const [cy0, cy1] = [Math.min(...clipYs), Math.max(...clipYs)];
+const capClip = `polygon(${screenHex
+  .map(([x, y]) => `${((x - cx0) / (cx1 - cx0)) * 100}% ${((y - cy0) / (cy1 - cy0)) * 100}%`)
+  .join(", ")})`;
 ---
 
 <Layout
-  title="COMP4020 prototype"
-  description="Replace this with one sentence saying what this page is. A search result and a link preview both show it."
+  title="Touch-Tonnetz"
+  description="A playable Tonnetz: twelve pitch classes tiled as a wrapping hexagonal grid, one voice per touch, dyad or triad — play it by mouse, touch or keyboard."
 >
   <header class="visually-hidden">
     <nav aria-label="Primary">
@@ -18,23 +83,234 @@ const ROWS = Array.from({ length: ROW_COUNT }, (_, i) => NODES.slice(i * perRow,
       <a href="./shepard.html">Shepard tester</a>
     </nav>
   </header>
-  <h1 class="visually-hidden">COMP4020 prototype</h1>
-  <main data-instrument class="stage">
-    {
-      ROWS.map((row) => (
-        <div class="row">
-          {row.map((node) => (
-            <button type="button" class="cap" data-note={node.code} style={`--hue:${node.hue}`}>
-              <span class="label">{node.label}</span>
-              <span class="debug-info">
-                <span class="monzo">|{node.a} {node.b}⟩</span>
-                <span class="et-name">{node.etName}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-      ))
-    }
+  <h1>Touch-Tonnetz</h1>
+  <main
+    data-instrument
+    class="stage"
+    style={`--press-diameter:${R * 2}; --cap-clip:${capClip}; --fit-size:${FIT_SIZE}`}
+  >
+    <svg viewBox={viewBox} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      {
+        renderCaps.map((cap) => (
+          <g class="cap" data-m={cap.m} data-n={cap.n} data-pc={cap.pc} data-note={cap.code} style={`--hue:${cap.hue}`}>
+            <polygon points={cap.points} />
+            <text class="name" x={cap.x} y={cap.y}>
+              {cap.name}
+            </text>
+            {cap.key && (
+              <text class="key" x={cap.x + 0.9} y={cap.y + 0.9}>
+                {cap.key}
+              </text>
+            )}
+          </g>
+        ))
+      }
+      {
+        /* The fundamental domain, after the caps in document order so its
+           outline draws on top of their opaque fills instead of under them. */
+      }
+      <rect
+        class="debug-only debug-fundamental-domain"
+        x={DOMAIN_X0}
+        y={-(DOMAIN_Y0 + DOMAIN_SIZE)}
+        width={DOMAIN_SIZE}
+        height={DOMAIN_SIZE}
+      />
+      {
+        /* Debug-only reference frame, never part of the played instrument: what
+           the *viewport* fitting guarantees regardless of aspect ratio,
+           DESIGN.md "Sizing". Concentric with the domain because both are
+           derived from the same corner. */
+      }
+      <rect
+        class="debug-only debug-fit-window"
+        x={CX - FIT_SIZE / 2}
+        y={-(CY + FIT_SIZE / 2)}
+        width={FIT_SIZE}
+        height={FIT_SIZE}
+      />
+    </svg>
+    <div class="cursor-dot" data-cursor aria-hidden="true"></div>
   </main>
   <script src="../scripts/main.ts"></script>
 </Layout>
+
+<style>
+  /* 1 twelfth = 100vmin/--fit-size: the short viewport axis always shows
+     exactly FIT_SIZE twelfths (DESIGN.md "Sizing"), and vmin's continuous
+     scaling reveals more of this same pre-drawn square on the long axis with
+     no separate portrait case. The body (global.css) centres and clips the
+     excess. */
+  /* The title sits over the surface rather than in the flow: the stage is a
+     square much larger than the viewport and centred in it (see "Sizing"), so
+     a second grid row would push the lattice off-centre and change what the
+     marked viewports show. Out of flow, it costs the layout nothing.
+     `pointer-events: none` so it is a label and not a lid — the caps beneath
+     it stay playable. */
+  h1 {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    margin: 0;
+    padding: 0.3rem 1.1rem 0.4rem;
+    font: 600 clamp(0.8rem, 2.1vmin, 1.1rem) system-ui, sans-serif;
+    letter-spacing: 0.09em;
+    white-space: nowrap;
+    color: oklch(96% 0.01 260);
+    /* Its own backdrop, because it has to stay legible over whichever cap
+       happens to be under it, and the caps span a wide lightness range. */
+    background: oklch(18% 0.01 260 / 0.72);
+    border-radius: 0 0 0.5rem 0.5rem;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .stage {
+    /* Driven by --fit-size (FIT_SIZE above) rather than a hardcoded number,
+       so the debug fit-window rect is actually what the short viewport axis
+       fits to and reaches the screen edge, instead of being a reference drawn
+       at some other scale. DESIGN.md "Sizing". */
+    --twelfth: calc(100vmin / var(--fit-size));
+    position: relative;
+    width: calc(var(--twelfth) * 34);
+    height: calc(var(--twelfth) * 34);
+    touch-action: none;
+    /* Crosshair, per instruction: symmetrical, so it sits concentrically
+       inside the press-radius ring instead of fighting it. */
+    cursor: crosshair;
+  }
+
+  .stage svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+  }
+
+  /* Every cap is clipped to its own hexagon, so nothing drawn on one can reach
+     a neighbour and make the paint order visible — DESIGN.md "Effects stay
+     inside the cap".
+
+     `fill-box` is not optional. The default reference box for an SVG element
+     is `border-box`, which css-masking maps to *stroke*-box, giving a clip
+     that sits on the stroke's outer edge and widens with `stroke-width` — it
+     parses, changes nothing, and hides that it changes nothing.
+
+     Two placements this must keep: on the `polygon`, never on `.cap` (a <g>'s
+     bounding box is the union of its children, labels included, so the
+     fractions above would no longer describe the hexagon); and any future
+     filter goes here too, since clipping is applied after filtering only for
+     the same element. */
+  /* Three states across a wide range, per instruction: the surface rests dark
+     and dull and blooms as it is played. Lightness and chroma rise together,
+     so a state differs in vividness as well as brightness — DESIGN.md
+     "Visual design". Resting chroma stays high enough that hue still reads as
+     pitch class; below about 0.06 the twelve stop being tellable apart. */
+  .cap polygon {
+    fill: oklch(64% 0.07 var(--hue));
+    stroke: oklch(36% 0.02 260);
+    stroke-width: 0.09;
+    clip-path: var(--cap-clip) fill-box;
+    transition: fill 500ms ease-out;
+  }
+
+  /* The mouse hover preview: which caps a click would press, DESIGN.md
+     "Mouse preview". The same channel the played state uses, a smaller step
+     along it — a preview is the played state's quieter cousin, not a
+     different kind of mark. Declared before .active, which has equal
+     specificity, so a cap that is both (a held key under a hovering mouse)
+     reads as played. */
+  .cap.hover polygon {
+    fill: oklch(76% 0.115 var(--hue));
+    transition-duration: 200ms;
+  }
+
+  .cap.active polygon {
+    fill: oklch(89% 0.175 var(--hue));
+    transition-duration: 15ms;
+  }
+
+  /* The fat-finger hitbox, drawn for the one input that has no size of its
+     own to show it with: a mouse pointer. Diameter is 2r in twelfths
+     (--press-diameter, set from tonnetz.ts's R in index.astro) at the same
+     px-per-twelfth scale as the caps, so the dot is the true footprint of a
+     click, not a decoration sized to taste.
+
+     It rides *around* the real cursor and never replaces it: the page must
+     never take the pointer away, so no `cursor: none` anywhere — DESIGN.md
+     "The page never owns the cursor". */
+  .cursor-dot {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: calc(var(--twelfth) * var(--press-diameter));
+    height: calc(var(--twelfth) * var(--press-diameter));
+    margin: calc(var(--twelfth) * var(--press-diameter) / -2) 0 0 calc(var(--twelfth) * var(--press-diameter) / -2);
+    border-radius: 50%;
+    border: 1.5px solid oklch(100% 0 0 / 0.7);
+    background: oklch(100% 0 0 / 0.15);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 120ms ease-out;
+  }
+
+  .cursor-dot.visible {
+    opacity: 1;
+  }
+
+  .cap .name,
+  .cap .key {
+    fill: oklch(25% 0.02 var(--hue));
+    text-anchor: middle;
+    dominant-baseline: central;
+    text-transform: uppercase;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .cap .name {
+    font: 700 1.15px system-ui, sans-serif;
+  }
+
+  /* Quieter than the pitch name, but not so quiet it stops being readable on
+     a resting cap now that resting caps are darker: 0.6 alpha put it under
+     3:1 there. */
+  .cap .key {
+    font: 600 0.55px system-ui, sans-serif;
+    opacity: 0.75;
+  }
+
+  /* Debug mode: `?debug` in the URL, toggled onto <html> in main.ts. Never
+     part of the played instrument — a tuning aid for whoever is building it.
+     Hidden by default so a player who hasn't gone looking never sees it. */
+  .debug-only {
+    display: none;
+  }
+
+  html.debug .debug-only {
+    display: block;
+  }
+
+  .debug-fit-window,
+  .debug-fundamental-domain {
+    fill: none;
+    stroke-width: 0.06;
+    pointer-events: none;
+  }
+
+  /* Fixed in view space, DESIGN.md "Sizing" — the region guaranteed visible
+     regardless of viewport aspect ratio. */
+  .debug-fit-window {
+    stroke: oklch(90% 0.2 140 / 0.8);
+    stroke-dasharray: 0.3 0.2;
+  }
+
+  /* The 12x12 fundamental domain, at the corner tonnetz.ts derives. */
+  .debug-fundamental-domain {
+    stroke: oklch(90% 0.2 30 / 0.8);
+  }
+</style>
