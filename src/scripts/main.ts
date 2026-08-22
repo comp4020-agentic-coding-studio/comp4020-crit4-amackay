@@ -21,6 +21,71 @@ if (surface) {
   const svg = surface.querySelector<SVGSVGElement>("svg");
   const caps = [...surface.querySelectorAll<SVGGElement>("[data-m]")];
 
+  // Debug-only, hacky on purpose: rotate/flip/pan/zoom the whole lattice by
+  // hand to eyeball positioning against the fit-window and fundamental-domain
+  // debug rects, before committing to real sizing numbers. Never runs outside
+  // `?debug` — DESIGN.md "Debug mode". Reads the fit-window rect's own
+  // attributes for its pivot rather than hand-typing CX/CY again here.
+  if (document.documentElement.classList.contains("debug") && svg) {
+    const debugGroup = svg.querySelector<SVGGElement>("#debug-transform");
+    const fitWindow = svg.querySelector<SVGRectElement>(".debug-fit-window");
+    const controls = document.querySelector<HTMLElement>(".debug-controls");
+    if (debugGroup && fitWindow && controls) {
+      const pivotX = Number(fitWindow.getAttribute("x")) + Number(fitWindow.getAttribute("width")) / 2;
+      const pivotY = Number(fitWindow.getAttribute("y")) + Number(fitWindow.getAttribute("height")) / 2;
+      const PAN_STEP = 1;
+      const ZOOM_STEP = 1.1;
+
+      // The positioning decision: rotate 90° then flip vertically turns the
+      // raw lattice's "columns 3 apart, each spaced 4 apart in y" layout into
+      // rows of three staggered rightward going down —
+      //   Gb D Bb / B G Eb / E C Ab / A F Db
+      // — verified column by column against pc(m,n). The pan brings the
+      // (rotated) fundamental domain's centre — raw lattice (16.5,10.5), i.e.
+      // screen (16.5,-10.5) since screen y = -lattice y — onto the fit
+      // window's fixed centre (pivotX,pivotY): rotating+flipping alone maps
+      // that centre to pivot + M·(domainCentre - pivot), where M is the
+      // combined rotate(90)+flipV matrix (x,y) -> (-y,-x); pan is the
+      // remaining difference. Recompute both if DOMAIN_X0/Y0 in index.astro
+      // move.
+      const DEFAULT_VIEW = { rotate: 90, flipX: 1, flipY: -1, scale: 1, panX: -5, panY: 10.5 };
+      const view = { ...DEFAULT_VIEW };
+
+      const render = (): void => {
+        const { rotate, flipX, flipY, scale, panX, panY } = view;
+        debugGroup.setAttribute(
+          "transform",
+          `translate(${panX} ${panY}) translate(${pivotX} ${pivotY}) ` +
+            `scale(${flipX * scale} ${flipY * scale}) rotate(${rotate}) ` +
+            `translate(${-pivotX} ${-pivotY})`,
+        );
+      };
+
+      const actions: Record<string, () => void> = {
+        rotate: () => (view.rotate = (view.rotate + 90) % 360),
+        "flip-h": () => (view.flipX *= -1),
+        "flip-v": () => (view.flipY *= -1),
+        "pan-up": () => (view.panY -= PAN_STEP),
+        "pan-down": () => (view.panY += PAN_STEP),
+        "pan-left": () => (view.panX -= PAN_STEP),
+        "pan-right": () => (view.panX += PAN_STEP),
+        "zoom-in": () => (view.scale *= ZOOM_STEP),
+        "zoom-out": () => (view.scale /= ZOOM_STEP),
+        reset: () => Object.assign(view, DEFAULT_VIEW),
+      };
+
+      controls.addEventListener("click", (event) => {
+        const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-debug-action]");
+        const action = button && actions[button.dataset.debugAction ?? ""];
+        if (!action) return;
+        action();
+        render();
+      });
+
+      render(); // apply DEFAULT_VIEW immediately, not just after the first click
+    }
+  }
+
   // A pitch class can light up more than one on-screen cap at once — the
   // fundamental-domain instance and any wrapped copies within the drawn
   // margin — so the DOM ".active" class is refcounted per pitch class, not

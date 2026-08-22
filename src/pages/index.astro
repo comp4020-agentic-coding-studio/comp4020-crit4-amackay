@@ -3,12 +3,13 @@ import Layout from "../layouts/Layout.astro";
 import { HEX, R, codeForCell, visibleCells } from "../lib/tonnetz.ts";
 import { equalTemperamentNameFor, equalTemperamentRatioFor, hueFor } from "../lib/tuning.ts";
 
-// The drawn window: a square centred on the fundamental domain, big enough
-// that 1 twelfth = 100vmin/15 (see the <style> below) shows 15 twelfths on
-// whichever viewport axis is shorter and extends the long axis into more of
-// this same pre-drawn lattice — the square shape is what makes that work with
-// no portrait special case. EXTENT covers both marked viewports' long axis
-// (26.7 at 1920x1080, 32.5 at 390x844) with some slack. MARGIN is just past
+// The drawn window: a square big enough that 1 twelfth = 100vmin/FIT_SIZE
+// (see the <style> below, FIT_SIZE defined further down) shows FIT_SIZE
+// twelfths on whichever viewport axis is shorter and extends the long axis
+// into more of this same pre-drawn lattice — the square shape is what makes
+// that work with no portrait special case. EXTENT covers both marked
+// viewports' long axis with slack to spare at FIT_SIZE=14 (was sized for 15).
+// MARGIN is just past
 // the hexagon's farthest corner (sqrt(7.25) ~= 2.693 -- no single circumradius
 // any more, DESIGN.md "The hexagon") so a hexagon merely intersecting the
 // window, not centred inside it, still gets drawn — DESIGN.md "Sizing".
@@ -17,6 +18,21 @@ const EXTENT = 17;
 const MARGIN = 2.8;
 
 const caps = visibleCells(CX - EXTENT, CX + EXTENT, CY - EXTENT, CY + EXTENT, MARGIN);
+
+// Debug-only positioning decision, still being explored — see main.ts's
+// debug-transform block for the rotate/flip that goes with this. The
+// fundamental domain's corner sits at the midpoint between a Gb node and its
+// adjacent Db, a fifth away (DESIGN.md's P5 neighbour): Gb at (m,n)=(1,2) has
+// pos (9,5); its +F neighbour (2,2) is Db at pos (12,4). Every other corner of
+// the same 12x12 square is a Gb/Db midpoint too, by (12,0)/(0,12) periodicity.
+const DOMAIN_X0 = (9 + 12) / 2; // 10.5
+const DOMAIN_Y0 = (5 + 4) / 2; // 4.5
+
+// The visibility rect: concentric with the (repositioned) fundamental domain,
+// padded on every side. Padding amount is TBD — 1 twelfth is a placeholder to
+// eyeball against, tune with the zoom controls in the meantime.
+const FIT_PADDING = 1;
+const FIT_SIZE = 12 + 2 * FIT_PADDING;
 
 // y negated throughout so the drawing is upright (lattice y is up, SVG y is
 // down) — done once here, per cap, never by transforming the whole group.
@@ -69,29 +85,82 @@ const capClip = `polygon(${screenHex
     </nav>
   </header>
   <h1>Touch-Tonnetz</h1>
-  <main data-instrument class="stage" style={`--press-diameter:${R * 2}; --cap-clip:${capClip}`}>
+  <main
+    data-instrument
+    class="stage"
+    style={`--press-diameter:${R * 2}; --cap-clip:${capClip}; --fit-size:${FIT_SIZE}`}
+  >
     <svg viewBox={viewBox} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      {
-        renderCaps.map((cap) => (
-          <g class="cap" data-m={cap.m} data-n={cap.n} data-pc={cap.pc} data-note={cap.code} style={`--hue:${cap.hue}`}>
-            <polygon points={cap.points} />
-            <text class="name" x={cap.x} y={cap.y}>
-              {cap.name}
-            </text>
-            {cap.key && (
-              <text class="key" x={cap.x + 0.9} y={cap.y + 0.9}>
-                {cap.key}
+      <g id="debug-transform">
+        {
+          renderCaps.map((cap) => (
+            <g class="cap" data-m={cap.m} data-n={cap.n} data-pc={cap.pc} data-note={cap.code} style={`--hue:${cap.hue}`}>
+              <polygon points={cap.points} />
+              <text class="name" x={cap.x} y={cap.y}>
+                {cap.name}
               </text>
-            )}
-            <text class="debug-info" x={cap.x} y={cap.y + 1.4}>
-              |{cap.m} {cap.n}⟩
-            </text>
-          </g>
-        ))
+              {cap.key && (
+                <text class="key" x={cap.x + 0.9} y={cap.y + 0.9}>
+                  {cap.key}
+                </text>
+              )}
+            </g>
+          ))
+        }
+        {
+          /* The fundamental domain: still 12x12, but repositioned per the
+             DOMAIN_X0/Y0 decision above rather than the plain [0,12)^2 tile.
+             Lives inside the transformed group so it moves with the debug
+             rotate/flip/pan/zoom controls below, alongside the caps. After
+             the caps in document order so its outline draws on top of their
+             opaque fills instead of being hidden underneath. */
+        }
+        <rect
+          class="debug-only debug-fundamental-domain"
+          x={DOMAIN_X0}
+          y={-(DOMAIN_Y0 + 12)}
+          width="12"
+          height="12"
+        />
+      </g>
+      {
+        /* Debug-only reference frame, never part of the played instrument.
+           Fixed in view space (not the transformed group above) because it
+           shows what the *viewport* fitting guarantees regardless of aspect
+           ratio, DESIGN.md "Sizing". Concentric with the (repositioned)
+           fundamental domain, padded by FIT_PADDING above -- only actually
+           concentric once main.ts's debug-transform block pans the rotated
+           domain's centre onto (CX,CY), where this rect is fixed. After
+           #debug-transform in document order so it draws on top. */
       }
+      <rect
+        class="debug-only debug-fit-window"
+        x={CX - FIT_SIZE / 2}
+        y={-(CY + FIT_SIZE / 2)}
+        width={FIT_SIZE}
+        height={FIT_SIZE}
+      />
     </svg>
     <div class="cursor-dot" data-cursor aria-hidden="true"></div>
   </main>
+  {
+    /* Debug-only, hacky on purpose: manual rotate/flip/pan/zoom of the whole
+       lattice, to eyeball positioning against the two debug rects above
+       before committing to real sizing numbers. Never part of the played
+       instrument — DESIGN.md "Debug mode". */
+  }
+  <div class="debug-only debug-controls" aria-hidden="true">
+    <button type="button" data-debug-action="rotate">⟳ 90°</button>
+    <button type="button" data-debug-action="flip-h">Flip H</button>
+    <button type="button" data-debug-action="flip-v">Flip V</button>
+    <button type="button" data-debug-action="pan-up">↑</button>
+    <button type="button" data-debug-action="pan-down">↓</button>
+    <button type="button" data-debug-action="pan-left">←</button>
+    <button type="button" data-debug-action="pan-right">→</button>
+    <button type="button" data-debug-action="zoom-in">Zoom +</button>
+    <button type="button" data-debug-action="zoom-out">Zoom −</button>
+    <button type="button" data-debug-action="reset">Reset</button>
+  </div>
   <script src="../scripts/main.ts"></script>
 </Layout>
 
@@ -128,7 +197,12 @@ const capClip = `polygon(${screenHex
   }
 
   .stage {
-    --twelfth: calc(100vmin / 15);
+    /* Was a hardcoded 15 twelfths (DESIGN.md "Sizing"); now driven by
+       --fit-size (FIT_SIZE above) so the visibility rect is actually what
+       the short viewport axis fits to, reaching the screen edge, rather
+       than a fixed reference drawn at some other scale. Still a debug-only
+       placeholder until FIT_PADDING is settled. */
+    --twelfth: calc(100vmin / var(--fit-size));
     position: relative;
     width: calc(var(--twelfth) * 34);
     height: calc(var(--twelfth) * 34);
@@ -217,8 +291,7 @@ const capClip = `polygon(${screenHex
   }
 
   .cap .name,
-  .cap .key,
-  .cap .debug-info {
+  .cap .key {
     fill: oklch(25% 0.02 var(--hue));
     text-anchor: middle;
     dominant-baseline: central;
@@ -241,18 +314,63 @@ const capClip = `polygon(${screenHex
   }
 
   /* Debug mode: `?debug` in the URL, toggled onto <html> in main.ts. Never
-     part of the played instrument — a tuning aid for whoever is building it. */
-  .cap .debug-info {
+     part of the played instrument — a tuning aid for whoever is building it.
+     Hidden by default so a player who hasn't gone looking never sees it. */
+  .debug-only {
     display: none;
-    font: 600 0.42px ui-monospace, "SFMono-Regular", monospace;
-    text-transform: none;
   }
 
-  html.debug .cap .name {
-    font-size: 0.7px;
-  }
-
-  html.debug .cap .debug-info {
+  html.debug .debug-only {
     display: block;
+  }
+
+  html.debug .debug-controls {
+    display: flex;
+  }
+
+  .debug-fit-window,
+  .debug-fundamental-domain {
+    fill: none;
+    stroke-width: 0.06;
+    pointer-events: none;
+  }
+
+  /* Fixed in view space, DESIGN.md "Sizing" — the region guaranteed visible
+     regardless of viewport aspect ratio. */
+  .debug-fit-window {
+    stroke: oklch(90% 0.2 140 / 0.8);
+    stroke-dasharray: 0.3 0.2;
+  }
+
+  /* Inside #debug-transform, so it moves with the rotate/flip/pan/zoom
+     controls below — [0,12)x[0,12) in lattice space. */
+  .debug-fundamental-domain {
+    stroke: oklch(90% 0.2 30 / 0.8);
+  }
+
+  /* Hacky on purpose: a fixed panel of plain buttons, not styled to match the
+     instrument — this never ships, DESIGN.md "Debug mode". */
+  .debug-controls {
+    position: fixed;
+    bottom: 0.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    max-width: 90vw;
+    padding: 0.4rem;
+    background: oklch(18% 0.01 260 / 0.85);
+    border-radius: 0.5rem;
+  }
+
+  .debug-controls button {
+    font: 600 0.8rem system-ui, sans-serif;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid oklch(70% 0.02 260);
+    border-radius: 0.3rem;
+    background: oklch(28% 0.02 260);
+    color: oklch(96% 0.01 260);
   }
 </style>
