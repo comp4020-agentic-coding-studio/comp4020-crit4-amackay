@@ -1,6 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { HEX, codeForCell, visibleCells } from "../lib/tonnetz.ts";
+import { HEX, R, codeForCell, visibleCells } from "../lib/tonnetz.ts";
 import { equalTemperamentNameFor, equalTemperamentRatioFor, hueFor } from "../lib/tuning.ts";
 
 // The drawn window: a square centred on the fundamental domain, big enough
@@ -40,10 +40,24 @@ const renderCaps = caps.map((cap) => {
 });
 
 const viewBox = `${CX - EXTENT} ${-(CY + EXTENT)} ${EXTENT * 2} ${EXTENT * 2}`;
+
+// The same hexagon again, as fractions of its own bounding box, so a cap can
+// be clipped to itself and no effect on it can reach a neighbour — DESIGN.md
+// "Effects stay inside the cap". Derived from HEX rather than hand-written:
+// there is one hexagon in this repo and it is in tonnetz.ts. On this one the
+// six vertices land on exact quarters, so nothing here rounds.
+const screenHex = HEX.map(([hx, hy]): [number, number] => [hx, -hy]);
+const clipXs = screenHex.map(([x]) => x);
+const clipYs = screenHex.map(([, y]) => y);
+const [cx0, cx1] = [Math.min(...clipXs), Math.max(...clipXs)];
+const [cy0, cy1] = [Math.min(...clipYs), Math.max(...clipYs)];
+const capClip = `polygon(${screenHex
+  .map(([x, y]) => `${((x - cx0) / (cx1 - cx0)) * 100}% ${((y - cy0) / (cy1 - cy0)) * 100}%`)
+  .join(", ")})`;
 ---
 
 <Layout
-  title="Tonnetz"
+  title="Touch-Tonnetz"
   description="A playable Tonnetz: twelve pitch classes tiled as a wrapping hexagonal grid, one voice per touch, dyad or triad — play it by mouse, touch or keyboard."
 >
   <header class="visually-hidden">
@@ -52,8 +66,8 @@ const viewBox = `${CX - EXTENT} ${-(CY + EXTENT)} ${EXTENT * 2} ${EXTENT * 2}`;
       <a href="./shepard.html">Shepard tester</a>
     </nav>
   </header>
-  <h1 class="visually-hidden">Tonnetz</h1>
-  <main data-instrument class="stage">
+  <h1>Touch-Tonnetz</h1>
+  <main data-instrument class="stage" style={`--press-diameter:${R * 2}; --cap-clip:${capClip}`}>
     <svg viewBox={viewBox} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       {
         renderCaps.map((cap) => (
@@ -74,6 +88,7 @@ const viewBox = `${CX - EXTENT} ${-(CY + EXTENT)} ${EXTENT * 2} ${EXTENT * 2}`;
         ))
       }
     </svg>
+    <div class="cursor-dot" data-cursor aria-hidden="true"></div>
   </main>
   <script src="../scripts/main.ts"></script>
 </Layout>
@@ -83,11 +98,42 @@ const viewBox = `${CX - EXTENT} ${-(CY + EXTENT)} ${EXTENT * 2} ${EXTENT * 2}`;
      twelfths (DESIGN.md "Sizing"), and vmin's continuous scaling reveals more
      of this same pre-drawn square on the long axis with no separate portrait
      case. The body (global.css) centres and clips the excess. */
+  /* The title sits over the surface rather than in the flow: the stage is a
+     square much larger than the viewport and centred in it (see "Sizing"), so
+     a second grid row would push the lattice off-centre and change what the
+     marked viewports show. Out of flow, it costs the layout nothing.
+     `pointer-events: none` so it is a label and not a lid — the caps beneath
+     it stay playable. */
+  h1 {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    margin: 0;
+    padding: 0.3rem 1.1rem 0.4rem;
+    font: 600 clamp(0.8rem, 2.1vmin, 1.1rem) system-ui, sans-serif;
+    letter-spacing: 0.09em;
+    white-space: nowrap;
+    color: oklch(96% 0.01 260);
+    /* Its own backdrop, because it has to stay legible over whichever cap
+       happens to be under it, and the caps span a wide lightness range. */
+    background: oklch(18% 0.01 260 / 0.72);
+    border-radius: 0 0 0.5rem 0.5rem;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
   .stage {
     --twelfth: calc(100vmin / 15);
+    position: relative;
     width: calc(var(--twelfth) * 34);
     height: calc(var(--twelfth) * 34);
     touch-action: none;
+    /* Crosshair, per instruction: symmetrical, so it sits concentrically
+       inside the press-radius ring instead of fighting it. */
+    cursor: crosshair;
   }
 
   .stage svg {
@@ -97,26 +143,81 @@ const viewBox = `${CX - EXTENT} ${-(CY + EXTENT)} ${EXTENT * 2} ${EXTENT * 2}`;
     touch-action: none;
   }
 
-  .cap {
-    cursor: pointer;
-  }
+  /* Every cap is clipped to its own hexagon, so nothing drawn on one can reach
+     a neighbour and make the paint order visible — DESIGN.md "Effects stay
+     inside the cap".
 
+     `fill-box` is not optional. The default reference box for an SVG element
+     is `border-box`, which css-masking maps to *stroke*-box, giving a clip
+     that sits on the stroke's outer edge and widens with `stroke-width` — it
+     parses, changes nothing, and hides that it changes nothing.
+
+     Two placements this must keep: on the `polygon`, never on `.cap` (a <g>'s
+     bounding box is the union of its children, labels included, so the
+     fractions above would no longer describe the hexagon); and any future
+     filter goes here too, since clipping is applied after filtering only for
+     the same element. */
+  /* Three states across a wide range, per instruction: the surface rests dark
+     and dull and blooms as it is played. Lightness and chroma rise together,
+     so a state differs in vividness as well as brightness — DESIGN.md
+     "Visual design". Resting chroma stays high enough that hue still reads as
+     pitch class; below about 0.06 the twelve stop being tellable apart. */
   .cap polygon {
-    fill: oklch(75% 0.12 var(--hue));
-    stroke: oklch(45% 0.1 var(--hue));
+    fill: oklch(64% 0.07 var(--hue));
+    stroke: oklch(36% 0.02 260);
     stroke-width: 0.09;
+    clip-path: var(--cap-clip) fill-box;
     transition: fill 500ms ease-out;
   }
 
+  /* The mouse hover preview: which caps a click would press, DESIGN.md
+     "Mouse preview". The same channel the played state uses, a smaller step
+     along it — a preview is the played state's quieter cousin, not a
+     different kind of mark. Declared before .active, which has equal
+     specificity, so a cap that is both (a held key under a hovering mouse)
+     reads as played. */
+  .cap.hover polygon {
+    fill: oklch(76% 0.115 var(--hue));
+    transition-duration: 200ms;
+  }
+
   .cap.active polygon {
-    fill: oklch(88% 0.16 var(--hue));
+    fill: oklch(89% 0.175 var(--hue));
     transition-duration: 15ms;
+  }
+
+  /* The fat-finger hitbox, drawn for the one input that has no size of its
+     own to show it with: a mouse pointer. Diameter is 2r in twelfths
+     (--press-diameter, set from tonnetz.ts's R in index.astro) at the same
+     px-per-twelfth scale as the caps, so the dot is the true footprint of a
+     click, not a decoration sized to taste.
+
+     It rides *around* the real cursor and never replaces it: the page must
+     never take the pointer away, so no `cursor: none` anywhere — DESIGN.md
+     "The page never owns the cursor". */
+  .cursor-dot {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: calc(var(--twelfth) * var(--press-diameter));
+    height: calc(var(--twelfth) * var(--press-diameter));
+    margin: calc(var(--twelfth) * var(--press-diameter) / -2) 0 0 calc(var(--twelfth) * var(--press-diameter) / -2);
+    border-radius: 50%;
+    border: 1.5px solid oklch(100% 0 0 / 0.7);
+    background: oklch(100% 0 0 / 0.15);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 120ms ease-out;
+  }
+
+  .cursor-dot.visible {
+    opacity: 1;
   }
 
   .cap .name,
   .cap .key,
   .cap .debug-info {
-    fill: oklch(28% 0.02 var(--hue));
+    fill: oklch(25% 0.02 var(--hue));
     text-anchor: middle;
     dominant-baseline: central;
     text-transform: uppercase;
@@ -129,9 +230,12 @@ const viewBox = `${CX - EXTENT} ${-(CY + EXTENT)} ${EXTENT * 2} ${EXTENT * 2}`;
     font: 700 1.15px system-ui, sans-serif;
   }
 
+  /* Quieter than the pitch name, but not so quiet it stops being readable on
+     a resting cap now that resting caps are darker: 0.6 alpha put it under
+     3:1 there. */
   .cap .key {
     font: 600 0.55px system-ui, sans-serif;
-    opacity: 0.6;
+    opacity: 0.75;
   }
 
   /* Debug mode: `?debug` in the URL, toggled onto <html> in main.ts. Never

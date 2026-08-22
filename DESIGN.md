@@ -24,7 +24,11 @@ Sliding a finger from the middle of a cell toward a corner where three of them
 meet is the signature gesture: notes join and leave underneath it while the
 common tones stay sounding. Two fingers reach seventh chords. There is no
 score, no fail state, no instructions, and no text on the page beyond the cap
-labels.
+labels and the title. The page is called **Touch-Tonnetz**, and per instruction
+that name is shown: a small centred plate at the top edge, out of flow and
+click-through, so it names the thing without becoming a header the instrument
+has to live underneath. It is a name, not an explanation — the rule that the
+artefact carries no exposition about itself is untouched.
 
 ## The lattice
 
@@ -110,11 +114,14 @@ A pitch class joins a pointer's set at `cellDist < r` and leaves only at
 `cellDist > r + h`, so a held finger on a boundary does not flicker.
 
 At `r = 0.45` the surface divides **56.6% single note / 32.2% dyad / 11.2%
-triad** by area — and per instruction **none of that is drawn**. `r` is
-invisible. The caps tile flush and the chords live in the seams between them,
-so a player who taps gets notes and a player who moves gets chords. That is
-discovery rather than instruction, and it is the same bargain the previous
-instrument made: the thing looks simpler than it is, and rewards moving.
+triad** by area — and per instruction **none of that is drawn as fixed
+geometry on the caps**. The caps tile flush and the chords live in the seams
+between them, so a player who taps gets notes and a player who moves gets
+chords. That is discovery rather than instruction, and it is the same bargain
+the previous instrument made: the thing looks simpler than it is, and rewards
+moving. Per later instruction, the one visible trace of `r` is the mouse
+cursor itself — see "Mouse preview" below — which only a pointer that has no
+size of its own needs.
 
 The ≤3 invariant holds for any `r < √2/2 ≈ 0.707` and breaks at 0.708 —
 `scripts/tonnetz-check.ts` measures the threshold rather than assuming it.
@@ -319,6 +326,68 @@ context menu on the playing surface (a held finger is the primary gesture and
 the browser reads a long press as a right click), no browser zoom or
 overscroll, and a focus ring that belongs only to whoever is tabbing.
 
+### Mouse preview
+
+Per instruction, the mouse gets what a finger already has for free: a visible
+sense of how big a press is. A finger covers `r`'s disk by being a finger; a
+mouse pointer has no size until it clicks, so two things stand in for that:
+
+- **A disk rides with the cursor.** A circle of diameter `2r`
+  (`--press-diameter` in `index.astro`, read from `R` in `tonnetz.ts` rather
+  than hand-typed) follows the pointer at the same px-per-twelfth scale as the
+  caps, drawn only once a mouse is confirmed present (`pointermove` carrying
+  `pointerType: "mouse"`).
+
+### The page never owns the cursor
+
+**No `cursor: none`, no pointer lock, no `setPointerCapture` — ever.** The disk
+is drawn *around* the real pointer and never in place of it. The pointer itself
+is a **crosshair**, per instruction: symmetrical, so it sits concentrically
+inside the disk instead of fighting it, and it marks the exact point the disk
+is centred on.
+
+This is a rule about trust rather than about looks. A page that hides the OS
+cursor and draws its own has taken something it cannot reliably give back: the
+substitute only moves while the script is running, only while the pointer is
+over the surface, and only if nothing has thrown. Every one of those is a way
+for a visitor to end up with no cursor at all, on a page they did not choose to
+hand their pointer to. A stuck or missing cursor reads as a site that has
+seized control, and that impression is worth more than any gain from styling
+it.
+
+The disk stays because it says something true about *this* instrument — how big
+a press is — and it costs nothing to be wrong about, because the real pointer
+is right there underneath it the whole time.
+- **Hover previews the click.** The same `pressedPitchClasses` geometry that
+  drives a real press — element path, then coordinate refine, with the same
+  hysteresis — runs on hover too, but only ever reaches a `.hover` DOM class,
+  never `Instrument` or `PitchClassVoices`. It draws as an intermediate step
+  along the *same* channels the played state uses — see the state table under
+  "Visual design". A preview is the played state's quieter cousin, not a
+  different kind of mark.
+- **Hover and pressed are not exclusive.** `.hover` tracks where the cursor
+  is, button down or not; `.active` outranks it in CSS for as long as a press
+  lasts. Clearing hover on `pointerdown` instead leaves a cap that was clicked
+  and not moved off showing neither class, so it drops all the way to rest
+  while the mouse is still on it — and no `pointermove` follows a still mouse
+  to put it back.
+- **The preview lights every copy** of each pitch class, exactly as pressing
+  does, because a wrapped cap *is* its twin. Pressing therefore changes how
+  brightly the caps are lit, never which ones — and since every copy moves
+  together there is no unlit twin left on screen to compare against, so the
+  step has to read on its own rather than by contrast.
+
+**A preview that lied would be worse than none**, so the press it predicts must
+be the press that happens. That is why the coordinate refine runs on
+`pointerdown` too and not only on `pointermove`: the element path alone names
+one cell, so a press in a seam used to sound a single note until the pointer
+first moved, quietly under-pressing every tap on a boundary — touch included.
+
+Touch and keyboard need neither: a finger already covers what it is about to
+press, and a key has no position to preview. Gated on `event.pointerType`, so
+this is the one visible trace of `r` anywhere on the surface, and only for the
+one input that has no footprint of its own.
+
 ## Visual design
 
 **Per instruction, the caps are the only thing drawn.** The hand-off's §6
@@ -335,11 +404,41 @@ never redrawn; pressing a cap toggles a class.
 - **Caps are whole Voronoi hexagons**, tiling flush edge to edge. Not eroded by
   `r`: the erosion existed to show where the single-note core stopped, and
   nothing here shows that.
-- **Colour is pitch class**, as before: `hue = 25° + 360°·pc`, `oklch(75% 0.12
-  hue)` fill, with a darker `oklch(45% 0.1 hue)` edge. Lightness and chroma are
-  constant across caps — hue is the only varying channel, so equal pitch-class
-  distances look equally different. The edge is not decoration: two flush caps
-  of equal lightness and chroma vibrate at the seam without one.
+- **Colour is pitch class**: `hue = 25° + 360°·pc`. At any one state lightness
+  and chroma are constant across caps — hue is the only channel that varies
+  between caps, so equal pitch-class distances look equally different.
+- **The surface rests dark and dull, and blooms as it is played**, per
+  instruction. Lightness *and* chroma carry the state together, so a played cap
+  differs in vividness as well as brightness:
+
+  | | lightness | chroma |
+  |---|---|---|
+  | rest | 64% | 0.07 |
+  | hover (mouse preview) | 76% | 0.115 |
+  | sounding | 89% | 0.175 |
+
+  The wide resting-to-sounding range is the point: it is what makes a held
+  triad read across the whole surface, and what gives the hover preview room
+  to be obvious without being mistaken for a played note. Resting chroma has a
+  floor, though — below about 0.06 the twelve hues stop being tellable apart
+  and the colour stops encoding pitch class at all. 0.07 is just above it.
+  Resting lightness has a floor too: the labels are dark, and 64% keeps the
+  pitch name at 4.8:1 against its cap.
+- **The edge is one constant dark**, `oklch(36% 0.02 260)`, shared by every cap
+  rather than derived from each cap's own hue. It is not decoration: two flush
+  caps of equal lightness and chroma vibrate at the seam without one. A
+  constant edge does that separating job *equally* for every pair, where a
+  hue-varying one separated some pairs better than others and gave the surface
+  a chromatic grain that had nothing to do with the music. Per instruction.
+- **Effects stay inside the cap.** Nothing drawn on a cap may render outside
+  its own hexagon — no glow, no spill, nothing that grows past its border. The
+  reason is that caps tile flush, so anything crossing a border is resolved by
+  paint order, and paint order is an artefact of the emission loop rather than
+  anything the player should be able to see. A centred SVG stroke breaks this
+  rule by construction — half of every stroke lands on the neighbour — so
+  `.cap polygon` carries a `clip-path` of its own hexagon, derived from `HEX`
+  and applied over `fill-box`. This is the same instinct as "nothing scales"
+  below, and as the inward `outline-offset` on the focus ring in `global.css`.
 - **No reduced opacity anywhere**, per instruction. A cap outside the
   fundamental domain is drawn exactly like its twin inside it, because it *is*
   its twin — same note, same colour, same name. The wrap shows itself by
@@ -348,10 +447,21 @@ never redrawn; pressing a cap toggles a class.
 - **Two labels per cap.** The pitch name centred and prominent; the keyboard key
   bottom-right and quieter. Caps outside the keyed block carry the pitch name
   alone — on desktop there are none, so this only shows on a tall viewport.
-- **Active state** is colour only, as before: lightness → 88%, chroma → 0.16
-  over the 15 ms attack, fading back over ~500 ms so the visual tail matches the
-  audible one. Nothing scales; a cap that grew would break the tiling.
-- **Motion.** Only that transition. No idle animation.
+- **Active state** is colour only, as before: it arrives over the 15 ms attack
+  and fades back over ~500 ms, so the visual tail matches the audible one.
+  Nothing scales; a cap that grew would break the tiling.
+- **Restrike flash.** A cap already lit gains nothing visible when a second
+  holder arrives on the same pitch class, yet a second voice really did start —
+  so it flashes: `brightness(1.3)` decaying back over 220 ms. This is the one
+  place a `filter` is used, chosen over a `fill` animation so the transient
+  lives in one line of script rather than as a second copy of the palette; it
+  is on the `polygon`, so the clip contains it. Only ever on a *re*-strike; a
+  first strike already has the 15 ms attack to announce it.
+- **Motion.** Only those transitions. No idle animation. One asymmetry is
+  deliberate: a released cap that the mouse is *still sitting on* returns to
+  the hover colour over 200 ms rather than decaying to rest over 500 ms. The
+  full tail belongs to a cap you have left; a cap under the cursor should go
+  on saying "you are here" instead of pretending it isn't hovered.
 
 The major/minor warm/cool convention the hand-off locked in its §1 applies only
 to the triad spots, so it has nothing to colour and is dropped. Hue stays the
@@ -397,9 +507,9 @@ real device.
 
 ## Accessibility floor
 
-Unchanged. The invariants require a nav landmark, exactly one `<h1>`, a document
-language, a title and a meta description on the built page; keep the `<h1>` and
-nav in the markup, visually hidden. Avoid the words *score*, *streak*, *try
+The invariants require a nav landmark, exactly one `<h1>`, a document language,
+a title and a meta description on the built page. The `<h1>` is now the visible
+title plate; the nav stays in the markup, visually hidden. Avoid the words *score*, *streak*, *try
 again*, *game over*, *you lose*, *wrong note* and *high score* in copy **and in
 identifiers** — `spec/crit-4.test.ts` greps the built HTML and the page script
 for them.
@@ -506,6 +616,30 @@ No recorded audio; no octave controls or register management; no configurable
 generators; no 7- or 11-limit axes; no sustain, velocity or portamento; no MIDI;
 no `AudioWorklet`; no tuning-theory copy, instructions or self-explanation
 anywhere in the artefact.
+
+## Known issues
+
+- **On some Linux desktops the pointer disappears while a key is held**, so
+  playing the keyboard and the mouse together loses the mouse cursor until the
+  key is released. **This is the desktop environment, not the page** — it
+  reproduces on a blank browser tab, and there is no `cursor: none`, pointer
+  lock or `setPointerCapture` anywhere here (see "The page never owns the
+  cursor"). Many Linux setups hide the pointer while typing, either as a
+  desktop setting or via a helper like `unclutter` or `xbanish`; a held key
+  keeps that state latched, so the pointer stays hidden rather than reappearing
+  on motion. A web page cannot override it, and the things that could fake a
+  way around it — drawing our own cursor with `cursor: none`, or pointer
+  lock — are exactly what that section forbids, for better reasons than this
+  costs.
+
+  **Partly mitigated already, and by accident.** Hiding the pointer is only
+  visual: pointer events keep flowing, so the press-radius disk keeps tracking
+  the whole time a key is held. During the affected moments there is still a
+  visible position indicator, which is more than a blank tab manages. Verified
+  with real key auto-repeat over CDP — 180 repeats, disk tracking throughout.
+
+  Accepted rather than fixed. The real fix is a per-desktop setting and belongs
+  to whoever's desktop it is.
 
 ## Still open
 
