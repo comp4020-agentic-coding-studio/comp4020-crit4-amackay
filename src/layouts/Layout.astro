@@ -32,25 +32,61 @@ const card = new URL(`${base}card.png`, Astro.site);
          since a false positive would break a genuine narrow desktop window. -->
     <script is:inline>
       (function () {
+        var diag = null;
         try {
           var isTouch = "ontouchstart" in window || (navigator.maxTouchPoints || 0) > 0;
-          if (!isTouch) return;
-
-          var shortAxis = Math.min(screen.width, screen.height);
-          if (!(shortAxis > 0 && shortAxis <= 480)) return;
-
+          var screenW = screen.width;
+          var screenH = screen.height;
+          var shortAxis = Math.min(screenW, screenH);
           var layoutWidth = document.documentElement.clientWidth || window.innerWidth || 0;
-          if (!(layoutWidth > shortAxis * 1.5)) return;
-
-          var meta = document.querySelector('meta[name="viewport"]');
-          if (!meta) return;
-
-          meta.setAttribute(
-            "content",
-            "width=" + shortAxis + ", initial-scale=1, maximum-scale=1, user-scalable=no",
-          );
+          var fired = false;
+          if (isTouch && shortAxis > 0 && shortAxis <= 480 && layoutWidth > shortAxis * 1.5) {
+            var meta = document.querySelector('meta[name="viewport"]');
+            if (meta) {
+              meta.setAttribute(
+                "content",
+                "width=" + shortAxis + ", initial-scale=1, maximum-scale=1, user-scalable=no",
+              );
+              fired = true;
+            }
+          }
+          diag = {
+            isTouch: isTouch,
+            screenW: screenW,
+            screenH: screenH,
+            shortAxis: shortAxis,
+            layoutWidth: layoutWidth,
+            fired: fired,
+          };
         } catch (e) {
-          // Uncertain — do nothing.
+          diag = { error: String(e) };
+        }
+
+        // Temporary: investigating a real-device report that this correction had
+        // no visible effect on Android Chrome's "Request Desktop Site". Remove
+        // once diagnosed. ?debugviewport prints the raw values so a screenshot
+        // can be sent back instead of guessing at real-device behaviour.
+        if (new URLSearchParams(location.search).has("debugviewport")) {
+          document.addEventListener("DOMContentLoaded", function () {
+            var meta = document.querySelector('meta[name="viewport"]');
+            var lines = [
+              "isTouch: " + (diag && diag.isTouch),
+              "screen: " + (diag && diag.screenW) + "x" + (diag && diag.screenH),
+              "shortAxis (at load): " + (diag && diag.shortAxis),
+              "layoutWidth (at load): " + (diag && diag.layoutWidth),
+              "correction fired: " + (diag && diag.fired),
+              "innerWidth now: " + window.innerWidth,
+              "clientWidth now: " + document.documentElement.clientWidth,
+              "meta content now: " + (meta && meta.getAttribute("content")),
+              diag && diag.error ? "error: " + diag.error : "",
+            ];
+            var box = document.createElement("pre");
+            box.textContent = lines.filter(Boolean).join("\n");
+            box.style.cssText =
+              "position:fixed;top:0;left:0;z-index:99999;background:#000;color:#0f0;" +
+              "font:12px monospace;padding:8px;margin:0;white-space:pre-wrap;max-width:100vw;";
+            document.body.appendChild(box);
+          });
         }
       })();
     </script>
