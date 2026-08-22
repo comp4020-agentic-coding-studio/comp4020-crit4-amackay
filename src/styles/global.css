@@ -22,7 +22,15 @@ body {
 body {
   min-height: 100dvh;
   display: grid;
+  /* `place-items: center` alone centres an item *within its own grid track* —
+     a no-op here, since the stage's fixed size forces its auto track to grow
+     to match it exactly (grid items default to `min-width/height: auto`, so a
+     track can't shrink below its content). It's `place-content` that centres
+     an oversized track *within the container*, which is what actually keeps
+     the stage centred on screen instead of pinned to the top-left corner
+     while it overflows to the bottom-right. Both needed. */
   place-items: center;
+  place-content: center;
   background: oklch(18% 0.01 260);
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
