@@ -431,6 +431,52 @@ Deliberately not revisited, per the hand-off: equilateral triangles (impossible
 with straight wrap), the scalene √5/2 layout, single-touch tetrads. Aspect stays
 an internal parameter even though it is 1 everywhere.
 
+## Build order
+
+`main` is green and complete, and the cutoff is Wednesday 07:00. So the work is
+staged to never commit red and to leave a shippable fallback standing the whole
+way: everything provable lands first as ordinary green commits, and the one
+commit that genuinely cannot be split is made as small as those can make it.
+
+**1. `src/lib/tonnetz.ts` — the geometry, as plain functions over numbers.**
+Lattice positions and pitch classes, the shared hexagon, `cellDist`, the six
+neighbours, the press set with hysteresis, the visible-cell enumeration for a
+given viewport, and the derived key table. Unit and property tests assert what
+"The lattice" and "Touch model" above claim — including the ≤3 invariant over a
+grid of touch points. `scripts/tonnetz-check.ts` stays as an independent second
+opinion; it is not the contract. Touches no page, so it is green on its own.
+
+**2. Refcounting over `Instrument`.** `Map<pitchClass, Set<holder>>`, start at
+0→1 and release at 1→0, with `Instrument` injected so the tests need no
+`AudioContext`. Also green on its own, and also touches no page.
+
+**3. The two spec cap-pairs, on their own.** `drag("KeyA", "KeyL")` →
+`("KeyA", "KeyF")` and `press("Digit9")` → `press("KeyD")`, per "Two spec tests
+rest on an assumption the torus breaks" above. These land **before** the swap
+and in their own commit, because `CLAUDE.md` requires a spec-test edit never to
+ship alongside the feature that makes it pass. That is possible here only
+because the new pairs are distinct nodes on the *current* 9×4 grid too, so the
+commit is green both before and after the artefact changes — confirm that
+before committing, and if it is ever not true, the edit waits rather than
+merging into stage 4.
+
+**4. The swap, atomic.** `index.astro` emitting the SVG surface, the new
+`main.ts`, the stylesheet, and the deletion of `lattice.ts`,
+`scripts/lattice-check.ts` and `ratioFor` with its tests. One commit: the
+artefact changes identity, and a page swap cannot be half-done without a red
+tree. Stages 1–3 exist to make this commit as close to "wiring" as possible.
+
+**5. Look, listen, finish.** Both marked viewports in Chrome, muted. Then the
+name and description, `PROCESS.md`, and deleting `tonnetz-touch-handoff.md`
+now that this file supersedes it — the hand-off stays in the history, the way
+the previous one does.
+
+**The work stops for review at the end of stage 4.** Nothing in this repo can
+hear, and stage 5's real questions — whether the wrap reads, whether chords get
+discovered, whether the drag sounds like voice leading rather than retriggering
+— are answerable only by a person at the two marked sizes. Report the suite
+green and stop there; do not tune `r` by reasoning.
+
 ## Non-goals
 
 No recorded audio; no octave controls or register management; no configurable
