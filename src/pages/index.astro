@@ -1,16 +1,50 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { NODES } from "../lib/lattice.ts";
+import { HEX, codeForCell, visibleCells } from "../lib/tonnetz.ts";
+import { equalTemperamentNameFor, equalTemperamentRatioFor, hueFor } from "../lib/tuning.ts";
 
-// Four rows, however many columns lattice.ts generates, so the two can't drift apart.
-const ROW_COUNT = 4;
-const perRow = NODES.length / ROW_COUNT;
-const ROWS = Array.from({ length: ROW_COUNT }, (_, i) => NODES.slice(i * perRow, (i + 1) * perRow));
+// The drawn window: a square centred on the fundamental domain, big enough
+// that 1 twelfth = 100vmin/15 (see the <style> below) shows 15 twelfths on
+// whichever viewport axis is shorter and extends the long axis into more of
+// this same pre-drawn lattice — the square shape is what makes that work with
+// no portrait special case. EXTENT covers both marked viewports' long axis
+// (26.7 at 1920x1080, 32.5 at 390x844) with some slack. MARGIN is just past
+// the hexagon's circumradius (sqrt(5)) so a hexagon merely intersecting the
+// window, not centred inside it, still gets drawn — DESIGN.md "Sizing".
+const [CX, CY] = [6, 5.5];
+const EXTENT = 17;
+const MARGIN = 2.3;
+
+const caps = visibleCells(CX - EXTENT, CX + EXTENT, CY - EXTENT, CY + EXTENT, MARGIN);
+
+// y negated throughout so the drawing is upright (lattice y is up, SVG y is
+// down) — done once here, per cap, never by transforming the whole group.
+const shortKey = (code: string): string => code.replace(/^Key|^Digit/, "");
+
+const renderCaps = caps.map((cap) => {
+  const points = HEX.map(([hx, hy]) => `${cap.x + hx},${-(cap.y + hy)}`).join(" ");
+  const ratio = equalTemperamentRatioFor(cap.pc);
+  const code = codeForCell(cap.m, cap.n);
+  return {
+    m: cap.m,
+    n: cap.n,
+    pc: cap.pc,
+    points,
+    code,
+    key: code ? shortKey(code) : undefined,
+    x: cap.x,
+    y: -cap.y,
+    hue: hueFor(ratio),
+    name: equalTemperamentNameFor(ratio),
+  };
+});
+
+const viewBox = `${CX - EXTENT} ${-(CY + EXTENT)} ${EXTENT * 2} ${EXTENT * 2}`;
 ---
 
 <Layout
-  title="COMP4020 prototype"
-  description="Replace this with one sentence saying what this page is. A search result and a link preview both show it."
+  title="Tonnetz"
+  description="A playable Tonnetz: twelve pitch classes tiled as a wrapping hexagonal grid, one voice per touch, dyad or triad — play it by mouse, touch or keyboard."
 >
   <header class="visually-hidden">
     <nav aria-label="Primary">
@@ -18,23 +52,101 @@ const ROWS = Array.from({ length: ROW_COUNT }, (_, i) => NODES.slice(i * perRow,
       <a href="./shepard.html">Shepard tester</a>
     </nav>
   </header>
-  <h1 class="visually-hidden">COMP4020 prototype</h1>
+  <h1 class="visually-hidden">Tonnetz</h1>
   <main data-instrument class="stage">
-    {
-      ROWS.map((row) => (
-        <div class="row">
-          {row.map((node) => (
-            <button type="button" class="cap" data-note={node.code} style={`--hue:${node.hue}`}>
-              <span class="label">{node.label}</span>
-              <span class="debug-info">
-                <span class="monzo">|{node.a} {node.b}⟩</span>
-                <span class="et-name">{node.etName}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-      ))
-    }
+    <svg viewBox={viewBox} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      {
+        renderCaps.map((cap) => (
+          <g class="cap" data-m={cap.m} data-n={cap.n} data-pc={cap.pc} data-note={cap.code} style={`--hue:${cap.hue}`}>
+            <polygon points={cap.points} />
+            <text class="name" x={cap.x} y={cap.y}>
+              {cap.name}
+            </text>
+            {cap.key && (
+              <text class="key" x={cap.x + 0.9} y={cap.y + 0.9}>
+                {cap.key}
+              </text>
+            )}
+            <text class="debug-info" x={cap.x} y={cap.y + 1.4}>
+              |{cap.m} {cap.n}⟩
+            </text>
+          </g>
+        ))
+      }
+    </svg>
   </main>
   <script src="../scripts/main.ts"></script>
 </Layout>
+
+<style>
+  /* 1 twelfth = 100vmin/15: the short viewport axis always shows exactly 15
+     twelfths (DESIGN.md "Sizing"), and vmin's continuous scaling reveals more
+     of this same pre-drawn square on the long axis with no separate portrait
+     case. The body (global.css) centres and clips the excess. */
+  .stage {
+    --twelfth: calc(100vmin / 15);
+    width: calc(var(--twelfth) * 34);
+    height: calc(var(--twelfth) * 34);
+    touch-action: none;
+  }
+
+  .stage svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+  }
+
+  .cap {
+    cursor: pointer;
+  }
+
+  .cap polygon {
+    fill: oklch(75% 0.12 var(--hue));
+    stroke: oklch(45% 0.1 var(--hue));
+    stroke-width: 0.09;
+    transition: fill 500ms ease-out;
+  }
+
+  .cap.active polygon {
+    fill: oklch(88% 0.16 var(--hue));
+    transition-duration: 15ms;
+  }
+
+  .cap .name,
+  .cap .key,
+  .cap .debug-info {
+    fill: oklch(28% 0.02 var(--hue));
+    text-anchor: middle;
+    dominant-baseline: central;
+    text-transform: uppercase;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .cap .name {
+    font: 700 1.15px system-ui, sans-serif;
+  }
+
+  .cap .key {
+    font: 600 0.55px system-ui, sans-serif;
+    opacity: 0.6;
+  }
+
+  /* Debug mode: `?debug` in the URL, toggled onto <html> in main.ts. Never
+     part of the played instrument — a tuning aid for whoever is building it. */
+  .cap .debug-info {
+    display: none;
+    font: 600 0.42px ui-monospace, "SFMono-Regular", monospace;
+    text-transform: none;
+  }
+
+  html.debug .cap .name {
+    font-size: 0.7px;
+  }
+
+  html.debug .cap .debug-info {
+    display: block;
+  }
+</style>
