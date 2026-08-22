@@ -207,21 +207,43 @@ built — see `instrument.ts` and its comments. Silence remains the rest state:
 the `AudioContext` is created lazily on the first gesture and resumed on every
 gesture, and every voice is released on `window` blur.
 
-### Refcounting
+### One voice per gesture
 
 `Instrument` keys voices by an opaque string and refuses a duplicate `noteOn`,
-but its `noteOff` releases immediately — which is wrong once two pointers hold
-the same pitch class. A thin layer above it owns
-`Map<pitchClass, Set<holder>>`: a voice starts when a pitch class goes 0→1
-holders and releases at 1→0, where a holder is a `pointerId` or a
-`KeyboardEvent.code`. This is plain-numbers logic and belongs behind the seam,
-tested without an `AudioContext`.
+so what that string is made of decides how the instrument behaves when two
+gestures meet on one note. **Per instruction it is `holder:pitchClass`**, where
+a holder is a `pointerId` or a `KeyboardEvent.code` — so two fingers on the same
+cap in different spots, or a key and a mouse and a finger on the same note all
+at once, are three gestures and sound as three voices, each starting and
+stopping with the gesture that owns it. A holder owning its voices outright is
+also what makes one letting go unable to cut another's note short.
 
-On `pointermove`, recompute that pointer's set and diff it: start the
-additions, release the removals, leave the intersection sounding untouched.
-**This diff is the signature interaction — protect it.** Retriggering a common
-tone during a drag is the bug that would make the instrument sound like a grid
-of buttons again.
+The obvious alternative — refcounting holders per pitch class, one voice that
+starts at 0→1 and releases at 1→0 — solves that same cut-short problem, and is
+what this repo did until it was asked for the other thing. It costs the
+stacking: two fingers on a cap sound exactly like one.
+
+`PitchClassVoices` is that layer. It is plain logic over numbers and strings,
+belongs behind the seam, and is tested without an `AudioContext`.
+
+Recompute a holder's set on every move and diff it: start the additions,
+release the removals, leave the intersection sounding untouched. **This diff is
+the signature interaction — protect it.** Retriggering a common tone during a
+drag is the bug that would make the instrument sound like a grid of buttons
+again. The diff is per holder and consults no other, so stacking and
+no-retrigger are independent properties and neither can break the other.
+
+**Stacked unisons are not simply louder.** Two voices on one pitch class are
+two independent oscillator stacks at identical frequencies, started at
+different times, so each partial pair meets at whatever phase relation the gap
+between the two gestures produced: some reinforce, some cancel, and the result
+is a colouration that varies per press rather than a clean doubling. Total
+silence is not a risk — the eight partials are at different frequencies and so
+land at different phase offsets — but "quieter and hollower than one voice" is
+possible. If that turns out to matter when someone listens, the usual remedy is
+a few cents of unison spread per voice, which trades exact 12-TET for a
+predictable, gently beating reinforcement. **Not done, because nothing here can
+hear it.**
 
 ## Interaction
 
@@ -446,8 +468,9 @@ given viewport, and the derived key table. Unit and property tests assert what
 grid of touch points. `scripts/tonnetz-check.ts` stays as an independent second
 opinion; it is not the contract. Touches no page, so it is green on its own.
 
-**2. Refcounting over `Instrument`.** `Map<pitchClass, Set<holder>>`, start at
-0→1 and release at 1→0, with `Instrument` injected so the tests need no
+**2. A voice layer over `Instrument`.** Landed as a per-pitch-class refcount;
+since replaced by one voice per `holder:pitchClass`, per "One voice per
+gesture" above. `Instrument` injected either way, so the tests need no
 `AudioContext`. Also green on its own, and also touches no page.
 
 **3. The two spec cap-pairs, on their own.** `drag("KeyA", "KeyL")` →
@@ -486,6 +509,18 @@ anywhere in the artefact.
 
 ## Still open
 
+- **Whether stacked unisons want a few cents of spread.** Two holders on one
+  pitch class are two oscillator stacks at *identical* frequencies started at
+  different times, so their partials meet at whatever phase relation the gap
+  between the gestures produced — reinforcing some, cancelling others. The
+  result is a colouration that varies press to press rather than a clean
+  doubling, and "quieter and hollower than one voice" is a possible outcome
+  (total silence is not: the eight partials sit at different frequencies).
+  The remedy, if a listen says it needs one, is a few cents of detune per
+  voice, buying predictable gently-beating reinforcement at the cost of exact
+  12-TET. **Deliberately deferred** — it needs ears, not reasoning, and the
+  feature is worth having before it is worth tuning. See "One voice per
+  gesture".
 - **Name and description.** `index.astro` still carries the template
   placeholders. Ships Wednesday, so this is not optional.
 - **Whether the wrap reads.** Nothing marks the margin any more, so it has to

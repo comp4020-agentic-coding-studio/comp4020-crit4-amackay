@@ -17,9 +17,9 @@ describe("PitchClassVoices", () => {
     voices.press("p1", new Set([0, 3, 7]));
 
     expect(backend.noteOn).toHaveBeenCalledTimes(3);
-    expect(backend.noteOn).toHaveBeenCalledWith("pc:0", equalTemperamentRatioFor(0));
-    expect(backend.noteOn).toHaveBeenCalledWith("pc:3", equalTemperamentRatioFor(3));
-    expect(backend.noteOn).toHaveBeenCalledWith("pc:7", equalTemperamentRatioFor(7));
+    expect(backend.noteOn).toHaveBeenCalledWith("p1:0", equalTemperamentRatioFor(0));
+    expect(backend.noteOn).toHaveBeenCalledWith("p1:3", equalTemperamentRatioFor(3));
+    expect(backend.noteOn).toHaveBeenCalledWith("p1:7", equalTemperamentRatioFor(7));
     expect(backend.noteOff).not.toHaveBeenCalled();
   });
 
@@ -48,26 +48,55 @@ describe("PitchClassVoices", () => {
     voices.press("p1", new Set([0, 3, 8]));
 
     expect(backend.noteOff).toHaveBeenCalledTimes(1);
-    expect(backend.noteOff).toHaveBeenCalledWith("pc:7");
+    expect(backend.noteOff).toHaveBeenCalledWith("p1:7");
     expect(backend.noteOn).toHaveBeenCalledTimes(1);
-    expect(backend.noteOn).toHaveBeenCalledWith("pc:8", equalTemperamentRatioFor(8));
+    expect(backend.noteOn).toHaveBeenCalledWith("p1:8", equalTemperamentRatioFor(8));
   });
 
-  it("collapses two holders of the same pitch class into one voice", () => {
+  it("gives two holders of the same pitch class a voice each", () => {
+    const backend = fakeBackend();
+    const voices = new PitchClassVoices(backend);
+
+    // Two fingers on one cap, or a key and a mouse on the same note.
+    voices.press("p1", new Set([0]));
+    voices.press("p2", new Set([0]));
+
+    expect(backend.noteOn).toHaveBeenCalledTimes(2);
+    expect(backend.noteOn).toHaveBeenCalledWith("p1:0", equalTemperamentRatioFor(0));
+    expect(backend.noteOn).toHaveBeenCalledWith("p2:0", equalTemperamentRatioFor(0));
+  });
+
+  it("lets one holder go without cutting another's note short", () => {
     const backend = fakeBackend();
     const voices = new PitchClassVoices(backend);
 
     voices.press("p1", new Set([0]));
     voices.press("p2", new Set([0]));
 
-    expect(backend.noteOn).toHaveBeenCalledTimes(1);
-
     voices.release("p1");
-    expect(backend.noteOff).not.toHaveBeenCalled();
+    expect(backend.noteOff).toHaveBeenCalledTimes(1);
+    expect(backend.noteOff).toHaveBeenCalledWith("p1:0");
 
     voices.release("p2");
-    expect(backend.noteOff).toHaveBeenCalledTimes(1);
-    expect(backend.noteOff).toHaveBeenCalledWith("pc:0");
+    expect(backend.noteOff).toHaveBeenCalledTimes(2);
+    expect(backend.noteOff).toHaveBeenCalledWith("p2:0");
+  });
+
+  it("keeps a holder's own voice through a drag another holder shares", () => {
+    const backend = fakeBackend();
+    const voices = new PitchClassVoices(backend);
+
+    voices.press("p1", new Set([0]));
+    voices.press("p2", new Set([0, 4]));
+    backend.noteOn.mockClear();
+    backend.noteOff.mockClear();
+
+    // p2 slides off the shared tone. p1 is still holding it and must not be
+    // disturbed; p2's own voice on it must stop.
+    voices.press("p2", new Set([4]));
+
+    expect(backend.noteOff.mock.calls.map((call) => call[0])).toEqual(["p2:0"]);
+    expect(backend.noteOn).not.toHaveBeenCalled();
   });
 
   it("release() lets go of everything a holder had", () => {
@@ -93,8 +122,8 @@ describe("PitchClassVoices", () => {
     voices.releaseAll();
 
     expect(backend.noteOff).toHaveBeenCalledTimes(2);
-    expect(backend.noteOff).toHaveBeenCalledWith("pc:0");
-    expect(backend.noteOff).toHaveBeenCalledWith("pc:4");
+    expect(backend.noteOff).toHaveBeenCalledWith("p1:0");
+    expect(backend.noteOff).toHaveBeenCalledWith("p2:4");
   });
 
   it("release() and releaseAll() are no-ops for a holder that pressed nothing", () => {
@@ -118,7 +147,7 @@ describe("PitchClassVoices", () => {
 
     const onIds = backend.noteOn.mock.calls.map((call) => call[0]);
     const offIds = backend.noteOff.mock.calls.map((call) => call[0]);
-    expect(onIds).toEqual(["pc:7"]);
-    expect(offIds).toEqual(["pc:0"]);
+    expect(onIds).toEqual(["p1:7"]);
+    expect(offIds).toEqual(["p1:0"]);
   });
 });
