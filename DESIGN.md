@@ -200,8 +200,8 @@ because they sat far apart on it:
   horizontal periods, so the drag starts no second voice.
 - `press("KeyZ")` against `press("Digit9")` — both G, for the same reason.
 
-On a torus, far apart is not different. Both need new endpoints (`KeyA`→`KeyF`
-gives E♭/A♭, `KeyZ`→`KeyD` gives G/D♭, a tritone). These are edits to *which
+On a torus, far apart is not different. Both need new endpoints (`KeyA`→`KeyS`
+gives E♭/G♭, `KeyZ`→`KeyD` gives G/D♭, a tritone). These are edits to *which
 caps the test points at*, made necessary by the artefact, not softenings of
 what the spec asks — own commit, body says so. Every other code the suite
 presses lands on a real cap and needs nothing.
@@ -613,7 +613,7 @@ gesture" above. `Instrument` injected either way, so the tests need no
 `AudioContext`. Also green on its own, and also touches no page.
 
 **3. The two spec cap-pairs, on their own.** `drag("KeyA", "KeyL")` →
-`("KeyA", "KeyF")` and `press("Digit9")` → `press("KeyD")`, per "Two spec tests
+`("KeyA", "KeyS")` and `press("Digit9")` → `press("KeyD")`, per "Two spec tests
 rest on an assumption the torus breaks" above. These land **before** the swap
 and in their own commit, because `CLAUDE.md` requires a spec-test edit never to
 ship alongside the feature that makes it pass. That is possible here only

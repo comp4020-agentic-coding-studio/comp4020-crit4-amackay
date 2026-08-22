@@ -112,7 +112,7 @@ describe("playable with whatever is at hand", () => {
   it("plays the caps a finger drags across", () => {
     const { audio } = open();
     audio.reset();
-    page?.drag("KeyA", "KeyF");
+    page?.drag("KeyA", "KeyS");
     expect(
       audio.started.length,
       "a drag across two caps should start two voices, not one continuous one",
