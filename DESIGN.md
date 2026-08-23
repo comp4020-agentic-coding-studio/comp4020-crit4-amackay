@@ -493,12 +493,18 @@ never redrawn; pressing a cap toggles a class.
   to be obvious without being mistaken for a played note. Resting chroma has a
   floor, though — below about 0.06 the twelve hues stop being tellable apart
   and the colour stops encoding pitch class at all. 0.07 is just above it.
-  Resting lightness has a floor too: the labels are dark, and 64% keeps the
-  pitch name at 4.8:1 against its cap.
-- **The edge is one constant dark**, `oklch(36% 0.02 260)`, shared by every cap
-  rather than derived from each cap's own hue. It is not decoration: two flush
-  caps of equal lightness and chroma vibrate at the seam without one. A
-  constant edge does that separating job *equally* for every pair, where a
+  Resting lightness has a floor too: the labels are black, and 64% keeps the
+  pitch name at 6:1 against its cap on the worst hue.
+- **No greys, per instruction.** Every mark that is not a cap's own hue is
+  plain black: the cap edges, both labels, the cursor disk's ring and its wash,
+  and the keyboard focus ring in `global.css`. The page behind the surface is
+  black too. The title panel is the stated exception and keeps its own light-on-
+  dark backdrop, since it has to stay legible over caps spanning 64–89%
+  lightness.
+- **The edge is plain black**, shared by every cap rather than derived from
+  each cap's own hue. It is not decoration: two flush caps of equal lightness
+  and chroma vibrate at the seam without one. A constant edge does that
+  separating job *equally* for every pair, where a
   hue-varying one separated some pairs better than others and gave the surface
   a chromatic grain that had nothing to do with the music. Per instruction.
 - **Effects stay inside the cap.** Nothing drawn on a cap may render outside
@@ -515,9 +521,11 @@ never redrawn; pressing a cap toggles a class.
   its twin — same note, same colour, same name. The wrap shows itself by
   repetition, and the surface reads as one continuous thing rather than a tile
   with a decorated border.
-- **Two labels per cap.** The pitch name centred and prominent; the keyboard key
-  bottom-right and quieter. Caps outside the keyed block carry the pitch name
-  alone — on desktop there are none, so this only shows on a tall viewport.
+- **Two labels per cap**, both plain black. The pitch name centred and
+  prominent; the keyboard key bottom-right and quieter by size and weight
+  alone, since reducing its opacity would composite the cap's hue through it.
+  Caps outside the keyed block carry the pitch name alone — on desktop there
+  are none, so this only shows on a tall viewport.
 - **Active state** is colour only, as before: it arrives over the 15 ms attack
   and fades back over ~500 ms, so the visual tail matches the audible one.
   Nothing scales; a cap that grew would break the tiling.

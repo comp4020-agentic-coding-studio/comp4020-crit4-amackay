@@ -184,7 +184,7 @@ const capClip = `polygon(${screenHex
      pitch class; below about 0.06 the twelve stop being tellable apart. */
   .cap polygon {
     fill: oklch(64% 0.07 var(--hue));
-    stroke: oklch(36% 0.02 260);
+    stroke: #000;
     stroke-width: 0.09;
     clip-path: var(--cap-clip) fill-box;
     transition: fill 500ms ease-out;
@@ -223,8 +223,8 @@ const capClip = `polygon(${screenHex
     height: calc(var(--twelfth) * var(--press-diameter));
     margin: calc(var(--twelfth) * var(--press-diameter) / -2) 0 0 calc(var(--twelfth) * var(--press-diameter) / -2);
     border-radius: 50%;
-    border: 1.5px solid oklch(100% 0 0 / 0.7);
-    background: oklch(100% 0 0 / 0.15);
+    border: 1.5px solid #000;
+    background: rgb(0 0 0 / 0.15);
     pointer-events: none;
     opacity: 0;
     transition: opacity 120ms ease-out;
@@ -236,7 +236,7 @@ const capClip = `polygon(${screenHex
 
   .cap .name,
   .cap .key {
-    fill: oklch(25% 0.02 var(--hue));
+    fill: #000;
     text-anchor: middle;
     dominant-baseline: central;
     text-transform: uppercase;
@@ -249,12 +249,12 @@ const capClip = `polygon(${screenHex
     font: 700 1.15px system-ui, sans-serif;
   }
 
-  /* Quieter than the pitch name, but not so quiet it stops being readable on
-     a resting cap now that resting caps are darker: 0.6 alpha put it under
-     3:1 there. */
+  /* Quieter than the pitch name by size and weight alone: both labels are
+     plain black, per instruction, so nothing here reduces opacity to make the
+     hint recede — that would composite the cap's hue through it and put a grey
+     back on the surface. */
   .cap .key {
     font: 600 0.55px system-ui, sans-serif;
-    opacity: 0.75;
   }
 
 </style>
