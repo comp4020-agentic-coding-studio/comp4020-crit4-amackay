@@ -2,6 +2,9 @@
 // oscillators to check that two holders of the same pitch class each get their
 // own voice, and that one letting go does not cut the other short. Each voice
 // is one Shepard stack of partials, so oscillator counts move in whole stacks.
+// Needs a machine with a real audio device: headless Chromium's context never
+// leaves `suspended`, and a voice is not scheduled until the clock runs, so
+// every count here comes back zero there. See CLAUDE.md.
 (() => {
   const proto = window.AudioContext.prototype;
   if (!proto.__probed) {

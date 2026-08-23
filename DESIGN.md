@@ -233,6 +233,18 @@ labelled domain centred and unlabelled wrapped copies around it; the block's
 outer columns hang off the sides. At 390×844 sixteen are keyed and on screen,
 which costs nothing because a phone has no keyboard.
 
+**Where nothing hovers, the hints do not print.** A hint names a key, so on a
+device that cannot press one it is twelve letters of clutter on the surface
+that is meant to carry nothing but note names. `@media (any-hover: none)`
+is the gate, chosen because it asks about input hardware and not about layout:
+a desktop window dragged to phone proportions still has its mouse, and keeps
+them. The one device it gets wrong — a phone with a keyboard paired — corrects
+it by using the thing, and any keydown puts `has-keyboard` on `<html>` and the
+hints back. That is the only signal that observes a keyboard rather than
+standing in for one, and it is deliberately not remembered across reloads: a
+stored answer would outlive the keyboard being unplugged. Nothing is lost by
+the wait, because the About panel says the instrument is playable by keyboard.
+
 Held keys stack, so keyboard and touch reach the same chords by the same rule:
 the sounding set is the union.
 
@@ -850,7 +862,7 @@ to the copy that earns its way in, never the copy to the panel.
   an Android Chrome phone; see "The checks" and CLAUDE.md's "Two things this
   harness cannot do."
 
-Three more, all from play-testing and all **noted, not investigated** — recorded
+Two more, both from play-testing and both **noted, not investigated** — recorded
 here so they are not rediscovered, not worked on:
 
 - **A long press on a phone fires the platform's haptic buzz**, about a second
@@ -866,10 +878,6 @@ here so they are not rediscovered, not worked on:
   distracting one; whether the disk should go too, and whether the pointer
   itself should, is open — but "The page never owns the cursor" still forbids
   `cursor: none` as the way to do it.
-- **The keyboard hints are shown on phones, which cannot use them.** All twelve
-  fundamental-domain caps carry their key letter whether or not a physical
-  keyboard exists. Which signal should distinguish the two is the open part,
-  not the styling.
 
 Two more are absences rather than misbehaviours — writing the page does not
 do, found by surveying every string a person can reach. Both are in

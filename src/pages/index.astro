@@ -533,4 +533,17 @@ const capClip = `polygon(${screenHex
     font: 600 0.55px system-ui, sans-serif;
   }
 
+  /* A hint names a key, and on a device with no keyboard it names nothing the
+     player can reach. `any-hover` asks about input hardware rather than about
+     layout, so a desktop window resized to phone proportions still has its
+     mouse and keeps the hints; a phone that turns out to have a keyboard says
+     so by using one, which main.ts is watching for. Losing them costs a phone
+     nothing it can act on, and the About panel still says the instrument is
+     playable by keyboard. */
+  @media (any-hover: none) {
+    :global(html:not(.has-keyboard)) .cap .key {
+      display: none;
+    }
+  }
+
 </style>

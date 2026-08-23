@@ -346,6 +346,16 @@ if (surface) {
   // open; this is the same silence for the keyboard. DESIGN.md "About panel".
   const about = installAboutPanel({ onOpen: releaseEverything });
 
+  // Where nothing hovers, the key hints start hidden (index.astro): almost
+  // nothing that answers to that description has a keyboard. The exception —
+  // a phone with one paired — announces itself the only way anything can, by
+  // using it. Any key will do; a player who has one is not obliged to guess a
+  // mapped letter first. Deliberately not remembered across reloads: a stored
+  // answer would outlive the keyboard being unplugged.
+  window.addEventListener("keydown", () => document.documentElement.classList.add("has-keyboard"), {
+    once: true,
+  });
+
   window.addEventListener("keydown", (event) => {
     if (about.isOpen()) return;
     const node = nodeForCode(event.code);

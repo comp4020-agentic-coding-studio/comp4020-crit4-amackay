@@ -25,10 +25,18 @@
     pressed.push({ name, code: cap.dataset.note, pc: Number(cap.dataset.pc) });
   }
 
+  // Those keydowns are how the page learns a keyboard exists, and it responds
+  // by showing the key hints. Nothing pressed this card's keys, so take it
+  // back: the card is a picture of the instrument at rest, not of a session.
+  document.documentElement.classList.remove("has-keyboard");
+
   const lit = new Set([...document.querySelectorAll(".cap.active")].map((cap) => cap.dataset.pc));
   return {
     pressed,
     litPitchClasses: [...lit].map(Number).sort((a, b) => a - b),
     plateHidden: getComputedStyle(document.querySelector("[data-about]")).display === "none",
+    keyHintsShown: [...document.querySelectorAll(".cap .key")].some(
+      (hint) => getComputedStyle(hint).display !== "none",
+    ),
   };
 })();

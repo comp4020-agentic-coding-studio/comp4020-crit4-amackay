@@ -33,6 +33,14 @@ not disagree.
 - **The same seam answers both.** Geometry as plain functions over numbers gets
   exhaustive unit tests and property tests; the page wiring gets the spec
   tests. Never make the spec suite the only thing proving the geometry.
+- **Headless Chromium has no audio device, so its `AudioContext` never leaves
+  `suspended`** — `resume()` is called, the promise does not settle, and the
+  clock stays frozen at 0. Since `instrument.ts` holds a voice back until the
+  clock runs, that means **no oscillator is ever created headless**: the DOM
+  half of a browser probe still reports (`scripts/check-voice-stacking.js`
+  counts lit caps fine), the audio half now reads zero and proves nothing. The
+  fake context in `spec/support/fake-audio.ts` resumes synchronously, which is
+  why the spec suite is unaffected — and is load-bearing, not incidental.
 - **An `AudioParam` runs every event still in its timeline, including ones
   scheduled later than the one you just added.** Releasing a note inside its
   15 ms attack used to leave the attack's `linearRampToValueAtTime` sitting
