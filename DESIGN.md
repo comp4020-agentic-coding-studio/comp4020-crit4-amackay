@@ -293,6 +293,19 @@ built — see `instrument.ts` and its comments. Silence remains the rest state:
 the `AudioContext` is created lazily on the first gesture and resumed on every
 gesture, and every voice is released on `window` blur.
 
+**The first touch on a page the browser has no engagement with cannot sound,
+and that is not something the page can fix.** An `AudioContext` may only start
+once the document has user activation, and Chrome grants activation on
+`pointerdown` only when the pointer is a mouse — for touch it is the *lift*
+that grants it (measured, `scripts/probe-touch-activation.js`: a trusted
+touch-down reaches the page with `navigator.userActivation.hasBeenActive`
+still false, and touch-end flips it). So a first touch is silent however long
+it is held, while a first click and a first keypress both sound: those events
+grant activation as they arrive. `Instrument.unlock()` therefore runs on every
+pointer lift as well, which is the earliest legal moment — not to rescue that
+first touch, but so the device is already opening by the time the second one
+lands.
+
 **A gesture that arrives before the audio device has opened waits, and is
 dropped if it ends first.** Resuming a context is not instant — on the first
 gesture after a reload the device can take longer to open than the gesture

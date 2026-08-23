@@ -57,6 +57,19 @@ export class Instrument {
     for (const [id, ratio] of waiting) this.#startVoice(id, ratio, context, master);
   }
 
+  /** Open the audio device if the browser will now permit it.
+   *
+   *  Chrome grants a page the user activation an `AudioContext` needs on
+   *  `pointerdown` only when the pointer is a mouse; for touch it is the lift
+   *  that grants it (measured — `scripts/probe-touch-activation.js`). So the
+   *  first touch on a page the browser has no engagement with is silent
+   *  whatever this code does, and the point of unlocking at the lift is that
+   *  the *second* touch is not: the device is already opening by the time it
+   *  lands. */
+  unlock(): void {
+    this.#ensureContext();
+  }
+
   /** Start a voice for `id` at `ratio`, unless `id` is already held. */
   noteOn(id: string, ratio: number): void {
     if (this.#voices.has(id) || this.#pending.has(id)) return;

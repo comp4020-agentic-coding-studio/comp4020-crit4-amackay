@@ -295,8 +295,15 @@ if (surface) {
   }
   // A lift that happens off the surface entirely never reaches the listeners
   // above; releasePointer is idempotent, so catching it twice is harmless.
+  //
+  // The lift is also where a touch earns the page its user activation, so it
+  // is the first moment the audio device can legally start opening — release
+  // first, so a gesture that ended before it opened stays dropped, then ask.
   for (const type of ["pointerup", "pointercancel"]) {
-    window.addEventListener(type, (event) => releasePointer((event as PointerEvent).pointerId));
+    window.addEventListener(type, (event) => {
+      releasePointer((event as PointerEvent).pointerId);
+      instrument.unlock();
+    });
   }
 
   // Coordinate path: refines the element hit into the true set of one, two or

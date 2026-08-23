@@ -33,6 +33,13 @@ not disagree.
 - **The same seam answers both.** Geometry as plain functions over numbers gets
   exhaustive unit tests and property tests; the page wiring gets the spec
   tests. Never make the spec suite the only thing proving the geometry.
+- **An audio-unlock bug will not reproduce on the dev server.** Chrome's
+  autoplay policy is per origin and softens with the Media Engagement Index,
+  which a week of play-testing drives sky-high on `localhost` — so its
+  `AudioContext` starts without any activation at all, while a freshly
+  deployed origin demands it. Test unlock behaviour against the deployed URL,
+  or on the dev server in an incognito window, and treat "works locally" as no
+  evidence whatsoever. `chrome://media-engagement/` shows the scores.
 - **Headless Chromium has no audio device, so its `AudioContext` never leaves
   `suspended`** — `resume()` is called, the promise does not settle, and the
   clock stays frozen at 0. Since `instrument.ts` holds a voice back until the
