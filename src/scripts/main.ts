@@ -250,6 +250,19 @@ if (surface) {
 
   const cursorDot = surface.querySelector<HTMLElement>("[data-cursor]");
 
+  // Both marks the mouse leaves behind — the lit preview cap and the cursor
+  // disk — put out, because the hands are on the keyboard now and neither
+  // mark has anything to do with what is being played. `hoverCell` is kept
+  // deliberately: it is the anchor the next pointermove refines from, and
+  // dropping it (as clearHover does) would leave the preview dark until the
+  // mouse crossed into a *different* cap. Nothing restores these; the next
+  // move relights the preview and re-shows the disk on its own.
+  const dimMouseMarks = (): void => {
+    for (const [pointerId, previous] of hoverPcs) applyHover(String(pointerId), new Set(), previous);
+    hoverPcs.clear();
+    cursorDot?.classList.remove("visible");
+  };
+
   const positionCursorDot = (event: PointerEvent): void => {
     if (!cursorDot) return;
     const rect = surface.getBoundingClientRect();
@@ -377,6 +390,7 @@ if (surface) {
     const node = nodeForCode(event.code);
     if (!node) return; // unmapped keys do nothing
     event.preventDefault();
+    dimMouseMarks(); // a key that plays; Tab and the rest leave the preview alone
     if (event.repeat || heldKeyPcs.has(event.code)) return;
     heldKeyPcs.set(event.code, node.pc);
     applyPress(event.code, new Set([node.pc]), new Set());

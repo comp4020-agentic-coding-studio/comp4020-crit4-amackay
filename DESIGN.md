@@ -572,6 +572,15 @@ mouse pointer has no size until it clicks, so two things stand in for that:
   caps, drawn only once a mouse is confirmed present (`pointermove` carrying
   `pointerType: "mouse"`).
 
+**Playing a key puts both marks out.** A key that sounds a note means the
+hands have left the mouse, so a lit preview cap and a disk parked wherever the
+pointer happens to rest are describing something nobody is doing — and the
+preview is the worse of the two, since it lights caps unrelated to what is
+being played. Neither is restored deliberately: the next `pointermove`
+relights the preview and re-shows the disk on its way past. Keys that do not
+sound leave both alone, so tabbing to the title plate disturbs nothing. The
+pointer itself stays the browser's throughout — see below.
+
 ### The page never owns the cursor
 
 **No `cursor: none`, no pointer lock, no `setPointerCapture` — ever.** The disk
@@ -888,8 +897,8 @@ to the copy that earns its way in, never the copy to the panel.
   an Android Chrome phone; see "The checks" and CLAUDE.md's "Two things this
   harness cannot do."
 
-Two more, both from play-testing and both **noted, not investigated** — recorded
-here so they are not rediscovered, not worked on:
+One more, from play-testing and **noted, not investigated** — recorded here so
+it is not rediscovered, not worked on:
 
 - **A long press on a phone fires the platform's haptic buzz**, about a second
   after touching and holding one spot. It is the context-menu gesture, which
@@ -897,13 +906,6 @@ here so they are not rediscovered, not worked on:
   mid-note as a distraction. Whether a page can suppress it at all — beyond the
   `touch-action`, `-webkit-touch-callout` and tap-highlight suppressions
   already in `global.css` — is unestablished.
-- **Playing from the computer keyboard leaves the mouse's marks on screen.**
-  A held key neither hides the cursor disk nor clears `.hover`, so a
-  keyboard-only player has a lit preview cap sitting wherever the pointer
-  happens to rest, unrelated to what they are playing. The hover mark is the
-  distracting one; whether the disk should go too, and whether the pointer
-  itself should, is open — but "The page never owns the cursor" still forbids
-  `cursor: none` as the way to do it.
 
 Two more are absences rather than misbehaviours — writing the page does not
 do, found by surveying every string a person can reach. Both are in
