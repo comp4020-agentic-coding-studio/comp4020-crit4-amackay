@@ -160,16 +160,20 @@ const capClip = `polygon(${screenHex
      `width`/`height` interpolate from `fit-content` because global.css sets
      `interpolate-size: allow-keywords`. */
   .about {
-    /* The title's size, in one place: the body is positioned under the title
-       by this, so the two cannot drift apart. */
-    --title-size: clamp(1.6rem, 4.2vmin, 2.2rem);
+    /* The open card's geometry, as constants rather than as state: the copy is
+       laid out against these in *both* states, so it is laid out once and the
+       growing card only reveals it. Sized against the animating box instead,
+       it re-wrapped on every frame of the expand. */
+    --card-w: min(34rem, 92vw);
+    --card-h: min(32rem, 78dvh);
+    --card-pad: clamp(1rem, 3vmin, 1.75rem);
+    --title-open: clamp(2rem, 5.4vmin, 2.8rem);
     --title-leading: 1.2;
     --title-gap: clamp(0.5rem, 2vmin, 1rem);
-    /* Zero while closed — the toggle carries the plate's padding — and the
-       card's inset once open. The body reads it back, because an absolutely
-       positioned child is laid out against the padding box and would otherwise
-       ignore the padding entirely. */
-    --card-pad: 0px;
+    --copy-top: calc(var(--card-pad) + var(--title-open) * var(--title-leading) + var(--title-gap));
+    /* The one piece of geometry that *is* state: the title's own size, which
+       transitions between the plate's and the card's. */
+    --title-size: clamp(1.6rem, 4.2vmin, 2.2rem);
     position: fixed;
     top: 0;
     left: 50%;
@@ -201,15 +205,10 @@ const capClip = `polygon(${screenHex
   }
 
   .about[data-open] {
-    --title-size: clamp(2rem, 5.4vmin, 2.8rem);
-    --card-pad: clamp(1rem, 3vmin, 1.75rem);
+    --title-size: var(--title-open);
     top: clamp(0.75rem, 6dvh, 4rem);
-    width: min(34rem, 92vw);
-    /* Tall enough for the copy at this card width, with a little slack: the
-       body scrolls if a font falls back to something wider, but it should not
-       have to. The narrow branch below is for the card at 92vw, where the same
-       copy takes half again as many lines. */
-    height: min(32rem, 78dvh);
+    width: var(--card-w);
+    height: var(--card-h);
     padding: var(--card-pad);
     border-radius: 0.75rem;
     background: oklch(18% 0.01 260 / 0.94);
@@ -225,9 +224,13 @@ const capClip = `polygon(${screenHex
     transition: font-size 320ms cubic-bezier(0.2, 0, 0, 1);
   }
 
+  /* Tall enough for the copy at the card's width, with a little slack. The
+     narrow branch is for the card at 92vw, where the same copy takes half
+     again as many lines; the body scrolls if it ever overflows, but at both
+     marked viewports it does not. */
   @media (max-width: 34rem) {
-    .about[data-open] {
-      height: min(34rem, 82dvh);
+    .about {
+      --card-h: min(34rem, 82dvh);
     }
   }
 
@@ -298,7 +301,7 @@ const capClip = `polygon(${screenHex
     opacity: 1;
     visibility: visible;
     transition:
-      opacity 200ms ease-out 140ms,
+      opacity 180ms ease-out 260ms,
       visibility 0s;
   }
 
@@ -307,12 +310,21 @@ const capClip = `polygon(${screenHex
      break the expand: `fit-content` is resolved at layout, after the
      descendant's new `position` has applied, so the transition's start value
      was the card-sized one and the plate appeared to grow out of a rect far
-     bigger than itself. Open, it fills the card under the title instead. */
+     bigger than itself.
+
+     The box is the *open* card's copy area in both states, never the animating
+     one, so the text is laid out once: while the card is smaller than this the
+     panel's `overflow: hidden` simply clips it. That is what stops the copy
+     re-wrapping on every frame of the expand — and, with the box never
+     starting at zero height, what stops `overflow-y` flashing a scrollbar as
+     it grows. */
   .about-body {
     position: absolute;
-    left: 0;
-    right: 0;
-    top: 100%;
+    left: var(--card-pad);
+    top: var(--copy-top);
+    width: calc(var(--card-w) - 2 * var(--card-pad));
+    height: calc(var(--card-h) - var(--copy-top) - var(--card-pad));
+    overflow-y: auto;
     font: 400 clamp(0.95rem, 1.9vmin, 1.05rem) / 1.55 system-ui, sans-serif;
     letter-spacing: normal;
     text-align: left;
@@ -325,18 +337,14 @@ const capClip = `polygon(${screenHex
       visibility 0s linear 320ms;
   }
 
+  /* Held back until the card has finished growing: laid-out-once copy still
+     reads badly arriving through a moving clip edge. Fading out on close needs
+     no such delay — the copy is gone before the card starts shrinking. */
   .about[data-open] .about-body {
-    /* Under the title, and inset to the card's padding on the other three
-       sides. */
-    top: calc(var(--card-pad) + var(--title-size) * var(--title-leading) + var(--title-gap));
-    right: var(--card-pad);
-    bottom: var(--card-pad);
-    left: var(--card-pad);
-    overflow-y: auto;
     opacity: 1;
     visibility: visible;
     transition:
-      opacity 200ms ease-out 140ms,
+      opacity 180ms ease-out 260ms,
       visibility 0s;
   }
 
