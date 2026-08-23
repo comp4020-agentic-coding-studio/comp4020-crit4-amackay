@@ -418,10 +418,25 @@ is measured and nothing is duplicated: there is no second heading, and the
   FLIP or a view transition to travel; this one needs neither.
 - **`width` and `height` interpolate out of `fit-content`**, which takes
   `interpolate-size: allow-keywords` in `global.css`. The closed plate has to
-  hug its own title rather than carry a hardcoded width, and the copy is out of
-  flow while closed so it cannot swell that intrinsic size. Where
+  hug its own title rather than carry a hardcoded width. Where
   `interpolate-size` is unsupported those two properties snap and the rest of
   the expand still animates.
+- **The copy is absolutely positioned in *both* states**, which is load-bearing
+  and looks like an over-complication. It was in flow when open at first, and
+  the expand then started from a rect the size of the copy rather than the size
+  of the plate — 960×326 against the plate's 329×53, measured by
+  `scripts/probe-about-open.js`. `fit-content` resolves at layout, after the
+  descendant's new `position` has already applied, so the transition's
+  *before-change* value was already the card-sized one. Nothing that changes on
+  open may feed the plate's intrinsic size. Open, the copy is inset to
+  `--card-pad` on three sides and sits under the title on the fourth — an
+  absolutely positioned child is laid out against the padding box, so it has to
+  restate the padding rather than inherit it.
+- **The whole plate is the click target**, per instruction, so the plate's
+  padding lives on the toggle rather than on the panel: the button is the
+  plate. It needs `width: 100%` to get there — a `<button>` shrink-wraps to its
+  glyphs even as a block box — and the panel takes its own padding back when
+  open, where `--card-pad` is the card's inset instead.
 - **The card's height is explicit, in two branches**: one for the wide card and
   a taller one under `max-width: 34rem`, where the card is 92vw and the same
   copy takes half again as many lines. The body scrolls if it ever overflows,

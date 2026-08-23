@@ -160,17 +160,27 @@ const capClip = `polygon(${screenHex
      `width`/`height` interpolate from `fit-content` because global.css sets
      `interpolate-size: allow-keywords`. */
   .about {
+    /* The title's size, in one place: the body is positioned under the title
+       by this, so the two cannot drift apart. */
+    --title-size: clamp(1.6rem, 4.2vmin, 2.2rem);
+    --title-leading: 1.2;
+    --title-gap: clamp(0.5rem, 2vmin, 1rem);
+    /* Zero while closed — the toggle carries the plate's padding — and the
+       card's inset once open. The body reads it back, because an absolutely
+       positioned child is laid out against the padding box and would otherwise
+       ignore the padding entirely. */
+    --card-pad: 0px;
     position: fixed;
     top: 0;
     left: 50%;
     transform: translateX(-50%);
     z-index: 2;
-    display: flex;
-    flex-direction: column;
     width: fit-content;
     height: fit-content;
     max-width: 92vw;
-    padding: 0.3rem 1.1rem 0.4rem;
+    /* No padding of its own while closed: the toggle carries it, so the whole
+       plate is the click target and not just the glyphs. */
+    padding: 0;
     overflow: hidden;
     color: oklch(96% 0.01 260);
     /* Its own backdrop, because it has to stay legible over whichever cap
@@ -191,14 +201,16 @@ const capClip = `polygon(${screenHex
   }
 
   .about[data-open] {
+    --title-size: clamp(2rem, 5.4vmin, 2.8rem);
+    --card-pad: clamp(1rem, 3vmin, 1.75rem);
     top: clamp(0.75rem, 6dvh, 4rem);
     width: min(34rem, 92vw);
     /* Tall enough for the copy at this card width, with a little slack: the
        body scrolls if a font falls back to something wider, but it should not
        have to. The narrow branch below is for the card at 92vw, where the same
        copy takes half again as many lines. */
-    height: min(31rem, 78dvh);
-    padding: clamp(1rem, 3vmin, 1.75rem);
+    height: min(32rem, 78dvh);
+    padding: var(--card-pad);
     border-radius: 0.75rem;
     background: oklch(18% 0.01 260 / 0.94);
     pointer-events: auto;
@@ -206,15 +218,11 @@ const capClip = `polygon(${screenHex
 
   .about h1 {
     margin: 0;
-    font: 600 clamp(1.6rem, 4.2vmin, 2.2rem) system-ui, sans-serif;
+    font: 600 var(--title-size) / var(--title-leading) system-ui, sans-serif;
     letter-spacing: 0.09em;
     white-space: nowrap;
     text-align: center;
     transition: font-size 320ms cubic-bezier(0.2, 0, 0, 1);
-  }
-
-  .about[data-open] h1 {
-    font-size: clamp(2rem, 5.4vmin, 2.8rem);
   }
 
   @media (max-width: 34rem) {
@@ -223,18 +231,30 @@ const capClip = `polygon(${screenHex
     }
   }
 
-  /* The plate is the button: no chrome of its own, the title's own type. */
+  /* The plate is the button: no chrome of its own, the title's own type, and
+     the plate's padding — which is what makes the whole plate the click
+     target. Open, the card's own padding takes over and this goes to zero. */
   .about h1 button {
+    display: block;
+    /* A button shrink-wraps even as a block box, so the plate would only be
+       as wide as its glyphs without this. */
+    width: 100%;
+    padding: 0.3rem 1.1rem 0.4rem;
     font: inherit;
     letter-spacing: inherit;
     color: inherit;
     background: none;
     border: 0;
-    padding: 0;
     cursor: pointer;
     pointer-events: auto;
     user-select: none;
     -webkit-user-select: none;
+    transition: padding 320ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .about[data-open] h1 button {
+    padding: 0;
+    cursor: default;
   }
 
   /* global.css's focus ring is black and inset, which is right on a cap and
@@ -242,6 +262,12 @@ const capClip = `polygon(${screenHex
   .about :focus-visible {
     outline: 2px solid oklch(96% 0.01 260);
     outline-offset: 3px;
+  }
+
+  /* The toggle is the whole plate, and the plate sits flush against the top
+     edge: an outset ring there would be half off-screen. */
+  .about h1 button:focus-visible {
+    outline-offset: -3px;
   }
 
   .about-close {
@@ -276,8 +302,12 @@ const capClip = `polygon(${screenHex
       visibility 0s;
   }
 
-  /* Out of flow while closed, so none of this copy reaches the plate's
-     `fit-content` size — the plate hugs its title and nothing else. */
+  /* Out of flow in *both* states, so none of this copy ever reaches the
+     plate's `fit-content` size. Letting it join the flow on open was enough to
+     break the expand: `fit-content` is resolved at layout, after the
+     descendant's new `position` has applied, so the transition's start value
+     was the card-sized one and the plate appeared to grow out of a rect far
+     bigger than itself. Open, it fills the card under the title instead. */
   .about-body {
     position: absolute;
     left: 0;
@@ -296,10 +326,12 @@ const capClip = `polygon(${screenHex
   }
 
   .about[data-open] .about-body {
-    position: static;
-    flex: 1 1 auto;
-    min-height: 0;
-    margin-top: clamp(0.5rem, 2vmin, 1rem);
+    /* Under the title, and inset to the card's padding on the other three
+       sides. */
+    top: calc(var(--card-pad) + var(--title-size) * var(--title-leading) + var(--title-gap));
+    right: var(--card-pad);
+    bottom: var(--card-pad);
+    left: var(--card-pad);
     overflow-y: auto;
     opacity: 1;
     visibility: visible;
