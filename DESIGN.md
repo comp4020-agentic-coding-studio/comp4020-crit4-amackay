@@ -496,11 +496,12 @@ never redrawn; pressing a cap toggles a class.
   Resting lightness has a floor too: the labels are black, and 64% keeps the
   pitch name at 6:1 against its cap on the worst hue.
 - **No greys, per instruction.** Every mark that is not a cap's own hue is
-  plain black: the cap edges, both labels, the cursor disk's ring and its wash,
-  and the keyboard focus ring in `global.css`. The page behind the surface is
-  black too. The title panel is the stated exception and keeps its own light-on-
-  dark backdrop, since it has to stay legible over caps spanning 64–89%
-  lightness.
+  plain black: the cap edges, both labels, and the keyboard focus ring in
+  `global.css`. The page behind the surface is black too. Two exceptions, both
+  stated: the title panel keeps its own light-on-dark backdrop, since it has to
+  stay legible over caps spanning 64–89% lightness; and the cursor disk keeps
+  its white ring and wash, per instruction, because black read as a shadow on
+  caps this light instead of as the pointer's footprint.
 - **The edge is plain black**, shared by every cap rather than derived from
   each cap's own hue. It is not decoration: two flush caps of equal lightness
   and chroma vibrate at the seam without one. A constant edge does that
