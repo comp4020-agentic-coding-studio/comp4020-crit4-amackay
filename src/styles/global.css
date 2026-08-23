@@ -6,6 +6,10 @@
 
 :root {
   color-scheme: dark;
+  /* Lets the About panel's width and height interpolate out of `fit-content`
+     (index.astro, DESIGN.md "About panel"). Where it is unsupported the two
+     sizes snap and the rest of the expand still animates. */
+  interpolate-size: allow-keywords;
 }
 
 html,

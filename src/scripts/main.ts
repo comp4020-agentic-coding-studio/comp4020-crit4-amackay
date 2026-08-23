@@ -1,6 +1,7 @@
 // The Tonnetz: pointer, drag and keyboard wiring over the static SVG surface.
 // See DESIGN.md "Interaction" for the contract this follows.
 
+import { installAboutPanel } from "../lib/about-panel.ts";
 import { Instrument } from "../lib/instrument.ts";
 import { installInputChrome } from "../lib/input-chrome.ts";
 import { PitchClassVoices } from "../lib/pitch-voices.ts";
@@ -323,23 +324,11 @@ if (surface) {
 
   const heldKeyPcs = new Map<string, number>();
 
-  window.addEventListener("keydown", (event) => {
-    const node = nodeForCode(event.code);
-    if (!node) return; // unmapped keys do nothing
-    event.preventDefault();
-    if (event.repeat || heldKeyPcs.has(event.code)) return;
-    heldKeyPcs.set(event.code, node.pc);
-    applyPress(event.code, new Set([node.pc]), new Set());
-  });
-
-  window.addEventListener("keyup", (event) => {
-    const p = heldKeyPcs.get(event.code);
-    if (p === undefined) return;
-    heldKeyPcs.delete(event.code);
-    releaseHolder(event.code, new Set([p]));
-  });
-
-  window.addEventListener("blur", () => {
+  // Everything a holder could be holding, let go of at once. Two things ask
+  // for it: losing the window, and opening the About panel over the surface —
+  // in both cases the player's hands are somewhere else and a held note or a
+  // lit hover cap would just be stranded.
+  const releaseEverything = (): void => {
     instrument.releaseAll();
     voices.releaseAll();
     for (const cap of caps) cap.classList.remove("active", "hover");
@@ -351,5 +340,31 @@ if (surface) {
     hoverCell.clear();
     heldKeyPcs.clear();
     cursorDot?.classList.remove("visible");
+  };
+
+  // The scrim already keeps the pointer off the caps while the About panel is
+  // open; this is the same silence for the keyboard. DESIGN.md "About panel".
+  const about = installAboutPanel({ onOpen: releaseEverything });
+
+  window.addEventListener("keydown", (event) => {
+    if (about.isOpen()) return;
+    const node = nodeForCode(event.code);
+    if (!node) return; // unmapped keys do nothing
+    event.preventDefault();
+    if (event.repeat || heldKeyPcs.has(event.code)) return;
+    heldKeyPcs.set(event.code, node.pc);
+    applyPress(event.code, new Set([node.pc]), new Set());
   });
+
+  window.addEventListener("keyup", (event) => {
+    // No early return on an open panel here: a key held as the panel opened
+    // is already released by releaseEverything, and one pressed before it
+    // opened must still be able to clear its own bookkeeping.
+    const p = heldKeyPcs.get(event.code);
+    if (p === undefined) return;
+    heldKeyPcs.delete(event.code);
+    releaseHolder(event.code, new Set([p]));
+  });
+
+  window.addEventListener("blur", releaseEverything);
 }

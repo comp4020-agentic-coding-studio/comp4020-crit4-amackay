@@ -80,7 +80,38 @@ const capClip = `polygon(${screenHex
       <a href="./">Home</a>
     </nav>
   </header>
-  <h1>Touch-Tonnetz</h1>
+  <!-- The title plate and the About panel are one element in two states; the
+       whole expand is a CSS transition between them, so nothing here is
+       duplicated for the open case and the <h1> is the panel's heading as
+       well as the plate. DESIGN.md "About panel". -->
+  <section class="about" data-about>
+    <h1>
+      <button type="button" data-about-toggle aria-expanded="false" aria-controls="about-body">
+        Touch-Tonnetz
+      </button>
+    </h1>
+    <button type="button" class="about-close" data-about-close aria-label="Close">&#215;</button>
+    <div class="about-body" id="about-body">
+      <p>
+        Every hexagon is one of the twelve pitch classes, arranged so neighbours are a third or a
+        fifth apart. Press one for a note, press where two meet for that interval, press where three
+        meet for a major or minor triad — the layout is what makes those the only possibilities. The
+        grid wraps: keep going in any direction and the same twelve come round again.
+      </p>
+      <p>
+        Each note is a Shepard tone — eight octave-spaced partials under a fixed spectral window — so
+        a pitch class has no octave to belong to, and the surface can repeat without ever running out
+        of range.
+      </p>
+      <p>Touch, drag, click, or play it from the keyboard.</p>
+      <p class="about-links">
+        <a href="https://en.wikipedia.org/wiki/Tonnetz" target="_blank" rel="noopener noreferrer">Tonnetz</a>
+        <span aria-hidden="true">·</span>
+        <a href="https://en.wikipedia.org/wiki/Shepard_tone" target="_blank" rel="noopener noreferrer">Shepard tone</a>
+      </p>
+    </div>
+  </section>
+  <div class="about-scrim" data-about-scrim aria-hidden="true"></div>
   <main
     data-instrument
     class="stage"
@@ -118,27 +149,220 @@ const capClip = `polygon(${screenHex
      square much larger than the viewport and centred in it (see "Sizing"), so
      a second grid row would push the lattice off-centre and change what the
      marked viewports show. Out of flow, it costs the layout nothing.
-     `pointer-events: none` so it is a label and not a lid — the caps beneath
-     it stay playable. */
-  h1 {
+
+     Closed, this is the plate; open, it is the About card, and every property
+     that differs between the two is animatable — so the title reaches its
+     place on the card by the plate growing around it, with no second heading
+     and no measurement in script. It stays horizontally centred throughout,
+     which is what keeps the whole morph a transition rather than a FLIP.
+     DESIGN.md "About panel".
+
+     `width`/`height` interpolate from `fit-content` because global.css sets
+     `interpolate-size: allow-keywords`. */
+  .about {
     position: fixed;
     top: 0;
     left: 50%;
     transform: translateX(-50%);
     z-index: 2;
-    margin: 0;
+    display: flex;
+    flex-direction: column;
+    width: fit-content;
+    height: fit-content;
+    max-width: 92vw;
     padding: 0.3rem 1.1rem 0.4rem;
-    font: 600 clamp(0.8rem, 2.1vmin, 1.1rem) system-ui, sans-serif;
-    letter-spacing: 0.09em;
-    white-space: nowrap;
+    overflow: hidden;
     color: oklch(96% 0.01 260);
     /* Its own backdrop, because it has to stay legible over whichever cap
-       happens to be under it, and the caps span a wide lightness range. */
+       happens to be under it, and the caps span a wide lightness range. The
+       one part of the UI exempt from "no greys" — DESIGN.md "Visual design". */
     background: oklch(18% 0.01 260 / 0.72);
     border-radius: 0 0 0.5rem 0.5rem;
+    /* The plate is a click target now, so only the buttons inside it take the
+       pointer while it is closed: the surface keeps everything else. */
     pointer-events: none;
+    transition:
+      top 320ms cubic-bezier(0.2, 0, 0, 1),
+      width 320ms cubic-bezier(0.2, 0, 0, 1),
+      height 320ms cubic-bezier(0.2, 0, 0, 1),
+      padding 320ms cubic-bezier(0.2, 0, 0, 1),
+      border-radius 320ms cubic-bezier(0.2, 0, 0, 1),
+      background-color 320ms ease-out;
+  }
+
+  .about[data-open] {
+    top: clamp(0.75rem, 6dvh, 4rem);
+    width: min(34rem, 92vw);
+    /* Tall enough for the copy at this card width, with a little slack: the
+       body scrolls if a font falls back to something wider, but it should not
+       have to. The narrow branch below is for the card at 92vw, where the same
+       copy takes half again as many lines. */
+    height: min(31rem, 78dvh);
+    padding: clamp(1rem, 3vmin, 1.75rem);
+    border-radius: 0.75rem;
+    background: oklch(18% 0.01 260 / 0.94);
+    pointer-events: auto;
+  }
+
+  .about h1 {
+    margin: 0;
+    font: 600 clamp(1.6rem, 4.2vmin, 2.2rem) system-ui, sans-serif;
+    letter-spacing: 0.09em;
+    white-space: nowrap;
+    text-align: center;
+    transition: font-size 320ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .about[data-open] h1 {
+    font-size: clamp(2rem, 5.4vmin, 2.8rem);
+  }
+
+  @media (max-width: 34rem) {
+    .about[data-open] {
+      height: min(34rem, 82dvh);
+    }
+  }
+
+  /* The plate is the button: no chrome of its own, the title's own type. */
+  .about h1 button {
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    pointer-events: auto;
     user-select: none;
     -webkit-user-select: none;
+  }
+
+  /* global.css's focus ring is black and inset, which is right on a cap and
+     invisible on this panel. Same ring, this panel's palette. */
+  .about :focus-visible {
+    outline: 2px solid oklch(96% 0.01 260);
+    outline-offset: 3px;
+  }
+
+  .about-close {
+    position: absolute;
+    top: clamp(0.4rem, 1.4vmin, 0.9rem);
+    right: clamp(0.4rem, 1.4vmin, 0.9rem);
+    display: grid;
+    place-items: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    font: 400 1.6rem/1 system-ui, sans-serif;
+    color: inherit;
+    background: none;
+    border: 0;
+    border-radius: 0.4rem;
+    cursor: pointer;
+    pointer-events: auto;
+    opacity: 0;
+    /* `visibility` rather than opacity alone: it is what keeps the ×, and the
+       body's links, out of the tab order while the panel is closed. */
+    visibility: hidden;
+    transition:
+      opacity 160ms ease-out,
+      visibility 0s linear 320ms;
+  }
+
+  .about[data-open] .about-close {
+    opacity: 1;
+    visibility: visible;
+    transition:
+      opacity 200ms ease-out 140ms,
+      visibility 0s;
+  }
+
+  /* Out of flow while closed, so none of this copy reaches the plate's
+     `fit-content` size — the plate hugs its title and nothing else. */
+  .about-body {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    font: 400 clamp(0.95rem, 1.9vmin, 1.05rem) / 1.55 system-ui, sans-serif;
+    letter-spacing: normal;
+    text-align: left;
+    user-select: text;
+    -webkit-user-select: text;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 160ms ease-out,
+      visibility 0s linear 320ms;
+  }
+
+  .about[data-open] .about-body {
+    position: static;
+    flex: 1 1 auto;
+    min-height: 0;
+    margin-top: clamp(0.5rem, 2vmin, 1rem);
+    overflow-y: auto;
+    opacity: 1;
+    visibility: visible;
+    transition:
+      opacity 200ms ease-out 140ms,
+      visibility 0s;
+  }
+
+  .about-body p {
+    margin: 0 0 0.85em;
+  }
+
+  .about-body p:last-child {
+    margin-bottom: 0;
+  }
+
+  /* global.css's link blue is a light-background colour; this one has to hold
+     up on the panel's own dark backdrop. */
+  .about-body a {
+    color: oklch(80% 0.13 240);
+  }
+
+  .about-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6em;
+  }
+
+  /* Under the panel, over the surface: a click anywhere off the card closes
+     it, and while it is open nothing reaches the caps. */
+  .about-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    background: rgb(0 0 0 / 0.55);
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 320ms ease-out,
+      visibility 0s linear 320ms;
+  }
+
+  .about-scrim[data-open] {
+    opacity: 1;
+    visibility: visible;
+    transition:
+      opacity 320ms ease-out,
+      visibility 0s;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .about,
+    .about[data-open],
+    .about h1,
+    .about[data-open] h1,
+    .about .about-close,
+    .about[data-open] .about-close,
+    .about .about-body,
+    .about[data-open] .about-body,
+    .about-scrim,
+    .about-scrim[data-open] {
+      transition: none;
+    }
   }
 
   .stage {

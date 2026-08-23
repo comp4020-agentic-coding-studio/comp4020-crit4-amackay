@@ -30,12 +30,17 @@ every dyad is a third or a fifth, and that every triad is major or minor.
 Sliding a finger from the middle of a cell toward a corner where three of them
 meet is the signature gesture: notes join and leave underneath it while the
 common tones stay sounding. Two fingers reach seventh chords. There is no
-score, no fail state, no instructions, and no text on the page beyond the cap
-labels and the title. The page is called **Touch-Tonnetz**, and per instruction
-that name is shown: a small centred plate at the top edge, out of flow and
-click-through, so it names the thing without becoming a header the instrument
-has to live underneath. It is a name, not an explanation — the rule that the
-artefact carries no exposition about itself is untouched.
+score, no fail state, and nothing on the playing surface beyond the cap labels
+and the title. The page is called **Touch-Tonnetz**, and per instruction that
+name is shown: a small centred plate at the top edge, out of flow, so it names
+the thing without becoming a header the instrument has to live underneath.
+
+Per instruction the plate is also the way in to an **About panel**: click it
+and it expands into a card carrying a short account of what the instrument is,
+with links out to Tonnetz and Shepard tone. The surface itself still explains
+nothing — a player who never clicks the title meets exactly what they met
+before. Being a click target does cost the caps under the plate: they are no
+longer playable there.
 
 ## The lattice
 
@@ -397,6 +402,47 @@ context menu on the playing surface (a held finger is the primary gesture and
 the browser reads a long press as a right click), no browser zoom or
 overscroll, and a focus ring that belongs only to whoever is tabbing.
 
+### About panel
+
+Per instruction the title plate opens into an About panel. **The plate and the
+card are one element in two states** — `.about`, and `.about[data-open]` — so
+the title reaches its place on the card by the plate growing around it. Nothing
+is measured and nothing is duplicated: there is no second heading, and the
+`<h1>` the invariants require stays the same node throughout.
+
+- **The title stays horizontally centred in both states.** That is what keeps
+  the whole expand a CSS transition: every property that differs between plate
+  and card (`top`, `width`, `height`, `padding`, `border-radius`, background
+  alpha, the title's `font-size`) is animatable, and none of them is
+  `text-align`. A title that moved to the card's top-left corner would need a
+  FLIP or a view transition to travel; this one needs neither.
+- **`width` and `height` interpolate out of `fit-content`**, which takes
+  `interpolate-size: allow-keywords` in `global.css`. The closed plate has to
+  hug its own title rather than carry a hardcoded width, and the copy is out of
+  flow while closed so it cannot swell that intrinsic size. Where
+  `interpolate-size` is unsupported those two properties snap and the rest of
+  the expand still animates.
+- **The card's height is explicit, in two branches**: one for the wide card and
+  a taller one under `max-width: 34rem`, where the card is 92vw and the same
+  copy takes half again as many lines. The body scrolls if it ever overflows,
+  but at both marked viewports it does not.
+- **Disclosure semantics, not a dialog** — `aria-expanded` on the toggle,
+  `aria-controls` to the body. A disclosure needs no focus trap: focus is
+  already on the toggle when the panel opens, and the × and the two links
+  follow it in DOM order. `visibility: hidden` while closed is what keeps them
+  out of the tab order, so nothing has to manage `inert`.
+- **Three ways out**, per instruction plus one: the ×, a click anywhere on the
+  scrim, and `Escape`. All three hand focus back to the toggle.
+- **The instrument goes quiet while it is open.** The scrim covers the surface,
+  so no pointer reaches a cap; `main.ts` gates its `keydown` on
+  `about.isOpen()` for the same reason, and opening runs the same
+  release-everything cleanup that losing the window does. Otherwise a key held
+  as the panel opened would sound under it forever, and `Space` on a focused
+  link would both play a note and follow the link.
+- **`about-panel.ts` never animates anything.** It sets `data-open` and
+  `aria-expanded`; the motion is entirely CSS, which is what keeps the panel's
+  behaviour and its look separately reviewable.
+
 ### Mouse preview
 
 Per instruction, the mouse gets what a finger already has for free: a visible
@@ -537,8 +583,11 @@ never redrawn; pressing a cap toggles a class.
   lives in one line of script rather than as a second copy of the palette; it
   is on the `polygon`, so the clip contains it. Only ever on a *re*-strike; a
   first strike already has the 15 ms attack to announce it.
-- **Motion.** Only those transitions. No idle animation. One asymmetry is
-  deliberate: a released cap that the mouse is *still sitting on* returns to
+- **Motion.** Only those transitions, plus the About panel's 320 ms expand
+  (see "About panel"), which is also the one thing here that answers
+  `prefers-reduced-motion` — a cap's colour transitions are the state itself
+  arriving, where the panel's is decoration over a state change that could just
+  as well be instant. No idle animation. One asymmetry is deliberate: a released cap that the mouse is *still sitting on* returns to
   the hover colour over 200 ms rather than decaying to rest over 500 ms. The
   full tail belongs to a cap you have left; a cap under the cursor should go
   on saying "you are here" instead of pretending it isn't hovered.
@@ -646,8 +695,10 @@ the resize events that drive it.
 ## Accessibility floor
 
 The invariants require a nav landmark, exactly one `<h1>`, a document language,
-a title and a meta description on the built page. The `<h1>` is now the visible
-title plate; the nav stays in the markup, visually hidden. Avoid the words *score*, *streak*, *try
+a title and a meta description on the built page. The `<h1>` is the visible title
+plate and the About panel's heading — one element in both states, so there is
+no second heading to keep unique; the nav stays in the markup, visually
+hidden. Avoid the words *score*, *streak*, *try
 again*, *game over*, *you lose*, *wrong note* and *high score* in copy **and in
 identifiers** — `spec/crit-4.test.ts` greps the built HTML and the page script
 for them.
@@ -656,8 +707,9 @@ for them.
 
 No recorded audio; no octave controls or register management; no configurable
 generators; no 7- or 11-limit axes; no sustain, velocity or portamento; no MIDI;
-no `AudioWorklet`; no tuning-theory copy, instructions or self-explanation
-anywhere in the artefact.
+no `AudioWorklet`; no tuning-theory copy, instructions or self-explanation on
+the playing surface — the About panel, which a player has to open, is the one
+place any of that lives.
 
 ## Known issues
 
@@ -674,7 +726,7 @@ anywhere in the artefact.
   real fix belongs to whoever's desktop it is.
 - **"Request Desktop Site" can't be detected or turned off by a page, only
   worked around.** See "Sizing" above for what it breaks and how. Corrected,
-  but only the title plate's `clamp(…, 2.1vmin, …)` still reads the
+  but only the title plate's `clamp(…, 4.2vmin, …)` still reads the
   substituted viewport, so it sets a little larger than it does normally —
   accepted. No automated test can exercise any of this: jsdom has no layout
   engine and the substitution is browser chrome, not DOM. Verified by hand on
