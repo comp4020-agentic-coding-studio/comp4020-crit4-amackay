@@ -410,6 +410,11 @@ the title reaches its place on the card by the plate growing around it. Nothing
 is measured and nothing is duplicated: there is no second heading, and the
 `<h1>` the invariants require stays the same node throughout.
 
+What the panel is allowed to *say* is settled elsewhere — "What the surface
+already says" and CLAUDE.md's prose rules — and the two meet at the card's
+height, below, which is a constant fitted to the copy it currently holds.
+Changing the copy's length is a change to this section as well as to the words.
+
 - **The title stays horizontally centred in both states.** That is what keeps
   the whole expand a CSS transition: every property that differs between plate
   and card (`top`, `width`, `height`, `padding`, `border-radius`, background
@@ -718,13 +723,39 @@ again*, *game over*, *you lose*, *wrong note* and *high score* in copy **and in
 identifiers** — `spec/crit-4.test.ts` greps the built HTML and the page script
 for them.
 
+## What the surface already says
+
+The register of what the design has been established to convey on its own.
+It exists to be subtracted: copy that repeats an entry here is deleted rather
+than polished, per CLAUDE.md "User-facing prose is the complement of the
+artefact". Whoever builds a thing is the worst-placed to judge what is obvious
+about it, so an entry has to name the mechanism that carries it or the
+play-test that found it — a conviction is not a finding, and an entry can be
+demoted by the first stranger who plays this.
+
+- **These are buttons, and they can be pressed.** The mouse preview lights a
+  cap before it is pressed and the press then brightens it further — one
+  gesture establishes both that the caps respond and that a press is a state
+  they hold. See "Mouse preview".
+- **One, two or three at once.** The press disk is wider than a seam, so
+  crossing one lights two caps together and a corner lights three, without
+  anything having to be aimed at. Reaching a corner is the signature gesture;
+  a player finds it by dragging.
+- **The grid wraps.** Hover and press light *every* copy of a pitch class at
+  once (see "Mouse preview"), so the first interaction anywhere shows four
+  caps responding together and the repeat is visible without waiting for a
+  player to notice recurring names. Established by mechanism; not yet watched
+  over anyone else's shoulder.
+
 ## Non-goals
 
 No recorded audio; no octave controls or register management; no configurable
 generators; no 7- or 11-limit axes; no sustain, velocity or portamento; no MIDI;
 no `AudioWorklet`; no tuning-theory copy, instructions or self-explanation on
-the playing surface — the About panel, which a player has to open, is the one
-place any of that lives.
+the playing surface. The About panel is where anything of the sort lives
+instead — but it is a place, not a licence: what goes in it is settled by "What
+the surface already says" and CLAUDE.md's prose rules, and the panel is sized
+to the copy that earns its way in, never the copy to the panel.
 
 ## Known issues
 
@@ -778,6 +809,21 @@ here so they are not rediscovered, not worked on:
   fundamental-domain caps carry their key letter whether or not a physical
   keyboard exists. Which signal should distinguish the two is the open part,
   not the styling.
+
+Three more are absences rather than misbehaviours — writing the page does not
+do, found by surveying every string a person can reach. All three are in
+`src/layouts/Layout.astro`'s scope:
+
+- **The share card has no `og:image:alt`.** `public/card.png` is posed with the
+  title plate hidden, so the image carries nothing but the lattice and its note
+  names, and a preview that reads alt text has nothing to read. The invariants
+  check the card is present, never that it is described.
+- **There is no `<noscript>`.** With scripting off the lattice still renders,
+  fully laid out and completely silent, and the page says nothing about why —
+  the one failure mode where the instrument looks correct and is not.
+- **There is no favicon**, so the tab shows the browser's default glyph beside
+  the title. Cosmetic, and the only one of the three that costs nothing but a
+  file.
 
 ## Still open
 

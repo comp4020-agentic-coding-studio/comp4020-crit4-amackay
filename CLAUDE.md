@@ -81,6 +81,57 @@ live URL. **`http://localhost:4321/` returning 404 is correct**; the site is at
   for anything declared inside a block in a page script, never a `function`
   declaration.
 
+## User-facing prose is the complement of the artefact
+
+Every string a user can reach: on-screen copy, labels, empty and error states,
+the page description a link preview shows, alt text. Reading is not free, and
+humans read far slower than this harness writes, so prose is not there to
+describe the thing. It carries the remainder — what *this* reader, at *this*
+moment, does not already have. A user looking at the interface has the
+interface. Someone seeing a link preview has not opened it. Someone on a screen
+reader cannot see it. One rule, three answers, which is why "don't say what
+they can see" needs no exceptions bolted on: where the reader has nothing yet,
+describing is the whole job.
+
+- **Ask the owner what is already obvious, and record the answer.** Only
+  someone who has watched a person use the thing knows what it conveys on its
+  own, and that is not derivable from the code. So prose work starts with the
+  question — *what does a user already get from the interface, without reading
+  anything?* — and the answers go into the design document under a standing
+  heading, one entry each, naming the mechanism that carries it or the
+  user-test that found it. The next prose session then subtracts from a list
+  instead of re-deriving it. Keep it honest in both directions: whoever built a
+  thing is the worst-placed to judge what is obvious about it, so a conviction
+  is not a finding, and any entry can be demoted by the first stranger who uses
+  it.
+- **Delete any sentence the reader could get by looking, or by one
+  interaction.** Not shorten — delete. Add to the register above when a design
+  change makes copy redundant, in the same commit that makes it so.
+- **Duplication is the same defect it is in code, and the cost is drift, not
+  bulk.** Copy that restates a fact the artefact owns goes quietly wrong when
+  that fact changes. The remedy does not transfer, though: prose cannot factor
+  a duplicate out, only delete it and let the source speak.
+- **A specialist term has to pay the reader back.** Not "is it precise" — is
+  the reader getting something they could not get otherwise, usually a name
+  they can search when they want to know more. Write for someone with no
+  background in the domain: the plain-words version wins even when it runs
+  longer, and a term that survives that test is worth linking.
+- **Link a term inline, at the first mention that raises the question.** A row
+  of links at the end makes the reader go back and work out what each one
+  referred to.
+- **The artefact never justifies itself.** A sentence defending a design
+  decision is rationale wearing user-facing clothes; it belongs in the design
+  document, the process notes or a commit body. Test: would this sentence exist
+  if the thing had simply always been this way? A section nominally *about* the
+  thing is not exempt.
+- **Brevity is not the measure — time to understanding is.** Spend words to
+  save the reader effort; never spend the reader's effort to save yourself
+  imprecision. Front-load for the same reason: the first sentence gets read,
+  the fourth may not.
+- **A section that exists asks to be filled.** Copy expands to the space it is
+  given, and then the space is cited as evidence it was needed. An empty space
+  is not a brief; size the space to the copy that earns its way in.
+
 ## Working rules
 
 - **Never commit a red build, typecheck, or a test that used to pass.** The one
