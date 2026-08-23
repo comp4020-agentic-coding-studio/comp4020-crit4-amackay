@@ -666,6 +666,14 @@ The major/minor warm/cool convention the hand-off locked in its §1 applies only
 to the triad spots, so it has nothing to colour and is dropped. Hue stays the
 single varying channel across the whole surface.
 
+**The tab icon is one cap's outline**, per instruction: a stroke, transparent
+inside and out, black and flipping to white under `prefers-color-scheme: dark`
+(honoured by Chrome and Firefox; Safari keeps the black). `src/lib/favicon.ts`
+generates it from `HEX` and `src/layouts/Layout.astro` inlines it into the head
+as a `data:` URI — so it cannot drift from the shape it names, and there is no
+base path for it to resolve wrongly. Colour is deliberately not carried over:
+hue means pitch class here, and a lone hexagon has no pitch class.
+
 ### Sizing
 
 Fit **15 twelfths to the short viewport axis**, and extend the long axis with
@@ -864,8 +872,8 @@ here so they are not rediscovered, not worked on:
   keyboard exists. Which signal should distinguish the two is the open part,
   not the styling.
 
-Three more are absences rather than misbehaviours — writing the page does not
-do, found by surveying every string a person can reach. All three are in
+Two more are absences rather than misbehaviours — writing the page does not
+do, found by surveying every string a person can reach. Both are in
 `src/layouts/Layout.astro`'s scope:
 
 - **The share card has no `og:image:alt`.** `public/card.png` is posed with the
@@ -875,9 +883,6 @@ do, found by surveying every string a person can reach. All three are in
 - **There is no `<noscript>`.** With scripting off the lattice still renders,
   fully laid out and completely silent, and the page says nothing about why —
   the one failure mode where the instrument looks correct and is not.
-- **There is no favicon**, so the tab shows the browser's default glyph beside
-  the title. Cosmetic, and the only one of the three that costs nothing but a
-  file.
 
 ## Still open
 
