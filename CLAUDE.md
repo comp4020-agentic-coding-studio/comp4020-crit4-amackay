@@ -124,13 +124,27 @@ live URL. **`http://localhost:4321/` returning 404 is correct**; the site is at
 
 ## The checks
 
-`pnpm check` is the loop; read the failure, which names the contract. Five
+`pnpm check` is the loop; read the failure, which names the contract. Six
 things it won't tell you:
 
-- **CI runs only once the repo is public.** The flip at the cutoff triggers the
-  first real run, so ship with time for it to finish.
+- **CI runs on every push now** — the repo is public and shipped, so the
+  `!github.event.repository.private` gate that kept both jobs off during the
+  private phase no longer holds anything back. A run is ~1m30s, and the deploy
+  job publishes `dist/` to Pages and then verifies the live URL returns 200.
+  Read the gate as history, not as the current state: assuming it still applied
+  cost one session a wrong recommendation.
 - **`pnpm check:evidence`** requires the reflection at exactly
-  `reflections/crit-4.md` and `PROCESS.md`'s commit citations to resolve.
+  `reflections/crit-4.md`, `PROCESS.md`'s commit citations to resolve, and the
+  share card not to be stale.
+- **The share card is a screenshot, so it has a sensor rather than a
+  reminder.** `pnpm card` re-takes `public/card.png` — the built site at
+  1200×630, title plate hidden, C-E-G-A held (`scripts/make-card.sh`, posed by
+  `scripts/card-pose.js`) — and records a fingerprint of the page's CSS plus
+  the playing surface's markup. `check:evidence` recomputes it, so a changed
+  surface reddens the ship gate but not the inner `pnpm check` loop: regenerate
+  once before shipping rather than committing a new PNG per tweak. Editing the
+  About copy doesn't trip it; restyling the panel does, and that false positive
+  costs one `pnpm card`. Needs `agent-browser` locally; CI only ever checks.
 - **The links check** serves `dist/` under the base path via `astro preview` and
   crawls that; the old `linkinator ./dist` one-liner no longer matches CI.
 - **`.githooks/pre-commit`** blocks key-shaped strings before they are pushed.
