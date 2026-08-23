@@ -576,10 +576,12 @@ mouse pointer has no size until it clicks, so two things stand in for that:
 hands have left the mouse, so a lit preview cap and a disk parked wherever the
 pointer happens to rest are describing something nobody is doing — and the
 preview is the worse of the two, since it lights caps unrelated to what is
-being played. Neither is restored deliberately: the next `pointermove`
-relights the preview and re-shows the disk on its way past. Keys that do not
-sound leave both alone, so tabbing to the title plate disturbs nothing. The
-pointer itself stays the browser's throughout — see below.
+being played. **Any** mouse event brings both back, not just movement: a
+player who reaches for the mouse and clicks without nudging it produces no
+`pointermove` at all, so keying the restore to movement left the marks off
+through the whole click and after it. Keys that do not sound leave both alone,
+so tabbing to the title plate disturbs nothing. The pointer itself stays the
+browser's throughout — see below.
 
 ### The page never owns the cursor
 

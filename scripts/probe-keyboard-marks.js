@@ -43,8 +43,25 @@
   const whilePlaying = marks();
   key("keyup");
 
+  // A click that never nudges the mouse: no pointermove anywhere in it.
+  pointer(cap.c, "pointerdown");
+  const whileClicking = marks();
+  pointer(cap.c, "pointerup");
+  const afterClick = marks();
+
+  key("keydown");
+  key("keyup");
+  const dimmedAgain = marks();
   pointer(surface, "pointermove");
   const afterMove = marks();
 
-  return { cap: cap.c.querySelector(".name").textContent.trim(), beforeKey, whilePlaying, afterMove };
+  return {
+    cap: cap.c.querySelector(".name").textContent.trim(),
+    beforeKey,
+    whilePlaying,
+    whileClicking,
+    afterClick,
+    dimmedAgain,
+    afterMove,
+  };
 })();

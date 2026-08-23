@@ -263,6 +263,16 @@ if (surface) {
     cursorDot?.classList.remove("visible");
   };
 
+  // ...and back, on any mouse event whatever, not only movement. A player who
+  // reaches for the mouse and clicks without nudging it produces no
+  // pointermove at all, so keying that restore to movement left the disk and
+  // the preview off through the whole click and after it.
+  const showMouseMarks = (event: PointerEvent): void => {
+    if (event.pointerType !== "mouse") return;
+    positionCursorDot(event);
+    refineHoverAt(event.pointerId, event);
+  };
+
   const positionCursorDot = (event: PointerEvent): void => {
     if (!cursorDot) return;
     const rect = surface.getBoundingClientRect();
@@ -337,10 +347,15 @@ if (surface) {
   surface.addEventListener("pointermove", (event) => {
     const pointerEvent = event as PointerEvent;
     refinePointerAt(pointerEvent.pointerId, pointerEvent);
-    if (pointerEvent.pointerType !== "mouse") return;
-    positionCursorDot(pointerEvent);
-    refineHoverAt(pointerEvent.pointerId, pointerEvent);
+    showMouseMarks(pointerEvent);
   });
+
+  // The rest of the mouse's evidence that it is being used. All three bubble,
+  // so one listener each on the surface covers every cap; `pointerenter` does
+  // not bubble and is handled on the caps themselves, above.
+  for (const type of ["pointerover", "pointerdown", "pointerup"]) {
+    surface.addEventListener(type, (event) => showMouseMarks(event as PointerEvent));
+  }
 
   surface.addEventListener("pointerleave", (event) => {
     const pointerEvent = event as PointerEvent;
