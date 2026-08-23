@@ -1,5 +1,6 @@
 ---
 import "../styles/global.css";
+import { faviconDataUri } from "../lib/favicon.ts";
 
 interface Props {
   title: string;
@@ -17,6 +18,10 @@ const { title, description } = Astro.props;
 // without a trailing slash --- joining naively yields ".../<repo>card.png".
 const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
 const card = new URL(`${base}card.png`, Astro.site);
+
+// Inline rather than a file in public/, so this one has no base path to get
+// wrong --- src/lib/favicon.ts says why.
+const favicon = faviconDataUri();
 ---
 
 <!doctype html>
@@ -26,6 +31,7 @@ const card = new URL(`${base}card.png`, Astro.site);
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href={favicon} />
     <meta property="og:type" content="website" />
     <meta property="og:image" content={card} />
     <meta name="twitter:card" content="summary_large_image" />
