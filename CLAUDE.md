@@ -217,6 +217,13 @@ things it won't tell you:
 - **`pnpm check:evidence`** requires the reflection at exactly
   `reflections/crit-4.md`, `PROCESS.md`'s commit citations to resolve, and the
   share card not to be stale.
+- **`pnpm card` refuses to shoot a card it cannot pose.** `card-pose.js`
+  checks its own postconditions — the pressed chord lit and nothing else, the
+  plate hidden, the hints off — and `make-card.sh` stops on them *before* the
+  screenshot, so a broken pose leaves the good card in place instead of
+  overwriting it. It also re-encodes on every run: the PNG's bytes differ even
+  when the picture does not, so `git checkout public/card.png` rather than
+  commit a no-op re-shoot.
 - **The share card is a screenshot, so it has a sensor rather than a
   reminder.** `pnpm card` re-takes `public/card.png` — the built site at
   1200×630, title plate hidden, C-E-G-A held (`scripts/make-card.sh`, posed by

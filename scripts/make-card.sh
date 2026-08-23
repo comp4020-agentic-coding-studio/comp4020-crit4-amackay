@@ -33,8 +33,25 @@ pnpm exec astro preview --background --port "$port" > /dev/null
 
 agent-browser set viewport 1200 630 > /dev/null
 agent-browser open "$base" > /dev/null
-agent-browser eval "$(cat scripts/card-pose.js)"
-agent-browser screenshot public/card.png > /dev/null
+
+# The pose reports whether it worked; nothing is shot unless it did. A card is
+# a screenshot, so a pose that quietly stopped lighting the chord would
+# otherwise be recorded as the new truth and reported as a success.
+pose=$(agent-browser eval "$(cat scripts/card-pose.js)")
+echo "$pose"
+if ! echo "$pose" | jq -e '.ok' > /dev/null; then
+  echo "the pose failed, so no card was taken:" >&2
+  echo "$pose" | jq -r '.problems[]? // "the pose returned nothing usable"' >&2
+  exit 1
+fi
+
+# Into place only once it is a whole PNG of the right size: public/card.png is
+# the shipped artefact, and a half-written one is worse than a stale one.
+shot=$(mktemp -t card-XXXXXX.png)
+agent-browser screenshot "$shot" > /dev/null
+mv "$shot" public/card.png
 
 node scripts/check-card.ts --write
-echo "✓ public/card.png"
+# --write records and returns without validating anything, so check what was
+# just recorded rather than assuming it.
+node scripts/check-card.ts
