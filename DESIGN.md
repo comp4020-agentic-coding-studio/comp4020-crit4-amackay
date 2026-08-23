@@ -281,6 +281,15 @@ built — see `instrument.ts` and its comments. Silence remains the rest state:
 the `AudioContext` is created lazily on the first gesture and resumed on every
 gesture, and every voice is released on `window` blur.
 
+**A gesture that arrives before the audio device has opened waits, and is
+dropped if it ends first.** Resuming a context is not instant — on the first
+gesture after a reload the device can take longer to open than the gesture
+lasts — and until it is running the context's clock is frozen, so anything
+scheduled against it stacks up at one absolute time and plays together the
+moment it starts. Holding those voices back costs the first tap its sound;
+starting them late would put a note under a finger that has already gone,
+which is worse. A note still held when the device opens does sound.
+
 ### One voice per gesture
 
 `Instrument` keys voices by an opaque string and refuses a duplicate `noteOn`,
@@ -841,7 +850,7 @@ to the copy that earns its way in, never the copy to the panel.
   an Android Chrome phone; see "The checks" and CLAUDE.md's "Two things this
   harness cannot do."
 
-Four more, all from play-testing and all **noted, not investigated** — recorded
+Three more, all from play-testing and all **noted, not investigated** — recorded
 here so they are not rediscovered, not worked on:
 
 - **A long press on a phone fires the platform's haptic buzz**, about a second
@@ -857,11 +866,6 @@ here so they are not rediscovered, not worked on:
   distracting one; whether the disk should go too, and whether the pointer
   itself should, is open — but "The page never owns the cursor" still forbids
   `cursor: none` as the way to do it.
-- **The first gesture after a reload can light caps without sounding them.**
-  Repro on a phone: load the page, refresh it, touch anywhere. The correct caps
-  highlight and nothing is heard; the voices then all sound at once when the
-  next gesture starts, as if held until then. Consistent with the
-  `AudioContext` not yet running for that first gesture.
 - **The keyboard hints are shown on phones, which cannot use them.** All twelve
   fundamental-domain caps carry their key letter whether or not a physical
   keyboard exists. Which signal should distinguish the two is the open part,

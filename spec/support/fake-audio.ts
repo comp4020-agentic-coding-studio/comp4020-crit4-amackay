@@ -173,6 +173,16 @@ export class FakeAudioContext {
     return FakeAudioContext.log;
   }
 
+  // A real page listens for "statechange" to find out when the audio device
+  // has actually opened. Recorded nowhere: what matters to a test is that
+  // reaching for it does not throw.
+  addEventListener(): void {}
+  removeEventListener(): void {}
+
+  // The state flips before the promise is handed back, so a page that starts
+  // its voices straight after resume() finds a running clock. A real device
+  // can take far longer than that to open, which is its own hazard — the
+  // tests that need it stall resume() themselves (src/lib/instrument.test.ts).
   async resume(): Promise<void> {
     this.#log.resumes += 1;
     this.state = "running";

@@ -4,7 +4,7 @@
 // envelope automation — the order the events are scheduled in. Whether the
 // result sounds like a release still needs ears.
 import { beforeEach, describe, expect, it } from "vitest";
-import { type AudioLog, installFakeAudio } from "../../spec/support/fake-audio.ts";
+import { type AudioLog, FakeAudioContext, installFakeAudio } from "../../spec/support/fake-audio.ts";
 import { Instrument } from "./instrument.ts";
 
 let log: AudioLog;
@@ -69,5 +69,83 @@ describe("noteOff", () => {
       "setValueAtTime",
       "setTargetAtTime",
     ]);
+  });
+});
+
+/** A context whose audio device takes its time, which is what a real one does
+ *  on the first gesture after a reload. FakeAudioContext.resume() flips the
+ *  state before it returns, so nothing else here can reach the wait. */
+class StalledContext extends FakeAudioContext {
+  static waiting: (() => void)[] = [];
+
+  override async resume(): Promise<void> {
+    if (this.state === "running") return;
+    await new Promise<void>((settle) => StalledContext.waiting.push(settle));
+  }
+
+  /** The device opens: every resume() so far resolves. */
+  static open(): Promise<void> {
+    for (const context of StalledContext.instances) context.state = "running";
+    const settling = StalledContext.waiting;
+    StalledContext.waiting = [];
+    for (const settle of settling) settle();
+    return Promise.resolve();
+  }
+
+  static instances: StalledContext[] = [];
+  constructor() {
+    super();
+    StalledContext.instances.push(this);
+  }
+}
+
+describe("a context that is still opening", () => {
+  beforeEach(() => {
+    StalledContext.waiting = [];
+    StalledContext.instances = [];
+    (globalThis as unknown as Record<string, unknown>).AudioContext = StalledContext;
+  });
+
+  it("schedules nothing against a clock that is not running", async () => {
+    // The whole bug: a suspended context's currentTime is frozen, so voices
+    // scheduled against it stack up at one absolute time and play together
+    // the moment the device opens.
+    const instrument = new Instrument();
+    instrument.noteOn("0:7", 1.5);
+    await Promise.resolve();
+
+    expect(log.started, "a voice was scheduled while the context was suspended").toHaveLength(0);
+  });
+
+  it("starts a note still held when the device opens", async () => {
+    const instrument = new Instrument();
+    instrument.noteOn("0:7", 1.5);
+    await StalledContext.open();
+    await Promise.resolve();
+
+    expect(log.started.length, "the held note never started").toBeGreaterThan(0);
+  });
+
+  it("drops a note let go of before the device opened", async () => {
+    // Starting it late would sound after the finger had left — a blurt at the
+    // top of the next gesture is exactly the reported symptom.
+    const instrument = new Instrument();
+    instrument.noteOn("0:7", 1.5);
+    instrument.noteOff("0:7");
+    await StalledContext.open();
+    await Promise.resolve();
+
+    expect(log.started, "a released gesture sounded anyway").toHaveLength(0);
+  });
+
+  it("still refuses a duplicate while a note is waiting", async () => {
+    const instrument = new Instrument();
+    instrument.noteOn("0:7", 1.5);
+    instrument.noteOn("0:7", 1.5);
+    await StalledContext.open();
+    await Promise.resolve();
+
+    const partials = log.started.filter((node) => node.kind === "oscillator");
+    expect(partials.length, "one gesture, one stack of partials").toBe(8);
   });
 });

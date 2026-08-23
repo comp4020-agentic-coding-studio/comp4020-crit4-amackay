@@ -21,6 +21,7 @@ export class Instrument {
   #context: AudioContext | null = null;
   #master: GainNode | null = null;
   #voices = new Map<string, Voice>();
+  #pending = new Map<string, number>();
 
   #ensureContext(): { context: AudioContext; master: GainNode } {
     if (!this.#context) {
@@ -30,20 +31,51 @@ export class Instrument {
       const compressor = context.createDynamicsCompressor();
       master.connect(compressor);
       compressor.connect(context.destination);
+      // Opening the audio device can outlast the gesture that asked for it,
+      // so the state change is a second chance to start whatever is waiting.
+      context.addEventListener("statechange", () => this.#startPending());
       this.#context = context;
       this.#master = master;
     }
     // An AudioContext starts suspended; resuming is safe (and a no-op) once
     // running, and DESIGN.md asks for it on every gesture, not just the first.
-    void this.#context.resume();
+    void this.#context.resume().then(
+      () => this.#startPending(),
+      () => undefined,
+    );
     return { context: this.#context, master: this.#master! };
+  }
+
+  /** Start every gesture that arrived while the context was still suspended.
+   *  Callable at any time: it does nothing unless the clock is running. */
+  #startPending(): void {
+    const context = this.#context;
+    const master = this.#master;
+    if (!context || !master || context.state !== "running") return;
+    const waiting = [...this.#pending];
+    this.#pending.clear();
+    for (const [id, ratio] of waiting) this.#startVoice(id, ratio, context, master);
   }
 
   /** Start a voice for `id` at `ratio`, unless `id` is already held. */
   noteOn(id: string, ratio: number): void {
-    if (this.#voices.has(id)) return;
+    if (this.#voices.has(id) || this.#pending.has(id)) return;
     const { context, master } = this.#ensureContext();
 
+    // A suspended context's clock is frozen, so a voice scheduled against it
+    // lands at whatever absolute time the clock is stuck on — and so does
+    // every other voice, and every release, until the audio device finally
+    // opens and plays the lot in one burst. That is the first gesture after a
+    // reload lighting caps in silence and then blurting at the start of the
+    // second. Hold the gesture instead, and start it against a running clock.
+    if (context.state !== "running") {
+      this.#pending.set(id, ratio);
+      return;
+    }
+    this.#startVoice(id, ratio, context, master);
+  }
+
+  #startVoice(id: string, ratio: number, context: AudioContext, master: GainNode): void {
     const envelope = context.createGain();
     envelope.gain.setValueAtTime(0, context.currentTime);
     envelope.gain.linearRampToValueAtTime(1, context.currentTime + ATTACK_S);
@@ -68,6 +100,11 @@ export class Instrument {
 
   /** Release the voice held by `id`, if any. */
   noteOff(id: string): void {
+    // Held only in the sense of waiting for the audio device: the gesture is
+    // over before it ever sounded, so it is dropped rather than started late.
+    // A note that arrives after the finger has left is worse than silence.
+    if (this.#pending.delete(id)) return;
+
     const voice = this.#voices.get(id);
     if (!voice || !this.#context) return;
     this.#voices.delete(id);
@@ -99,6 +136,6 @@ export class Instrument {
 
   /** Release every held voice — DESIGN.md asks for this on window blur. */
   releaseAll(): void {
-    for (const id of [...this.#voices.keys()]) this.noteOff(id);
+    for (const id of [...this.#voices.keys(), ...this.#pending.keys()]) this.noteOff(id);
   }
 }
