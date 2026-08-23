@@ -15,6 +15,10 @@ export interface Started {
   kind: string;
   /** Values set on the node's AudioParams, most recent last. */
   params: Record<string, number[]>;
+  /** The automation methods called on each AudioParam, in order. Values alone
+   *  cannot tell an envelope apart from one whose pending ramps were never
+   *  cancelled, because both set the same numbers. */
+  automation: Record<string, string[]>;
   /** Non-param properties set on the node, e.g. an oscillator's `type`. */
   settings: Record<string, unknown>;
   when: number;
@@ -65,6 +69,10 @@ class FakeParam {
     (this.#record.params[this.#name] ??= []).push(value);
   }
 
+  #note(method: string): void {
+    (this.#record.automation[this.#name] ??= []).push(method);
+  }
+
   get value(): number {
     const seen = this.#record.params[this.#name] ?? [0];
     return seen[seen.length - 1] ?? 0;
@@ -75,22 +83,27 @@ class FakeParam {
   }
 
   setValueAtTime(value: number): this {
+    this.#note("setValueAtTime");
     this.#push(value);
     return this;
   }
   linearRampToValueAtTime(value: number): this {
+    this.#note("linearRampToValueAtTime");
     this.#push(value);
     return this;
   }
   exponentialRampToValueAtTime(value: number): this {
+    this.#note("exponentialRampToValueAtTime");
     this.#push(value);
     return this;
   }
   setTargetAtTime(value: number): this {
+    this.#note("setTargetAtTime");
     this.#push(value);
     return this;
   }
   cancelScheduledValues(): this {
+    this.#note("cancelScheduledValues");
     return this;
   }
 }
@@ -106,7 +119,7 @@ const PARAMS: Record<string, Record<string, number>> = {
 };
 
 function makeNode(log: AudioLog, kind: string, context: FakeAudioContext) {
-  const record: Started = { kind, params: {}, settings: {}, when: 0 };
+  const record: Started = { kind, params: {}, automation: {}, settings: {}, when: 0 };
   log.created.push(record);
 
   const node: Record<string, unknown> = {

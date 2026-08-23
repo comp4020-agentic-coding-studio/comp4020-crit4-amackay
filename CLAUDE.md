@@ -33,6 +33,15 @@ not disagree.
 - **The same seam answers both.** Geometry as plain functions over numbers gets
   exhaustive unit tests and property tests; the page wiring gets the spec
   tests. Never make the spec suite the only thing proving the geometry.
+- **An `AudioParam` runs every event still in its timeline, including ones
+  scheduled later than the one you just added.** Releasing a note inside its
+  15 ms attack used to leave the attack's `linearRampToValueAtTime` sitting
+  *after* the release's `setTargetAtTime`, so the ramp ran anyway, pulled the
+  gain back to full and held it there until `oscillator.stop()` cut it — a
+  note that hung on and ended in a click. Any release has to
+  `cancelScheduledValues(now)` and pin the reached value with
+  `setValueAtTime(gain.value, now)` first; `gain.value` does read the ramp
+  mid-flight. `scripts/probe-release-clip.js` renders it offline either way.
 
 ## The stack: Astro, base path and all
 

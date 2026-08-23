@@ -73,9 +73,24 @@ export class Instrument {
     this.#voices.delete(id);
 
     const context = this.#context;
-    voice.envelope.gain.setTargetAtTime(0, context.currentTime, RELEASE_TIME_CONSTANT_S);
+    const now = context.currentTime;
 
-    const stopAt = context.currentTime + STOP_AFTER_S;
+    // A gesture released inside ATTACK_S leaves the attack's
+    // linearRampToValueAtTime scheduled *later* in the automation timeline
+    // than this release, and an event later in the timeline still runs: the
+    // gain decays for a few milliseconds, the ramp then pulls it back to 1,
+    // and there it stays until oscillator.stop() below cuts it at full
+    // amplitude. That is the note that hangs on and ends in a click. So drop
+    // whatever is still pending and pin the value the envelope has actually
+    // reached — gain.value reads the ramp mid-flight — and the release always
+    // starts from where the note is rather than from where it was going.
+    const gain = voice.envelope.gain;
+    const reached = gain.value;
+    gain.cancelScheduledValues(now);
+    gain.setValueAtTime(reached, now);
+    gain.setTargetAtTime(0, now, RELEASE_TIME_CONSTANT_S);
+
+    const stopAt = now + STOP_AFTER_S;
     for (const oscillator of voice.oscillators) {
       oscillator.addEventListener("ended", () => oscillator.disconnect());
       oscillator.stop(stopAt);

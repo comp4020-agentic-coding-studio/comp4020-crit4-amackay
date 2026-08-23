@@ -841,7 +841,7 @@ to the copy that earns its way in, never the copy to the panel.
   an Android Chrome phone; see "The checks" and CLAUDE.md's "Two things this
   harness cannot do."
 
-Five more, all from play-testing and all **noted, not investigated** — recorded
+Four more, all from play-testing and all **noted, not investigated** — recorded
 here so they are not rediscovered, not worked on:
 
 - **A long press on a phone fires the platform's haptic buzz**, about a second
@@ -862,11 +862,6 @@ here so they are not rediscovered, not worked on:
   highlight and nothing is heard; the voices then all sound at once when the
   next gesture starts, as if held until then. Consistent with the
   `AudioContext` not yet running for that first gesture.
-- **Voices released after rapid successive presses can hang on and then clip.**
-  The tail outlasts the release and ends in a click rather than a fade.
-  Reproducible on phone and desktop, by touch and by mouse; easiest when
-  swiping quickly across many caps, but seen across as few as two. Not
-  reproducible from the keyboard.
 - **The keyboard hints are shown on phones, which cannot use them.** All twelve
   fundamental-domain caps carry their key letter whether or not a physical
   keyboard exists. Which signal should distinguish the two is the open part,
