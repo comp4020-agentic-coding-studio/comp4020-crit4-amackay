@@ -681,6 +681,37 @@ anywhere in the artefact.
   an Android Chrome phone; see "The checks" and CLAUDE.md's "Two things this
   harness cannot do."
 
+Five more, all from play-testing and all **noted, not investigated** — recorded
+here so they are not rediscovered, not worked on:
+
+- **A long press on a phone fires the platform's haptic buzz**, about a second
+  after touching and holding one spot. It is the context-menu gesture, which
+  makes sense when a menu follows; here nothing does, so the buzz arrives
+  mid-note as a distraction. Whether a page can suppress it at all — beyond the
+  `touch-action`, `-webkit-touch-callout` and tap-highlight suppressions
+  already in `global.css` — is unestablished.
+- **Playing from the computer keyboard leaves the mouse's marks on screen.**
+  A held key neither hides the cursor disk nor clears `.hover`, so a
+  keyboard-only player has a lit preview cap sitting wherever the pointer
+  happens to rest, unrelated to what they are playing. The hover mark is the
+  distracting one; whether the disk should go too, and whether the pointer
+  itself should, is open — but "The page never owns the cursor" still forbids
+  `cursor: none` as the way to do it.
+- **The first gesture after a reload can light caps without sounding them.**
+  Repro on a phone: load the page, refresh it, touch anywhere. The correct caps
+  highlight and nothing is heard; the voices then all sound at once when the
+  next gesture starts, as if held until then. Consistent with the
+  `AudioContext` not yet running for that first gesture.
+- **Voices released after rapid successive presses can hang on and then clip.**
+  The tail outlasts the release and ends in a click rather than a fade.
+  Reproducible on phone and desktop, by touch and by mouse; easiest when
+  swiping quickly across many caps, but seen across as few as two. Not
+  reproducible from the keyboard.
+- **The keyboard hints are shown on phones, which cannot use them.** All twelve
+  fundamental-domain caps carry their key letter whether or not a physical
+  keyboard exists. Which signal should distinguish the two is the open part,
+  not the styling.
+
 ## Still open
 
 - **Whether stacked unisons want a few cents of spread.** Two holders on one
