@@ -18,6 +18,11 @@ reading guide to the history, not a restatement of the design.
 - **Voices are refcounted by pitch class above `Instrument`**, so the torus's
   wrap — where two caps are the same pitch class — cannot double-trigger or
   strand a voice. [`2fd0537`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit4-amackay/commit/2fd0537)
+- **The title plate became the About panel**, one element in two states rather
+  than a plate plus a dialog: the title reaches its place on the card by the
+  plate growing around it, so the expand is a CSS transition and the `<h1>`
+  never doubles.
+  [`ada38bb`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit4-amackay/commit/ada38bb)
 - **Geometry, tuning and synthesis are plain functions over numbers**, unit- and
   property-tested away from the DOM and the audio graph, per `CLAUDE.md`'s seam.
   [`f87ba1a`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit4-amackay/commit/f87ba1a)
