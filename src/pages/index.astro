@@ -73,7 +73,7 @@ const capClip = `polygon(${screenHex
 
 <Layout
   title="Touch-Tonnetz"
-  description="A playable Tonnetz: twelve pitch classes tiled as a wrapping hexagonal grid, one voice per touch, dyad or triad — play it by mouse, touch or keyboard."
+  description="A musical instrument based on the Tonnetz — a repeating layout where nearby notes sound nice together. Playable via touch, mouse, or keyboard."
 >
   <header class="visually-hidden">
     <nav aria-label="Primary">
@@ -93,22 +93,15 @@ const capClip = `polygon(${screenHex
     <button type="button" class="about-close" data-about-close aria-label="Close">&#215;</button>
     <div class="about-body" id="about-body">
       <p>
-        Every hexagon is one of the twelve pitch classes, arranged so neighbours are a third or a
-        fifth apart. Press one for a note, press where two meet for that interval, press where three
-        meet for a major or minor triad — the layout is what makes those the only possibilities. The
-        grid wraps: keep going in any direction and the same twelve come round again.
+        A musical instrument based on the
+        <a href="https://en.wikipedia.org/wiki/Tonnetz" target="_blank" rel="noopener noreferrer">Tonnetz</a>
+        — a repeating layout where nearby notes sound nice together.
       </p>
       <p>
-        Each note is a Shepard tone — eight octave-spaced partials under a fixed spectral window — so
-        a pitch class has no octave to belong to, and the surface can repeat without ever running out
-        of range.
+        There is no highest note — each note plays a
+        <a href="https://en.wikipedia.org/wiki/Shepard_tone" target="_blank" rel="noopener noreferrer">Shepard tone</a>.
       </p>
-      <p>Touch, drag, click, or play it from the keyboard.</p>
-      <p class="about-links">
-        <a href="https://en.wikipedia.org/wiki/Tonnetz" target="_blank" rel="noopener noreferrer">Tonnetz</a>
-        <span aria-hidden="true">·</span>
-        <a href="https://en.wikipedia.org/wiki/Shepard_tone" target="_blank" rel="noopener noreferrer">Shepard tone</a>
-      </p>
+      <p>Playable via touch, mouse, or keyboard.</p>
     </div>
   </section>
   <div class="about-scrim" data-about-scrim aria-hidden="true"></div>
@@ -360,12 +353,6 @@ const capClip = `polygon(${screenHex
      up on the panel's own dark backdrop. */
   .about-body a {
     color: oklch(80% 0.13 240);
-  }
-
-  .about-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.6em;
   }
 
   /* Under the panel, over the surface: a click anywhere off the card closes

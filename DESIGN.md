@@ -746,6 +746,10 @@ demoted by the first stranger who plays this.
   caps responding together and the repeat is visible without waiting for a
   player to notice recurring names. Established by mechanism; not yet watched
   over anyone else's shoulder.
+- **The caps are keys, and the keyboard carries on past the printed ones.**
+  Twelve caps print a key hint (see "Keyboard"), and the other twenty-four keys
+  play unlabelled. Per instruction: a paragraph saying so was written into the
+  About panel and deleted from it as already obvious.
 
 ## Non-goals
 
