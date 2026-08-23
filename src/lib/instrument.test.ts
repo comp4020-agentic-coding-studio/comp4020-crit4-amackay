@@ -149,3 +149,68 @@ describe("a context that is still opening", () => {
     expect(partials.length, "one gesture, one stack of partials").toBe(8);
   });
 });
+
+/** Stand in for `navigator.userActivation`, which node has no notion of.
+ *  `undefined` removes it, which is what an older browser looks like. */
+function withActivation(hasBeenActive: boolean | undefined, body: () => void): void {
+  const original = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  Object.defineProperty(globalThis, "navigator", {
+    value: hasBeenActive === undefined ? {} : { userActivation: { hasBeenActive, isActive: hasBeenActive } },
+    configurable: true,
+  });
+  try {
+    body();
+  } finally {
+    if (original) Object.defineProperty(globalThis, "navigator", original);
+  }
+}
+
+describe("canSound", () => {
+  beforeEach(() => {
+    StalledContext.waiting = [];
+    StalledContext.instances = [];
+    (globalThis as unknown as Record<string, unknown>).AudioContext = StalledContext;
+  });
+
+  it("is false while the context is shut and the page has never been activated", () => {
+    // A first touch: the press itself grants nothing, so this gesture cannot
+    // be heard however long it is held.
+    withActivation(false, () => {
+      expect(new Instrument().canSound()).toBe(false);
+    });
+  });
+
+  it("is true once the page has been activated, before the device has opened", () => {
+    // A first mouse press or keypress carries its own activation, so the
+    // device will open and the note will sound — a beat late at worst.
+    withActivation(true, () => {
+      expect(new Instrument().canSound()).toBe(true);
+    });
+  });
+
+  it("is true for a context the browser let start on its own", async () => {
+    // High media engagement (a dev server played all week): permitted with no
+    // activation at all, so activation alone would be the wrong question.
+    const instrument = new Instrument();
+    withActivation(false, () => instrument.canSound());
+    await StalledContext.open();
+
+    withActivation(false, () => {
+      expect(instrument.canSound(), "a running context sounds whatever activation says").toBe(true);
+    });
+  });
+
+  it("stays true once true", () => {
+    const instrument = new Instrument();
+    withActivation(true, () => instrument.canSound());
+    withActivation(false, () => {
+      expect(instrument.canSound(), "activation is sticky; this must not flap").toBe(true);
+    });
+  });
+
+  it("assumes sound where the browser cannot be asked", () => {
+    withActivation(undefined, () => {
+      expect(new Instrument().canSound()).toBe(true);
+    });
+  });
+});

@@ -15,6 +15,14 @@
   style.textContent = "[data-about], [data-about-scrim] { display: none !important; }";
   document.head.append(style);
 
+  // Synthetic events grant no user activation, so the page correctly decides
+  // that nothing it does can sound and declines to light a thing (DESIGN.md
+  // "Synthesis"). Say what a real press would have said.
+  Object.defineProperty(navigator, "userActivation", {
+    value: { hasBeenActive: true, isActive: true },
+    configurable: true,
+  });
+
   const pressed = [];
   for (const name of CHORD) {
     const cap = named(name);

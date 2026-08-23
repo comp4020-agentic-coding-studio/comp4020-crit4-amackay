@@ -306,6 +306,19 @@ pointer lift as well, which is the earliest legal moment — not to rescue that
 first touch, but so the device is already opening by the time the second one
 lands.
 
+**A press that cannot sound lights nothing either.** `Instrument.canSound()`
+answers whether a gesture starting now will be heard, and `applyPress` does
+nothing at all when it says no. A lit cap is the instrument reporting that it
+is sounding that note; a player told their touch registered and hearing
+nothing is left wondering about their volume, where one whose touch did
+nothing simply tries again — and the second try works. The predicate is the
+browser's own: a context already running, or `navigator.userActivation`
+saying the page has been activated. It asks nothing about the kind of input,
+which is why it needs no exception for the two that carry activation with
+them: a first mouse press and a first keypress answer true and are untouched.
+Both halves are load-bearing. Activation alone would go dark on a dev server
+whose media engagement lets the context run with no activation at all.
+
 **A gesture that arrives before the audio device has opened waits, and is
 dropped if it ends first.** Resuming a context is not instant — on the first
 gesture after a reload the device can take longer to open than the gesture

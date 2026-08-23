@@ -100,7 +100,16 @@ if (surface) {
 
   // Drives both the DOM class and the voices from one diff, so the two can
   // never disagree about what a holder has just pressed.
+  //
+  // A press the browser will not let sound lights nothing either. A lit cap
+  // is the instrument saying it is sounding that note, and it has to be worth
+  // exactly that: a player who has just been told their touch registered, and
+  // heard nothing, is left to wonder about their volume, while one whose
+  // touch did nothing at all simply tries again — and the second try works.
+  // The guard asks only whether sound is possible, never which input asked:
+  // a mouse and a keyboard carry their own activation and never fail it.
   const applyPress = (holder: string, next: ReadonlySet<number>, previous: ReadonlySet<number>): void => {
+    if (!instrument.canSound()) return;
     for (const p of next) if (!previous.has(p) && activatePc(p, holder)) flashRestrike(p);
     for (const p of previous) if (!next.has(p)) deactivatePc(p, holder);
     voices.press(holder, next);

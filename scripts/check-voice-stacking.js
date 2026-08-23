@@ -24,6 +24,15 @@
   window.__made = 0;
   window.__stopped = 0;
 
+  // Synthetic events grant no user activation, so the page correctly decides
+  // that nothing it does can sound and declines to light a thing (DESIGN.md
+  // "Synthesis"). Say what a real press would have said.
+  Object.defineProperty(navigator, "userActivation", {
+    value: { hasBeenActive: true, isActive: true },
+    configurable: true,
+  });
+
+
   const surface = document.querySelector("[data-instrument]");
   const key = (type, code) => window.dispatchEvent(new KeyboardEvent(type, { type, code, key: code, bubbles: true }));
   const pointer = (target, type, pointerId) =>

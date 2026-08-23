@@ -22,6 +22,7 @@ export class Instrument {
   #master: GainNode | null = null;
   #voices = new Map<string, Voice>();
   #pending = new Map<string, number>();
+  #sounds = false;
 
   #ensureContext(): { context: AudioContext; master: GainNode } {
     if (!this.#context) {
@@ -55,6 +56,28 @@ export class Instrument {
     const waiting = [...this.#pending];
     this.#pending.clear();
     for (const [id, ratio] of waiting) this.#startVoice(id, ratio, context, master);
+  }
+
+  /** Whether a gesture starting now will be heard — by the time the device
+   *  opens, if not this instant. False only while the browser is holding the
+   *  context shut *and* has not granted the page the activation that would
+   *  let it open, which is the state a page loads in and leaves at the first
+   *  qualifying event. Nothing here asks what kind of input is being used:
+   *  a mouse press and a keypress carry activation with them and so answer
+   *  true on the very first one, and a touch answers false until its first
+   *  lift — see `unlock()`. Once true it stays true; activation is sticky.
+   *
+   *  `navigator.userActivation` is a few years newer than the rest of this,
+   *  so its absence answers true: the page it cannot ask about is the page
+   *  where the old behaviour was right. */
+  canSound(): boolean {
+    if (this.#sounds) return true;
+    const { context } = this.#ensureContext();
+    // A context the browser is happy to let play starts running on its own —
+    // no activation needed, and none asked for — which is why this is not
+    // simply a question about activation.
+    this.#sounds = context.state === "running" || (navigator.userActivation?.hasBeenActive ?? true);
+    return this.#sounds;
   }
 
   /** Open the audio device if the browser will now permit it.

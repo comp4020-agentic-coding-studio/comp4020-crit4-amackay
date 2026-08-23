@@ -33,6 +33,12 @@ not disagree.
 - **The same seam answers both.** Geometry as plain functions over numbers gets
   exhaustive unit tests and property tests; the page wiring gets the spec
   tests. Never make the spec suite the only thing proving the geometry.
+- **A synthetic event grants no user activation, and the page now declines to
+  light or sound anything that cannot be heard** (`Instrument.canSound()`), so
+  every browser probe that drives the page with `dispatchEvent` sees a dead
+  lattice until it says otherwise. One `Object.defineProperty(navigator,
+  "userActivation", …)` fixes it — `scripts/card-pose.js` carries the shape.
+  This bit the share card first: `pnpm card` quietly shot an unlit lattice.
 - **An audio-unlock bug will not reproduce on the dev server.** Chrome's
   autoplay policy is per origin and softens with the Media Engagement Index,
   which a week of play-testing drives sky-high on `localhost` — so its
