@@ -158,12 +158,31 @@ const capClip = `polygon(${screenHex
        growing card only reveals it. Sized against the animating box instead,
        it re-wrapped on every frame of the expand. */
     --card-w: min(34rem, 92vw);
-    --card-h: min(32rem, 78dvh);
-    --card-pad: clamp(1rem, 3vmin, 1.75rem);
-    --title-open: clamp(2rem, 5.4vmin, 2.8rem);
+    /* Two numbers describe the whole card: --card-pad is every distance to an
+       edge, --card-gap is every distance between two things inside it. The ×
+       reads --card-pad for its own inset like everything else, so the top of
+       the card is inset exactly as far as the sides are and none of this needs
+       balancing against the rest by hand. */
+    --card-pad: clamp(1.35rem, 4vmin, 2.4rem);
+    --card-gap: clamp(0.8rem, 2.4vmin, 1.6rem);
+    --close-size: clamp(2.75rem, 4.6vmin, 3.2rem);
+    /* The × hugs the corner rather than sitting on --card-pad: it shares the
+       title's row, and anything further in runs into the title's ink. */
+    --close-inset: clamp(0.35rem, 1.6vmin, 1.05rem);
+    /* Height follows the copy: `about-panel.ts` measures the body once it is
+       laid out and writes --card-fit. The fallback is only what shows if that
+       never runs; --card-max is what keeps a tall card off a short screen. */
+    --card-max: 78dvh;
+    --card-h: min(var(--card-fit, 26rem), var(--card-max));
+    /* The floor is the phone's, and it is load-bearing: the title is centred
+       and `nowrap`, the × is in the corner of the same row, and at 390 the two
+       collide as soon as the type goes past about here. Nothing automated
+       catches that --- jsdom has no layout --- so it is
+       `scripts/probe-about-close.js` that measures the gap. */
+    --title-open: clamp(1.75rem, 5.4vmin, 2.8rem);
     --title-leading: 1.2;
-    --title-gap: clamp(0.5rem, 2vmin, 1rem);
-    --copy-top: calc(var(--card-pad) + var(--title-open) * var(--title-leading) + var(--title-gap));
+    --title-top: var(--card-pad);
+    --copy-top: calc(var(--title-top) + var(--title-open) * var(--title-leading) + var(--card-gap));
     /* The one piece of geometry that *is* state: the title's own size, which
        transitions between the plate's and the card's. */
     --title-size: clamp(1.6rem, 4.2vmin, 2.2rem);
@@ -202,7 +221,7 @@ const capClip = `polygon(${screenHex
     top: clamp(0.75rem, 6dvh, 4rem);
     width: var(--card-w);
     height: var(--card-h);
-    padding: var(--card-pad);
+    padding: var(--title-top) var(--card-pad) var(--card-pad);
     border-radius: 0.75rem;
     background: oklch(18% 0.01 260 / 0.94);
     pointer-events: auto;
@@ -223,7 +242,7 @@ const capClip = `polygon(${screenHex
      marked viewports it does not. */
   @media (max-width: 34rem) {
     .about {
-      --card-h: min(34rem, 82dvh);
+      --card-max: 82dvh;
     }
   }
 
@@ -268,13 +287,15 @@ const capClip = `polygon(${screenHex
 
   .about-close {
     position: absolute;
-    top: clamp(0.4rem, 1.4vmin, 0.9rem);
-    right: clamp(0.4rem, 1.4vmin, 0.9rem);
+    top: var(--close-inset);
+    right: var(--close-inset);
     display: grid;
     place-items: center;
-    width: 2.4rem;
-    height: 2.4rem;
-    font: 400 1.6rem/1 system-ui, sans-serif;
+    /* --close-size is floored at 2.75rem = 44px, the touch-target size, which
+       the phone reads off the floor rather than off the vmin term. */
+    width: var(--close-size);
+    height: var(--close-size);
+    font: 400 clamp(1.8rem, 3vmin, 2.1rem) / 1 system-ui, sans-serif;
     color: inherit;
     background: none;
     border: 0;
@@ -316,9 +337,13 @@ const capClip = `polygon(${screenHex
     left: var(--card-pad);
     top: var(--copy-top);
     width: calc(var(--card-w) - 2 * var(--card-pad));
-    height: calc(var(--card-h) - var(--copy-top) - var(--card-pad));
+    /* Its own content's height, which is what --card-fit is measured from;
+       the cap only bites when the dvh clamp above has already shortened the
+       card, and then this is what scrolls. */
+    height: auto;
+    max-height: calc(var(--card-max) - var(--copy-top) - var(--card-pad));
     overflow-y: auto;
-    font: 400 clamp(0.95rem, 1.9vmin, 1.05rem) / 1.55 system-ui, sans-serif;
+    font: 400 clamp(1.05rem, 2.6vmin, 1.5rem) / 1.55 system-ui, sans-serif;
     letter-spacing: normal;
     text-align: left;
     user-select: text;

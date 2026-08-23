@@ -407,13 +407,14 @@ overscroll, and a focus ring that belongs only to whoever is tabbing.
 Per instruction the title plate opens into an About panel. **The plate and the
 card are one element in two states** — `.about`, and `.about[data-open]` — so
 the title reaches its place on the card by the plate growing around it. Nothing
-is measured and nothing is duplicated: there is no second heading, and the
-`<h1>` the invariants require stays the same node throughout.
+is duplicated: there is no second heading, and the `<h1>` the invariants
+require stays the same node throughout. The expand measures nothing — the one
+measurement in the panel is the card's height, taken off the transition
+entirely, below.
 
 What the panel is allowed to *say* is settled elsewhere — "What the surface
-already says" and CLAUDE.md's prose rules — and the two meet at the card's
-height, below, which is a constant fitted to the copy it currently holds.
-Changing the copy's length is a change to this section as well as to the words.
+already says" and CLAUDE.md's prose rules — and the card is sized to whatever
+survives that, never the other way round.
 
 - **The title stays horizontally centred in both states.** That is what keeps
   the whole expand a CSS transition: every property that differs between plate
@@ -442,10 +443,59 @@ Changing the copy's length is a change to this section as well as to the words.
   plate. It needs `width: 100%` to get there — a `<button>` shrink-wraps to its
   glyphs even as a block box — and the panel takes its own padding back when
   open, where `--card-pad` is the card's inset instead.
-- **The card's height is explicit, in two branches**: one for the wide card and
-  a taller one under `max-width: 34rem`, where the card is 92vw and the same
-  copy takes half again as many lines. The body scrolls if it ever overflows,
-  but at both marked viewports it does not.
+- **The card's height follows the copy.** `about-panel.ts` measures the body
+  once it has laid out and writes `--card-fit`; `--card-h` is that plus
+  `--card-slack`, capped in `dvh` so a short screen shortens the card instead
+  of overflowing it, and the body scrolls in the shortened case. This is the
+  one thing CSS cannot do here: the copy is absolutely positioned in both
+  states — see the bullet above, which is the whole reason — so it contributes
+  nothing to any ancestor's intrinsic size, and the height it would imply is
+  unreachable from a stylesheet. Measured first-child-top to last-child-bottom
+  rather than off the body's own box, which carries a `max-height` derived from
+  the last answer. The `rem` fallback in `--card-h` is what shows if the script
+  never runs.
+- **The body's `max-height` is measured against `--card-max`, not against the
+  fitted height.** The cap is the only thing that can leave the card shorter
+  than its own copy, so it is the only case that has to scroll; measuring it
+  there means the fitted case clears its content by the whole difference
+  instead of landing on it. Against `--card-h` it landed 0.16px *under* the
+  content — `offsetTop`/`offsetLeft`, since replaced, round to integers, and
+  `--copy-top`'s 97.76 rounded up while `--card-pad`'s 38.4 rounded down — and
+  the card grew a hairline scrollbar. Slack was the first fix and is gone
+  again: it bought its px back out of the bottom inset, which is the one thing
+  the card cannot spare.
+- **The insets come off the element, not out of the custom properties.** An
+  unregistered custom property computes to the `calc(...)` it was written as,
+  so `getComputedStyle(...).getPropertyValue("--card-pad")` is a string and
+  `parseFloat` of it is `NaN`. The panel has no border, so an absolutely
+  positioned child's containing block shares the panel's own rect, and the
+  child's offset within it is the used `top`/`left` — `--copy-top` and
+  `--card-pad` resolved, in either state and whatever padding the open card
+  carries.
+- **Two numbers describe the card: `--card-pad` to an edge, `--card-gap`
+  between two things inside it.** Everything else is derived — `--title-top`
+  is a pad, the button and a gap; `--copy-top` is that plus the title's line
+  and another gap; the × takes `--card-pad` for its own inset like everything
+  else. That last one is what makes the insets read as even without being
+  balanced against each other by hand: the top of the card is as far from the ×
+  as the sides are from the copy. Tuning any of these against the others is the
+  smell that this derivation has been broken.
+- **The × shares the title's row, and `--title-open`'s floor is what keeps
+  them apart.** The title is centred and `white-space: nowrap` while the × is
+  absolutely positioned in the corner, so the two collide whenever the title
+  runs wide enough to reach it — which at 390 it did, by 5px, as soon as the
+  button grew to the 44px touch target. The floor came down to `1.75rem` to
+  clear it, and the × sits on a `--close-inset` of its own rather than on
+  `--card-pad`, which would push it into the same ink. **Nothing checks either
+  of those**: jsdom has no layout, so the collision is invisible to the suite.
+  `scripts/probe-about-close.js` measures the gap in a real browser — 19px at
+  1920×1080, 12px at 390×844 — and is what to re-run after touching the title's
+  type, the button's size, or the copy in the plate.
+- **The alternative, if that constant ever gets tiresome**, is to stack them:
+  `--title-top: calc(var(--card-pad) + var(--close-size) + var(--card-gap))`,
+  the × back on `--card-pad`, and the floor back to `2rem`. Overlap stops being
+  possible at all, at the cost of about 75px of card, most of it empty above
+  the title. Per instruction the row won.
 - **Disclosure semantics, not a dialog** — `aria-expanded` on the toggle,
   `aria-controls` to the body. A disclosure needs no focus trap: focus is
   already on the toggle when the panel opens, and the × and the two links
