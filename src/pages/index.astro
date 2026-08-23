@@ -105,6 +105,9 @@ const capClip = `polygon(${screenHex
     </div>
   </section>
   <div class="about-scrim" data-about-scrim aria-hidden="true"></div>
+  <noscript>
+    <p class="noscript-plate">Needs JavaScript to play.</p>
+  </noscript>
   <main
     data-instrument
     class="stage"
@@ -180,12 +183,12 @@ const capClip = `polygon(${screenHex
        catches that --- jsdom has no layout --- so it is
        `scripts/probe-about-close.js` that measures the gap. */
     --title-open: clamp(1.75rem, 5.4vmin, 2.8rem);
-    --title-leading: 1.2;
+    --title-leading: var(--plate-leading);
     --title-top: var(--card-pad);
     --copy-top: calc(var(--title-top) + var(--title-open) * var(--title-leading) + var(--card-gap));
     /* The one piece of geometry that *is* state: the title's own size, which
        transitions between the plate's and the card's. */
-    --title-size: clamp(1.6rem, 4.2vmin, 2.2rem);
+    --title-size: var(--plate-title-size);
     position: fixed;
     top: 0;
     left: 50%;
@@ -254,7 +257,7 @@ const capClip = `polygon(${screenHex
     /* A button shrink-wraps even as a block box, so the plate would only be
        as wide as its glyphs without this. */
     width: 100%;
-    padding: 0.3rem 1.1rem 0.4rem;
+    padding: var(--plate-pad-top) 1.1rem var(--plate-pad-bottom);
     font: inherit;
     letter-spacing: inherit;
     color: inherit;
@@ -544,6 +547,37 @@ const capClip = `polygon(${screenHex
     :global(html:not(.has-keyboard)) .cap .key {
       display: none;
     }
+  }
+
+  /* Hangs under the title plate, and only exists at all with scripting off —
+     the state where the lattice lays out perfectly and then does nothing, by
+     far the most convincing way this page can look correct and be broken. Its
+     own small plate rather than a second state of `.about`: that element is a
+     transition between two shapes, and none of that machinery has anything to
+     do with a line of text that never moves. The offset is --plate-h, which
+     the plate's own height is built from (global.css). */
+  .noscript-plate {
+    position: fixed;
+    top: calc(var(--plate-h) + 0.5rem);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    /* Without this the box shrink-wraps against the space left of `left: 50%`
+       — half the viewport — and the line wraps on a phone for no reason. */
+    width: max-content;
+    max-width: 92vw;
+    margin: 0;
+    padding: var(--plate-pad-top) 1.1rem var(--plate-pad-bottom);
+    color: oklch(96% 0.01 260);
+    font: 600 clamp(0.9rem, 2.2vmin, 1.1rem) / var(--plate-leading) system-ui, sans-serif;
+    letter-spacing: 0.06em;
+    text-align: center;
+    /* The plate's backdrop, for the plate's reason: it has to stay legible
+       over whichever cap happens to be under it. */
+    background: oklch(18% 0.01 260 / 0.72);
+    border-radius: 0.5rem;
+    /* Nothing to click, and the surface keeps the pointer. */
+    pointer-events: none;
   }
 
 </style>

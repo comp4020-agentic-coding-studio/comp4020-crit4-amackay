@@ -837,6 +837,15 @@ again*, *game over*, *you lose*, *wrong note* and *high score* in copy **and in
 identifiers** — `spec/crit-4.test.ts` greps the built HTML and the page script
 for them.
 
+**With scripting off, a small plate under the title says so.** That is this
+page's one failure mode where it looks entirely correct and is not: the
+lattice lays out perfectly, and then nothing responds to anything. The notice
+lives in `index.astro` rather than the layout because it borrows the title
+plate's look, and it is positioned by `--plate-h` in `global.css`, which is
+also what the plate's own height is built from. `scripts/probe-noscript.js`
+checks it at both marked sizes with scripting genuinely disabled; jsdom
+renders `<noscript>` content unconditionally and so cannot.
+
 ## What the surface already says
 
 The register of what the design has been established to convey on its own.
@@ -906,13 +915,6 @@ it is not rediscovered, not worked on:
   mid-note as a distraction. Whether a page can suppress it at all — beyond the
   `touch-action`, `-webkit-touch-callout` and tap-highlight suppressions
   already in `global.css` — is unestablished.
-
-One more is an absence rather than a misbehaviour — writing the page does not
-do, found by surveying every string a person can reach:
-
-- **There is no `<noscript>`.** With scripting off the lattice still renders,
-  fully laid out and completely silent, and the page says nothing about why —
-  the one failure mode where the instrument looks correct and is not.
 
 ## Still open
 
