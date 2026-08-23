@@ -23,6 +23,11 @@ reading guide to the history, not a restatement of the design.
   plate growing around it, so the expand is a CSS transition and the `<h1>`
   never doubles.
   [`ada38bb`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit4-amackay/commit/ada38bb)
+- **The card is sized to its copy, not the copy to the card**, replacing a
+  height refitted by hand every time the words changed — one measurement, off
+  the transition, because the copy is positioned out of flow and CSS cannot
+  reach its height.
+  [`1863d90`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit4-amackay/commit/1863d90)
 - **Geometry, tuning and synthesis are plain functions over numbers**, unit- and
   property-tested away from the DOM and the audio graph, per `CLAUDE.md`'s seam.
   [`f87ba1a`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit4-amackay/commit/f87ba1a)
