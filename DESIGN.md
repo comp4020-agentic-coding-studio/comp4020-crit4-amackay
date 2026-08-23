@@ -907,14 +907,9 @@ it is not rediscovered, not worked on:
   `touch-action`, `-webkit-touch-callout` and tap-highlight suppressions
   already in `global.css` — is unestablished.
 
-Two more are absences rather than misbehaviours — writing the page does not
-do, found by surveying every string a person can reach. Both are in
-`src/layouts/Layout.astro`'s scope:
+One more is an absence rather than a misbehaviour — writing the page does not
+do, found by surveying every string a person can reach:
 
-- **The share card has no `og:image:alt`.** `public/card.png` is posed with the
-  title plate hidden, so the image carries nothing but the lattice and its note
-  names, and a preview that reads alt text has nothing to read. The invariants
-  check the card is present, never that it is described.
 - **There is no `<noscript>`.** With scripting off the lattice still renders,
   fully laid out and completely silent, and the page says nothing about why —
   the one failure mode where the instrument looks correct and is not.

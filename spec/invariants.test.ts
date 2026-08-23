@@ -64,6 +64,17 @@ describe("invariants: every page", () => {
         ).toBeTruthy();
       });
 
+      it("describes the og:image card", () => {
+        const alt = doc
+          .querySelector('meta[property="og:image:alt"]')
+          ?.getAttribute("content")
+          ?.trim();
+        expect(
+          alt,
+          "a preview read aloud gets the description and then nothing where the image was",
+        ).toBeTruthy();
+      });
+
       it("has a mobile viewport", () => {
         expect(doc.querySelector('meta[name="viewport"]')).toBeTruthy();
       });
