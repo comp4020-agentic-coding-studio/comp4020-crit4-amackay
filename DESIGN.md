@@ -446,6 +446,18 @@ because `spec/support/instrument-page.ts` dispatches it with `bubbles: true`,
 check that a bubbled `pointerenter` reaching the surface cannot clear state
 (this exact shape produced a false failure once).
 
+**A move refines a press; it never starts one.** `refinePointerAt` writes the
+pointer's set and calls `applyPress` whether or not that pointer was holding
+anything, so the guard belongs at the listener: `pointermove` refines only a
+pointer already in `pointerPcs`, and `pointerdown` is the only thing that puts
+one there. Unguarded, a mouse moving with no button held sounds notes
+continuously — a click and release stops it, and the next move starts it again.
+The same listener reads `buttons === 0` on a mouse as a release, which is where
+a lift the page never saw (over browser chrome, or outside the window) becomes
+knowable. jsdom cannot see any of this: with no layout the refine returns at the
+zero-sized `getBoundingClientRect()` before it presses anything, so the sensor
+is `scripts/probe-mouse-move-press.mjs`, over CDP.
+
 The coordinate refine's anchor (the cell `pressedPitchClasses` measures against,
 plus its six neighbours) has to advance on `pointermove` alone, not just on
 `pointerenter`: touch input does not reliably retarget `pointerenter` to each

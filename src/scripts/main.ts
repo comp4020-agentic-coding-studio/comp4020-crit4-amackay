@@ -494,9 +494,21 @@ if (surface) {
     return path ? Number((path as HTMLElement).dataset.pc) : undefined;
   };
 
+  // A move refines a press that is already happening; it can never start one.
+  // refinePointerAt writes pointerPcs and calls applyPress whether or not the
+  // pointer was holding anything, so calling it unguarded made a bare mouse
+  // move press — and keep pressing — without a button ever going down. The
+  // press starts at pointerdown, so `pointerPcs.has` is the whole test, and it
+  // reads the same for touch, which has no unpressed moves to tell apart.
+  //
+  // buttons === 0 is the other half: a mouse whose lift the page never saw
+  // (released over browser chrome, or outside the window) is still recorded as
+  // held, and the first move back over the surface is where that becomes
+  // knowable. releasePointer is idempotent, so the ordinary case costs nothing.
   surface.addEventListener("pointermove", (event) => {
     const pointerEvent = event as PointerEvent;
-    refinePointerAt(pointerEvent.pointerId, pointerEvent, hitPcOf(event));
+    if (pointerEvent.pointerType === "mouse" && pointerEvent.buttons === 0) releasePointer(pointerEvent.pointerId);
+    else if (pointerPcs.has(pointerEvent.pointerId)) refinePointerAt(pointerEvent.pointerId, pointerEvent, hitPcOf(event));
     showMouseMarks(pointerEvent);
   });
 
