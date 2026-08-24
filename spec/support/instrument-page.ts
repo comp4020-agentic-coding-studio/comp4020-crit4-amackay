@@ -110,11 +110,10 @@ export function loadInstrument(page = "index.html"): LoadedPage {
 
   function capOrSurface(code: string): Element {
     // Whatever element the page says sounds this key. `data-notes` is a
-    // space-separated list, since one element can answer for several codes;
-    // `data-note` is the single-code form. The page uses one or the other,
-    // never both, so the order of the two selectors never has to be decided.
-    const target = surface?.querySelector(`[data-notes~="${code}"], [data-note="${code}"]`);
-    return target ?? surface ?? document.body;
+    // space-separated list because one element answers for several codes: the
+    // page draws a pitch class as one path, and every pitch class has three
+    // keys on the block.
+    return surface?.querySelector(`[data-notes~="${code}"]`) ?? surface ?? document.body;
   }
 
   const Ctor = (window as unknown as Record<string, unknown>).PointerEvent ?? window.MouseEvent;
