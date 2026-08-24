@@ -4,7 +4,7 @@
 (() => {
   const root = document.documentElement;
   const surface = document.querySelector("[data-instrument]");
-  const caps = [...surface.querySelectorAll("[data-note]")];
+  const caps = [...surface.querySelectorAll("[data-notes]")];
   const [first, second] = caps;
   const out = {};
 

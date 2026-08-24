@@ -167,10 +167,15 @@ export function cellDist(point: Vec, node: Vec): number {
   return inside ? 0 : best;
 }
 
-/** The lattice vertex nearest (x, y), by inverting the F/B basis. Test-support
- *  only — the shipped page never calls this, because the SVG hit test already
- *  names a containing cell via each cap's own data-m/data-n. See DESIGN.md
- *  "Touch model". */
+/** The lattice vertex nearest (x, y), by inverting the F/B basis.
+ *
+ *  This is where a gesture's anchor cell comes from. The SVG hit test names a
+ *  *pitch class* — a pitch class's caps are one path — and a pitch class is
+ *  121 cells, so the cell itself has to be derived. Nearest vertex is not the
+ *  same question as containing hexagon (the cap is not the Voronoi cell), so
+ *  callers pass the answer through `anchorCell`, which walks to whichever of
+ *  the seven candidates actually contains the point. `tonnetz.test.ts` checks
+ *  that walk never comes up empty. See DESIGN.md "Two hit-test paths". */
 export function containingCell(x: number, y: number): [number, number] {
   const m0 = Math.floor((y - x) / 4);
   const n0 = Math.floor(y / 12 + x / 4);

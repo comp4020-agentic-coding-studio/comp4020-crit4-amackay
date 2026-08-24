@@ -61,12 +61,11 @@ await evaluate(`(() => {
       pc: r.target.dataset.pc,
     });
   }).observe(surface.querySelector(".lit"), { subtree: true, attributes: true, attributeFilter: ["class"] });
-  const r = surface.querySelector(".cap").getBoundingClientRect();
   return true;
 })()`);
 
 const point = await evaluate(`(() => {
-  const el = document.elementFromPoint(innerWidth / 2, innerHeight / 2).closest(".cap");
+  const el = document.elementFromPoint(innerWidth / 2, innerHeight / 2).closest("[data-pc]");
   const r = el.getBoundingClientRect();
   return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
 })()`);

@@ -8,15 +8,12 @@
 // that difference is visible, so this is where it is checked: make-card.sh
 // refuses to shoot unless `ok`.
 //
-// The chord is chosen by the caps' own labels rather than by keyboard codes or
-// pitch-class numbers written here — the QWERTY block can move without the card
-// quietly becoming a different chord. Pressing any one cap of a pitch class
-// lights every cap of it, so which of the wrapped copies gets the keydown does
-// not matter.
+// The chord is chosen by pitch-class name rather than by keyboard codes or
+// pitch-class numbers written here — the QWERTY block can move without the
+// card quietly becoming a different chord.
 (() => {
   const CHORD = ["C", "E", "G", "A"];
-  const caps = [...document.querySelectorAll(".cap[data-note]")];
-  const named = (name) => caps.find((cap) => cap.querySelector(".name")?.textContent.trim() === name);
+  const named = (name) => document.querySelector(`.lit [data-name="${name}"]`);
 
   const style = document.createElement("style");
   style.textContent = "[data-about], [data-about-scrim], [data-hud] { display: none !important; }";
@@ -38,13 +35,13 @@
     // Collected rather than returned, so one run reports every fault instead
     // of the first one and then another run for the next.
     if (!cap) {
-      problems.push(`no cap labelled ${name}`);
+      problems.push(`no pitch class named ${name}`);
       continue;
     }
     window.dispatchEvent(
-      new KeyboardEvent("keydown", { bubbles: true, cancelable: true, code: cap.dataset.note }),
+      new KeyboardEvent("keydown", { bubbles: true, cancelable: true, code: cap.dataset.notes.split(" ")[0] }),
     );
-    pressed.push({ name, code: cap.dataset.note, pc: Number(cap.dataset.pc) });
+    pressed.push({ name, code: cap.dataset.notes.split(" ")[0], pc: Number(cap.dataset.pc) });
   }
 
   // Those keydowns are how the page learns a keyboard exists, and it responds
@@ -56,7 +53,7 @@
   const litPitchClasses = [...lit].map(Number).sort((a, b) => a - b);
   const plateHidden = getComputedStyle(document.querySelector("[data-about]")).display === "none";
   const hudHidden = getComputedStyle(document.querySelector("[data-hud]")).display === "none";
-  const keyHintsShown = [...document.querySelectorAll(".cap .key")].some(
+  const keyHintsShown = [...document.querySelectorAll(".labels .key")].some(
     (hint) => getComputedStyle(hint).display !== "none",
   );
 

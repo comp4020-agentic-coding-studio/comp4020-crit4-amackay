@@ -7,6 +7,7 @@ import {
   FIT_SIZE_INITIAL,
   HEX,
   R,
+  KEYED_NODES,
   WINDOW_SIZE,
   capPaths,
   drawnCells,
@@ -50,31 +51,32 @@ const renderCaps = caps.map((cap) => {
 });
 
 // The lit layer: one path per pitch class, holding every hexagon of that pitch
-// class in the drawn window. It paints the fill and it is the only thing that
-// changes when a note sounds, so a press costs one class write however many
-// caps are on screen — DESIGN.md "The lit layer". The caps below still own the
-// stroke, the clip, the labels and the hit test.
+// class in the drawn window. It paints the fill, it is what the browser
+// hit-tests, and it is the only thing that changes when a note sounds — so a
+// press costs one class write however many caps are on screen. DESIGN.md "The
+// lit layer".
+//
+// Each pitch class's three key codes, so the lit path is also the handle the
+// spec harness holds — DESIGN.md "DOM contract". Space-separated, matched with
+// `[data-notes~="KeyF"]`.
+const codesByPc = new Map<number, string[]>();
+for (const node of KEYED_NODES) codesByPc.set(node.pc, [...(codesByPc.get(node.pc) ?? []), node.code]);
+
 const litPaths = capPaths().map((path) => ({
   ...path,
   hue: hueFor(equalTemperamentRatioFor(path.pc)),
+  name: equalTemperamentNameFor(equalTemperamentRatioFor(path.pc)),
+  notes: (codesByPc.get(path.pc) ?? []).join(" "),
 }));
+
+// The black cap edges, all 1474 hexagon outlines in one static path drawn over
+// the fills. Every subpath of every lit path, concatenated — each begins with
+// an absolute M, so joining them is one valid path and no geometry is written
+// twice. DESIGN.md "Effects stay inside the cap".
+const seams = litPaths.map((path) => path.d).join("");
 
 const viewBox = `${CX - EXTENT} ${-(CY + EXTENT)} ${EXTENT * 2} ${EXTENT * 2}`;
 
-// The same hexagon again, as fractions of its own bounding box, so a cap can
-// be clipped to itself and no effect on it can reach a neighbour — DESIGN.md
-// "Effects stay inside the cap". Derived from HEX rather than hand-written:
-// there is one hexagon in this repo and it is in tonnetz.ts. On this one the
-// six vertices still land on exact fractions of the box (x at quarters,
-// y at fifths, since the y offsets are now halves), so nothing here rounds.
-const screenHex = HEX.map(([hx, hy]): [number, number] => [hx, -hy]);
-const clipXs = screenHex.map(([x]) => x);
-const clipYs = screenHex.map(([, y]) => y);
-const [cx0, cx1] = [Math.min(...clipXs), Math.max(...clipXs)];
-const [cy0, cy1] = [Math.min(...clipYs), Math.max(...clipYs)];
-const capClip = `polygon(${screenHex
-  .map(([x, y]) => `${((x - cx0) / (cx1 - cx0)) * 100}% ${((y - cy0) / (cy1 - cy0)) * 100}%`)
-  .join(", ")})`;
 ---
 
 <Layout
@@ -132,17 +134,27 @@ const capClip = `polygon(${screenHex
   <main
     data-instrument
     class="stage"
-    style={`--press-diameter:${R * 2}; --cap-clip:${capClip}; --fit-size:${FIT_SIZE_INITIAL}; --window-size:${WINDOW_SIZE}`}
+    style={`--press-diameter:${R * 2}; --fit-size:${FIT_SIZE_INITIAL}; --window-size:${WINDOW_SIZE}`}
   >
     <svg viewBox={viewBox} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <g class="lit">
-        {litPaths.map((path) => <path data-pc={path.pc} style={`--hue:${path.hue}`} d={path.d} />)}
+        {
+          litPaths.map((path) => (
+            <path
+              data-pc={path.pc}
+              data-name={path.name}
+              data-notes={path.notes}
+              style={`--hue:${path.hue}`}
+              d={path.d}
+            />
+          ))
+        }
       </g>
-      <g class="caps">
+      <path class="seams" d={seams} />
+      <g class="labels">
         {
           renderCaps.map((cap) => (
-            <g class="cap" data-m={cap.m} data-n={cap.n} data-pc={cap.pc} data-note={cap.code}>
-              <polygon points={cap.points} />
+            <Fragment>
               <text class="name" x={cap.x} y={cap.y}>
                 {cap.name}
               </text>
@@ -151,7 +163,7 @@ const capClip = `polygon(${screenHex
                   {cap.key}
                 </text>
               )}
-            </g>
+            </Fragment>
           ))
         }
       </g>
@@ -441,10 +453,6 @@ const capClip = `polygon(${screenHex
      so a state differs in vividness as well as brightness — DESIGN.md
      "Visual design". Resting chroma stays high enough that hue still reads as
      pitch class; below about 0.06 the twelve stop being tellable apart. */
-  .lit {
-    pointer-events: none;
-  }
-
   .lit path {
     fill: oklch(64% 0.07 var(--hue));
     transition: fill 500ms ease-out;
@@ -466,38 +474,25 @@ const capClip = `polygon(${screenHex
     transition-duration: 15ms;
   }
 
-  /* The caps paint no fill any more — the layer above does — but they still
-     own the black edge, the clip, the labels and the hit test.
+  /* The black cap edges: every hexagon's outline, once, in one static path
+     drawn over the fills — DESIGN.md "Effects stay inside the cap". The edge
+     is not decoration; two flush caps of equal lightness and chroma vibrate at
+     the seam without it.
 
-     Every cap is clipped to its own hexagon, so nothing drawn on one can reach
-     a neighbour and make the paint order visible — DESIGN.md "Effects stay
-     inside the cap". A centred stroke would spill half onto the neighbour
-     without it, and the clip is load-bearing for the *pointer* as well as the
-     paint: it is what makes a cap stop answering elementFromPoint at its
-     hexagon rather than at the stroke's outer edge (scripts/check-cap-clip.js
-     measures exactly that).
+     Drawing them in one layer above everything is what keeps paint order out
+     of sight. A stroke is centred on its edge, so half of every one lands on
+     the neighbour; when each cap stroked its own outline that spill had to be
+     clipped away, because which of two neighbours won was an artefact of the
+     emission order. One shared layer has no such asymmetry to hide: each seam
+     is painted once, by one element, symmetrically over both caps it divides.
 
-     `fill-box` is not optional. The default reference box for an SVG element
-     is `border-box`, which css-masking maps to *stroke*-box, giving a clip
-     that sits on the stroke's outer edge and widens with `stroke-width` — it
-     parses, changes nothing, and hides that it changes nothing.
-
-     Two placements this must keep: on the `polygon`, never on `.cap` (a <g>'s
-     bounding box is the union of its children, labels included, so the
-     fractions above would no longer describe the hexagon); and any future
-     filter goes here too, since clipping is applied after filtering only for
-     the same element.
-
-     `pointer-events: all` is what `fill: none` costs: the default
-     `visiblePainted` hit-tests the fill only where there is fill to paint, so
-     without this every cap would stop answering and the surface would go
-     dead. */
-  .cap polygon {
+     pointer-events: none because this sits above the lit layer and would
+     otherwise answer for the seams, which belong to the caps either side. */
+  .seams {
     fill: none;
     stroke: #000;
     stroke-width: 0.09;
-    clip-path: var(--cap-clip) fill-box;
-    pointer-events: all;
+    pointer-events: none;
   }
 
   /* The fat-finger hitbox, drawn for the one input that has no size of its
@@ -528,8 +523,8 @@ const capClip = `polygon(${screenHex
     opacity: 1;
   }
 
-  .cap .name,
-  .cap .key {
+  .labels .name,
+  .labels .key {
     fill: #000;
     text-anchor: middle;
     dominant-baseline: central;
@@ -539,7 +534,7 @@ const capClip = `polygon(${screenHex
     -webkit-user-select: none;
   }
 
-  .cap .name {
+  .labels .name {
     font: 700 1.15px system-ui, sans-serif;
   }
 
@@ -547,7 +542,7 @@ const capClip = `polygon(${screenHex
      plain black, per instruction, so nothing here reduces opacity to make the
      hint recede — that would composite the cap's hue through it and put a grey
      back on the surface. */
-  .cap .key {
+  .labels .key {
     font: 600 0.55px system-ui, sans-serif;
   }
 
@@ -559,7 +554,7 @@ const capClip = `polygon(${screenHex
      nothing it can act on, and the About panel still says the instrument is
      playable by keyboard. */
   @media (any-hover: none) {
-    :global(html:not(.has-keyboard)) .cap .key {
+    :global(html:not(.has-keyboard)) .labels .key {
       display: none;
     }
   }

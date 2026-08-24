@@ -10,7 +10,7 @@
 
   const surface = document.querySelector("[data-instrument]");
   const mid = { x: innerWidth / 2, y: innerHeight / 2 };
-  const cap = [...document.querySelectorAll(".cap[data-note]")]
+  const cap = [...document.querySelectorAll(".lit [data-notes]")]
     .map((c) => ({ c, r: c.getBoundingClientRect() }))
     .filter(({ r }) => r.left > 0 && r.top > 0 && r.right < innerWidth && r.bottom < innerHeight)
     .sort((a, b) => Math.hypot(a.r.x - mid.x, a.r.y - mid.y) - Math.hypot(b.r.x - mid.x, b.r.y - mid.y))[0];

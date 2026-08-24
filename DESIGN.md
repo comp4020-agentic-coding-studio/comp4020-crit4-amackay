@@ -374,11 +374,13 @@ hear it.**
 ### DOM contract
 
 - The playable surface carries **`data-instrument`**.
-- Each cap carries **`data-note="<KeyboardEvent.code>"`** for the thirty-six
-  keyed caps — both the keyboard mapping and the handle the spec tests hold.
-  Caps further out are touchable but carry no `data-note`.
-- Each cap also carries its lattice position, so the coordinate refinement below
-  needs no basis inversion.
+- The lit layer's twelve paths each carry **`data-pc`**, **`data-name`** (the
+  pitch name) and **`data-notes`** — the space-separated `KeyboardEvent.code`s
+  that sound that pitch class, three each. `data-notes` is both the keyboard
+  mapping and the handle the spec tests hold; they match it with
+  `[data-notes~="KeyF"]`.
+- **Nothing carries a lattice position.** A cap is not an element any more, so
+  the coordinate refinement below derives its cell rather than reading it.
 
 ### Two hit-test paths, one code path
 
@@ -390,19 +392,34 @@ instrument avoided this by having no position mapping at all. This one cannot.
 
 So resolve a gesture in two steps, and never let the first one throw:
 
-1. **Element path.** `pointerdown`/`pointerenter`/`pointermove` on a cap names
-   one cell — SVG has already done the point-in-hexagon test. Always available,
-   needs no geometry of our own.
+1. **Element path.** `pointerdown`/`pointerenter`/`pointermove` on a lit path
+   names one **pitch class** — SVG has already done the point-in-hexagon test,
+   over that path's disjoint subpaths. Always available, needs no geometry of
+   our own. It named a *cell* until the caps stopped being elements; a pitch
+   class is 121 of them, so it can no longer say which.
 2. **Coordinate path.** If the surface reports a non-zero rect, map client
-   coordinates into twelfths through the SVG `viewBox` and measure `cellDist`
-   against that cell and its six neighbours, refining the one cell into the
-   true set of one, two or three pitch classes.
+   coordinates into twelfths through the SVG `viewBox`, get the cell from
+   `containingCell` — the basis inversion, which the shipped page now calls —
+   correct it with `anchorCell`, and measure `cellDist` against it and its six
+   neighbours, refining into the true set of one, two or three pitch classes.
 
 Guard on `rect.width === 0` and fall back to the element path — degrade to
 doing nothing extra rather than throwing. In a real browser the coordinate path
-always wins; under jsdom the instrument behaves like a one-note-per-cap grid,
-which is enough for the spec tests to drive it. The geometry itself is proved
-by unit tests over plain functions, where it belongs.
+always wins; under jsdom the instrument behaves like a one-note-per-pitch-class
+grid, which is enough for the spec tests to drive it. The geometry itself is
+proved by unit tests over plain functions, where it belongs — including that
+`anchorCell(point, containingCell(point))` never comes up empty, which is the
+composition every press now rests on.
+
+**The refine may add pitch classes but never drop the one that was hit.** That
+is the old "neither path can produce a cell the other did not", made explicit
+now that the cell is derived instead of handed over: adding is the refine's
+whole job on a boundary, but a set that has lost the pitch class the browser
+itself hit-tested is describing somewhere else, so the element path's answer
+stands instead. What that catches in practice is an event whose coordinates
+don't describe where it was dispatched — a synthetic press carries
+`clientX`/`clientY` of 0, and without the check it pressed whatever sits at the
+top-left corner of the lattice.
 
 Note that step 2 *refines* step 1 rather than replacing it. Neither path can
 produce a cell the other did not, which is why there is no reconciliation
@@ -738,15 +755,17 @@ never redrawn; pressing a cap toggles a class.
 
 ### The lit layer
 
-The surface is two layers, and only the first one ever changes.
+**A cap is not an element.** The surface is three layers, and only the first
+one ever changes:
 
 1. **Twelve `<path>`s, one per pitch class**, each holding every hexagon of
    that pitch class in the drawn window as a disjoint subpath. This layer
-   carries the fill and the whole of the played state — `.active`, `.hover` and
-   the restrike flash. It is `pointer-events: none`.
-2. **The caps**, one `<g>` each as before, carrying the black edge, the clip,
-   the two labels, the `data-*` the interaction reads and the hit test. They
-   paint no fill and never change class.
+   paints the fill, carries the whole of the played state — `.active`,
+   `.hover` and the restrike flash — and is what the browser hit-tests.
+2. **One static `<path>` of every hexagon's outline**, stroked, drawn over the
+   fills: the black cap edges. `pointer-events: none`.
+3. **The labels**, 1474 `<text>` plus the twelve key hints. `pointer-events:
+   none`, and they never change either.
 
 The split is not an optimisation of the drawing; it is what makes the cost of
 playing a note independent of the zoom. A pitch class has about 121 caps in the
@@ -756,16 +775,27 @@ cost is the browser's style recalc over the matched elements, which no amount
 of cleverness on the JS side avoids (a root class plus a static CSS rule
 measured no faster than the loop it replaced). Held on one path per pitch
 class, a press is one class write and a restrike one `animate()`, at every
-zoom. Measured at 6x CPU throttle, the second touch of a two-finger tap
-sharing a triad went from 25.6 ms to 6.9 ms at the most zoomed-out stop, and
-stopped varying with the zoom at all.
+zoom. Measured at 6x CPU throttle, the second touch of a two-finger tap sharing
+a triad went from 25.6 ms to 4.3 ms at the most zoomed-out stop, and stopped
+varying with the zoom at all.
 
-Fills go *under* the caps rather than over them because the labels live inside
-each cap's `<g>` and have to stay on top. The path data is encoded relative,
-caps ordered by screen row, so every hexagon's body is the same twenty-six
-characters and the twelve paths cost about 120 bytes over the gzipped page
-rather than 22 KB. `tonnetz.ts`'s `capPaths` builds them; its tests walk the
-emitted `d` back into vertices and check them against `pos()` and `HEX`.
+The hit test comes with it. A pitch class's hexagons are disjoint subpaths, so
+a point inside one answers with that path and a point inside a neighbour's does
+not: the press boundary is the hexagon itself, measured at exactly the
+geometry's 2, 1.75 and √7.25 twelfths by `scripts/check-hit-boundary.js`. What
+it cannot say is *which* cell was hit — see "Two hit-test paths".
+
+Twelve `pointerenter` listeners are enough for a drag, where 1474 used to be
+needed, because two adjacent caps never share a pitch class: every cap boundary
+crossed is a crossing between two of these paths.
+
+The path data is encoded relative, caps ordered by screen row, so every
+hexagon's body is the same twenty-six characters and almost every hop between
+them is `m12,0`. The twelve paths and the seam layer together cost about 600
+bytes over the gzipped page; written absolute they would cost 22 KB.
+`tonnetz.ts`'s `capPaths` builds them, and its tests walk the emitted `d` back
+into vertices and check them against `pos()` and `HEX`. The whole page went
+from 434 KB to 208 KB, 42 KB to 11 KB gzipped.
 
 - **Caps are whole hexagons**, tiling flush edge to edge. Not eroded by
   `r`: the erosion existed to show where the single-note core stopped, and
@@ -808,17 +838,24 @@ emitted `d` back into vertices and check them against `pos()` and `HEX`.
   its own hexagon — no glow, no spill, nothing that grows past its border. The
   reason is that caps tile flush, so anything crossing a border is resolved by
   paint order, and paint order is an artefact of the emission loop rather than
-  anything the player should be able to see. A centred SVG stroke breaks this
-  rule by construction — half of every stroke lands on the neighbour — so
-  `.cap polygon` carries a `clip-path` of its own hexagon, derived from `HEX`
-  and applied over `fill-box`. This is the same instinct as "nothing scales"
-  below, and as the inward `outline-offset` on the focus ring in `global.css`.
-  The clip is load-bearing for the *pointer* as well as the paint: it is what
-  makes a cap stop answering `elementFromPoint` at its hexagon rather than at
-  the stroke's outer edge, which `scripts/check-cap-clip.js` measures. That is
-  also why the cap keeps its polygon now that the fill has moved to the lit
-  layer — `fill: none` costs it the default `visiblePainted` hit test, so it
-  takes `pointer-events: all` to go on catching the pointer at all.
+  anything the player should be able to see. This is the same instinct as
+  "nothing scales" below, and as the inward `outline-offset` on the focus ring
+  in `global.css`.
+
+  A centred SVG stroke breaks the rule by construction — half of every stroke
+  lands on the neighbour. The answer is not to clip each cap's stroke back into
+  its own hexagon but to **draw all the seams once, in one layer above the
+  fills**: a seam painted by a single element, symmetrically over both caps it
+  divides, has no paint order to expose. The ink is the same either way, 0.09
+  twelfths centred on every interior edge, and the clip that used to hold two
+  butted half-strokes apart is gone with the per-cap elements it lived on.
+
+  What the clip also did, and what now falls out of the geometry instead, is
+  fix where a press stops: `elementFromPoint` respects a clip, so the hit
+  boundary sat wherever the clip did. The lit layer's fill *is* the hexagon, so
+  the boundary is the hexagon with nothing holding it there —
+  `scripts/check-hit-boundary.js` measures it and gets the geometry's own
+  numbers back.
 - **No reduced opacity anywhere**, per instruction. A cap outside the
   fundamental domain is drawn exactly like its twin inside it, because it *is*
   its twin — same note, same colour, same name. The wrap shows itself by

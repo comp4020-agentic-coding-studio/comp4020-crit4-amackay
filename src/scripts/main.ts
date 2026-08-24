@@ -5,7 +5,7 @@ import { installAboutPanel } from "../lib/about-panel.ts";
 import { Instrument } from "../lib/instrument.ts";
 import { installInputChrome } from "../lib/input-chrome.ts";
 import { PitchClassVoices } from "../lib/pitch-voices.ts";
-import { anchorCell, nodeForCode, pc as pcOf, pressedPitchClasses } from "../lib/tonnetz.ts";
+import { anchorCell, containingCell, nodeForCode, pc as pcOf, pressedPitchClasses } from "../lib/tonnetz.ts";
 import { installZoom } from "../lib/zoom.ts";
 
 const surface = document.querySelector<HTMLElement>("[data-instrument]");
@@ -18,7 +18,6 @@ if (surface) {
   const voices = new PitchClassVoices(instrument);
 
   const svg = surface.querySelector<SVGSVGElement>("svg");
-  const caps = [...surface.querySelectorAll<SVGGElement>("[data-m]")];
 
   // A pitch class lights up every one of its caps at once — the
   // fundamental-domain instance and every wrapped copy in the drawn window —
@@ -205,15 +204,14 @@ if (surface) {
     releaseHolder(String(pointerId), previous);
   };
 
-  // Element path: the cap under the pointer already named one cell — SVG hit
-  // tested the hexagon for us. Always available, and the only path the spec
-  // harness's press()/drag() ever exercise (they never dispatch pointermove).
-  const pressPointerAt = (pointerId: number, cap: SVGGElement): void => {
-    const m = Number(cap.dataset.m);
-    const n = Number(cap.dataset.n);
-    pointerCell.set(pointerId, [m, n]);
+  // Element path: the lit path under the pointer names one pitch class — SVG
+  // hit-tested its hexagons for us. Always available, and the only path the
+  // spec harness's press()/drag() ever exercise (they never dispatch
+  // pointermove), which is the whole reason it exists: jsdom has no layout, so
+  // the coordinate path below cannot run there at all.
+  const pressPointerAt = (pointerId: number, path: SVGPathElement): void => {
     const previous = pointerPcs.get(pointerId) ?? new Set<number>();
-    const next = new Set<number>([pcOf(m, n)]);
+    const next = new Set<number>([Number(path.dataset.pc)]);
     pointerPcs.set(pointerId, next);
     applyPress(String(pointerId), next, previous);
   };
@@ -222,13 +220,17 @@ if (surface) {
   // cellDist against `cell` (already the anchor named by the element path)
   // and its six neighbours, with hysteresis against whatever the pointer
   // already holds.
-  const refinePointerAt = (pointerId: number, event: ClientPoint): boolean => {
+  const refinePointerAt = (pointerId: number, event: ClientPoint, hitPc?: number): boolean => {
     lastClient.set(pointerId, { clientX: event.clientX, clientY: event.clientY });
-    const cell = pointerCell.get(pointerId);
-    if (!cell) return false;
     try {
       const point = toLatticePoint(event);
       if (!point) return false;
+      // The anchor the element path used to hand over with the cap's own
+      // data-m/data-n. A pitch class's path cannot name a cell — it holds 121
+      // of them — so the cell comes from the geometry instead, by inverting
+      // the F/B basis. scripts/tonnetz-check.ts checks the two agree exactly
+      // and keeps agreeing well past the press radius this design allows.
+      const cell = pointerCell.get(pointerId) ?? containingCell(point[0], point[1]);
       // Re-anchor to whichever of the seven cells the point has actually
       // stepped into. Without this a drag can only ever reach the one ring
       // around wherever pointerdown landed — fine for mouse, which also gets
@@ -241,6 +243,15 @@ if (surface) {
       const previous = pointerPcs.get(pointerId) ?? new Set<number>();
       const next = pressedPitchClasses(point, anchor, previous);
       if (next.size === 0) return false; // every point of the surface presses something; a glitch shouldn't clear it
+      // DESIGN.md's "neither path can produce a cell the other did not", made
+      // explicit now that the cell is derived rather than handed over. The
+      // refine may *add* pitch classes — that is its whole job on a boundary —
+      // but it may never drop the one the browser hit-tested. An event whose
+      // coordinates don't describe where it was actually dispatched (a
+      // synthetic press, which carries clientX/clientY of 0) fails this and
+      // leaves the element path's answer standing, rather than pressing
+      // whatever happens to sit at the top-left corner of the lattice.
+      if (hitPc !== undefined && !next.has(hitPc)) return false;
       pointerPcs.set(pointerId, next);
       applyPress(String(pointerId), next, previous);
       return true;
@@ -269,28 +280,25 @@ if (surface) {
     applyHover(String(pointerId), new Set(), previous);
   };
 
-  const hoverElementAt = (pointerId: number, cap: SVGGElement): void => {
-    const m = Number(cap.dataset.m);
-    const n = Number(cap.dataset.n);
-    hoverCell.set(pointerId, [m, n]);
+  const hoverElementAt = (pointerId: number, path: SVGPathElement): void => {
     const previous = hoverPcs.get(pointerId) ?? new Set<number>();
-    const next = new Set<number>([pcOf(m, n)]);
+    const next = new Set<number>([Number(path.dataset.pc)]);
     hoverPcs.set(pointerId, next);
     applyHover(String(pointerId), next, previous);
   };
 
-  const refineHoverAt = (pointerId: number, event: ClientPoint): boolean => {
+  const refineHoverAt = (pointerId: number, event: ClientPoint, hitPc?: number): boolean => {
     lastClient.set(pointerId, { clientX: event.clientX, clientY: event.clientY });
-    const cell = hoverCell.get(pointerId);
-    if (!cell) return false;
     try {
       const point = toLatticePoint(event);
       if (!point) return false;
+      const cell = hoverCell.get(pointerId) ?? containingCell(point[0], point[1]);
       const anchor = anchorCell(point, cell) ?? cell;
       hoverCell.set(pointerId, anchor);
       const previous = hoverPcs.get(pointerId) ?? new Set<number>();
       const next = pressedPitchClasses(point, anchor, previous);
       if (next.size === 0) return false;
+      if (hitPc !== undefined && !next.has(hitPc)) return false; // see refinePointerAt
       hoverPcs.set(pointerId, next);
       applyHover(String(pointerId), next, previous);
       return true;
@@ -321,7 +329,8 @@ if (surface) {
   const showMouseMarks = (event: PointerEvent): void => {
     if (event.pointerType !== "mouse") return;
     positionCursorDot(event);
-    refineHoverAt(event.pointerId, event);
+    const path = (event.target as Element | null)?.closest?.("[data-pc]");
+    refineHoverAt(event.pointerId, event, path ? Number((path as HTMLElement).dataset.pc) : undefined);
   };
 
   const positionCursorDot = (event: ClientPoint): void => {
@@ -374,44 +383,46 @@ if (surface) {
   surface.addEventListener("transitionend", stopZoomRetrigger);
   surface.addEventListener("transitioncancel", stopZoomRetrigger);
 
-  for (const cap of caps) {
-    cap.addEventListener("pointerdown", (event) => {
-      // Touch pointers are implicitly captured to the cap pressed; releasing
-      // capture is what lets pointerenter fire on the caps a finger drags onto.
-      // A pointerdown with no real capture behind it (synthetic events, some
-      // browser/device quirks) throws NotFoundError here — harmless, and
-      // never worth failing the press over.
+  // Twelve listeners, not one per cap: a pitch class's hexagons are one path,
+  // and two adjacent caps never share a pitch class, so crossing any cap
+  // boundary is always a crossing between two of these paths — which is what
+  // pointerenter needs in order to fire at all.
+  for (const path of litByPc.values()) {
+    path.addEventListener("pointerdown", (event) => {
+      // Touch pointers are implicitly captured to the element pressed;
+      // releasing capture is what lets pointerenter fire on the paths a finger
+      // drags onto. A pointerdown with no real capture behind it (synthetic
+      // events, some browser/device quirks) throws NotFoundError here —
+      // harmless, and never worth failing the press over.
       try {
-        cap.releasePointerCapture(event.pointerId);
+        path.releasePointerCapture(event.pointerId);
       } catch {
         // no capture to release
       }
-      pressPointerAt(event.pointerId, cap);
-      // pressPointerAt knows only the one cell SVG hit-tested, so without this
-      // a press on a boundary sounds a single note until the pointer first
-      // moves — a tap in a seam under-presses, and the hover preview promises
-      // a dyad the click then doesn't deliver.
-      refinePointerAt(event.pointerId, event);
+      pressPointerAt(event.pointerId, path);
+      // pressPointerAt knows only the one pitch class SVG hit-tested, so
+      // without this a press on a boundary sounds a single note until the
+      // pointer first moves — a tap in a seam under-presses, and the hover
+      // preview promises a dyad the click then doesn't deliver.
+      refinePointerAt(event.pointerId, event, Number(path.dataset.pc));
     });
 
-    cap.addEventListener("pointerenter", (event) => {
+    path.addEventListener("pointerenter", (event) => {
       // Hover tracks where the cursor is, pressed or not — the two states are
       // not exclusive. `.active` outranks `.hover` in CSS for as long as a
       // press lasts, so the preview underneath is already correct when the
-      // press ends, and a cap the mouse is still sitting on returns to hover
-      // rather than dropping all the way to rest.
-      if (event.pointerType === "mouse") {
-        hoverCell.set(event.pointerId, [Number(cap.dataset.m), Number(cap.dataset.n)]);
-        if (!refineHoverAt(event.pointerId, event)) hoverElementAt(event.pointerId, cap);
+      // press ends, and a pitch class the mouse is still sitting on returns to
+      // hover rather than dropping all the way to rest.
+      const hitPc = Number(path.dataset.pc);
+      if (event.pointerType === "mouse" && !refineHoverAt(event.pointerId, event, hitPc)) {
+        hoverElementAt(event.pointerId, path);
       }
       if (!pointerPcs.has(event.pointerId)) return; // hovering, not dragging
-      // Update the anchor cell first, then try to refine against this event's
-      // own coordinates. Collapsing straight to the singleton element press
-      // here — without the refine — would drop a pc still held across a
-      // shared edge and immediately re-add it, an audible retrigger every
-      // time a drag crosses back and forth over that edge.
-      pointerCell.set(event.pointerId, [Number(cap.dataset.m), Number(cap.dataset.n)]);
-      if (!refinePointerAt(event.pointerId, event)) pressPointerAt(event.pointerId, cap);
+      // Refine against this event's own coordinates first. Collapsing straight
+      // to the singleton element press — without the refine — would drop a pc
+      // still held across a shared edge and immediately re-add it, an audible
+      // retrigger every time a drag crosses back and forth over that edge.
+      if (!refinePointerAt(event.pointerId, event, hitPc)) pressPointerAt(event.pointerId, path);
     });
   }
 
@@ -437,15 +448,20 @@ if (surface) {
   // refinePointerAt guards on rect.width === 0 and does nothing extra — the
   // element path above is still driving everything. See DESIGN.md "Two
   // hit-test paths".
+  const hitPcOf = (event: Event): number | undefined => {
+    const path = (event.target as Element | null)?.closest?.("[data-pc]");
+    return path ? Number((path as HTMLElement).dataset.pc) : undefined;
+  };
+
   surface.addEventListener("pointermove", (event) => {
     const pointerEvent = event as PointerEvent;
-    refinePointerAt(pointerEvent.pointerId, pointerEvent);
+    refinePointerAt(pointerEvent.pointerId, pointerEvent, hitPcOf(event));
     showMouseMarks(pointerEvent);
   });
 
   // The rest of the mouse's evidence that it is being used. All three bubble,
-  // so one listener each on the surface covers every cap; `pointerenter` does
-  // not bubble and is handled on the caps themselves, above.
+  // so one listener each on the surface covers the whole lattice;
+  // `pointerenter` does not bubble and is handled on the twelve paths, above.
   for (const type of ["pointerover", "pointerdown", "pointerup"]) {
     surface.addEventListener(type, (event) => showMouseMarks(event as PointerEvent));
   }

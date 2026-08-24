@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  anchorCell,
   capPathData,
   capPaths,
   cellDist,
@@ -17,7 +18,6 @@ import {
   HEX,
   KEYED_NODES,
   KEYS,
-  MARGIN,
   NEIGHBOURS,
   nodeForCell,
   nodeForCode,
@@ -409,6 +409,37 @@ const walkPath = (d: string): Vec[][] => {
 
 /** The hexagon capPathData should draw for `cap`, in screen space. */
 const screenHexFor = (cap: { x: number; y: number }): Vec[] => HEX.map(([hx, hy]) => [cap.x + hx, -(cap.y + hy)]);
+
+describe("the anchor a hit test cannot name", () => {
+  // The lit layer hit-tests to a pitch class, not a cell, so the cell comes
+  // from containingCell and is then corrected by anchorCell. That composition
+  // is load-bearing for every press, so it gets swept rather than sampled.
+  const points: Vec[] = [];
+  for (let x = -20; x <= 40; x += 0.37) for (let y = -20; y <= 50; y += 0.41) points.push([x, y]);
+
+  it("always lands on a cell whose hexagon really contains the point", () => {
+    const misses: Vec[] = [];
+    for (const point of points) {
+      const cell = anchorCell(point, containingCell(point[0], point[1]));
+      if (!cell || cellDist(point, pos(cell[0], cell[1])) !== 0) misses.push(point);
+    }
+    expect(misses.slice(0, 5)).toEqual([]);
+  });
+
+  it("agrees with a brute-force search over the whole neighbourhood", () => {
+    for (const point of points.filter((_, i) => i % 97 === 0)) {
+      const cell = anchorCell(point, containingCell(point[0], point[1]))!;
+      const brute: [number, number][] = [];
+      for (let m = -30; m <= 30; m++) {
+        for (let n = -30; n <= 30; n++) if (cellDist(point, pos(m, n)) === 0) brute.push([m, n]);
+      }
+      // Hexagons tile, so a point is inside exactly one — except on a shared
+      // edge, where both neighbours read distance 0 and either is a fair
+      // anchor.
+      expect(brute.some(([m, n]) => m === cell[0] && n === cell[1])).toBe(true);
+    }
+  });
+});
 
 describe("caps as one path per pitch class", () => {
   const paths = capPaths();

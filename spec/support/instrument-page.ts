@@ -35,7 +35,7 @@ export interface LoadedPage {
   /** The playable surface, or null if the page never marked one. */
   surface: Element | null;
   errors: string[];
-  /** Press and release the cap carrying `data-note="<code>"`, the way a
+  /** Press and release whatever element the page says sounds `code`, the way a
    *  player's finger or mouse would. Falls back to the surface itself if no
    *  cap carries that code, standing in for a tap in the gap between keys. */
   press(code: string, options?: { type?: string }): void;

@@ -12,11 +12,11 @@
     rect.top + ((-ly - box.y) / box.height) * rect.height,
   ];
 
-  // The cap under the middle of the screen, and its lattice node.
-  const mid = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
-  const cap = mid.closest("[data-m]");
-  const m = Number(cap.dataset.m);
-  const n = Number(cap.dataset.n);
+  // The cell nearest the camera centre, so it is on screen at any zoom stop.
+  // CENTRE_X/CENTRE_Y are (10.5, 16.5); pos(2, 4) is (10, 18). Hard-coded
+  // because the lit layer hit-tests to a pitch class, not a cell — there is no
+  // element left to read data-m off.
+  const [m, n] = [2, 4];
   const node = [3 * n - m, 3 * (m + n)];
   // DESIGN.md: minor triad spot = node + (1, 2) — the corner three caps share.
   const corner = [node[0] + 1, node[1] + 2];
@@ -67,5 +67,5 @@
     return { events, worstFrames: frames.slice().sort((a, b) => b - a).slice(0, 5) };
   };
 
-  return { ax: Math.round(ax), ay: Math.round(ay), bx: Math.round(ax) + 2, by: Math.round(ay) + 2, m, n, pc: cap.dataset.pc };
+  return { ax: Math.round(ax), ay: Math.round(ay), bx: Math.round(ax) + 2, by: Math.round(ay) + 2, m, n };
 })();

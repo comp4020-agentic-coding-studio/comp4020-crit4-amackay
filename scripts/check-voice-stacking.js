@@ -47,17 +47,22 @@
       }),
     );
 
-  const capA = surface.querySelector('[data-note="KeyA"]'); // Eb
-  const capG = surface.querySelector('[data-note="KeyG"]'); // Eb again, a period away
-  const out = { pcA: capA.dataset.pc, pcG: capG.dataset.pc };
+  // Two key codes on the same pitch class — the QWERTY block's outer columns
+  // are the domain's own caps one horizontal period away, so every pitch class
+  // has three. Read off the page rather than named here, since which letters
+  // land where has moved before.
+  const capA = surface.querySelector('[data-notes]');
+  const [codeA, , codeC] = capA.dataset.notes.split(" ");
+  const capG = capA; // same pitch class, so the lit layer gives the same element
+  const out = { pc: capA.dataset.pc, name: capA.dataset.name, codes: [codeA, codeC] };
   const made = () => window.__made;
 
   // 1. One key down: one voice.
-  key("keydown", "KeyA");
+  key("keydown", codeA);
   out.afterKey = made();
 
   // 2. A second key on the SAME pitch class: a second voice, not a no-op.
-  key("keydown", "KeyG");
+  key("keydown", codeC);
   out.afterSecondKey = made();
 
   // 3. Two touch pointers on that same cap: two more voices.
@@ -74,8 +79,8 @@
   out.litAfterOneLift = document.querySelectorAll(`.lit [data-pc="${capA.dataset.pc}"].active`).length > 0;
 
   // Clean up so the probe leaves nothing sounding.
-  key("keyup", "KeyA");
-  key("keyup", "KeyG");
+  key("keyup", codeA);
+  key("keyup", codeC);
   pointer(capA, "pointerup", 12);
   window.dispatchEvent(new PointerEvent("pointerup", { pointerId: 12, pointerType: "touch", bubbles: true }));
   out.litAtEnd = document.querySelectorAll(".lit .active").length;

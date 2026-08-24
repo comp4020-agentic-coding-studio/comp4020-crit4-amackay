@@ -1,12 +1,18 @@
 // One-off browser probe (agent-browser eval): what lighting and restriking a
-// pitch class costs on the lit layer's one path, against what it cost on that
-// pitch class's ~121 separate caps. The second column is why the lit layer
-// exists; keeping both measurements here keeps the comparison reproducible.
+// pitch class costs on the lit layer's one path.
+//
+// The comparison this exists to record: on the same page, when a pitch class
+// was ~121 separate cap elements, the same operations measured 0.7 ms to light
+// and 6-7 ms to restrike, and both were priced by how many caps the zoom
+// happened to show. That is why the lit layer exists (DESIGN.md "The lit
+// layer"); the caps it replaced are gone, so the second column cannot be
+// re-measured here — recover it from the tree at commit 2908732 if it ever
+// needs re-deriving.
 (() => {
   const surface = document.querySelector("[data-instrument]");
   const PC = 4;
   const path = surface.querySelector(`.lit [data-pc="${PC}"]`);
-  const polys = [...surface.querySelectorAll(`.cap[data-pc="${PC}"] polygon`)];
+  const caps = (path.getAttribute("d").match(/z/g) ?? []).length;
 
   const kf = [{ filter: "brightness(1.3)" }, { filter: "brightness(1)" }];
   const opts = { duration: 220, easing: "ease-out", id: "restrike" };
@@ -17,26 +23,18 @@
 
   // getComputedStyle forces the style recalc the class write schedules, so the
   // timing covers what the browser actually has to do, not just the JS call.
-  const time = (fn, el) => {
+  const time = (fn) => {
     const t = performance.now();
     fn();
-    getComputedStyle(el).fill;
+    getComputedStyle(path).fill;
     return +(performance.now() - t).toFixed(2);
   };
 
-  const out = { pc: PC, caps: polys.length };
-
-  out.litLayerOn = time(() => path.classList.add("active"), path);
-  out.litLayerOff = time(() => path.classList.remove("active"), path);
-  out.litLayerFlash = time(() => restrike(path), path);
-  out.litLayerFlashAgain = time(() => restrike(path), path);
-
-  // The old shape, measured on the same page: every cap of the pitch class.
-  out.perCapOn = time(() => polys.forEach((p) => p.parentElement.classList.add("active")), polys[0]);
-  out.perCapOff = time(() => polys.forEach((p) => p.parentElement.classList.remove("active")), polys[0]);
-  out.perCapFlash = time(() => polys.forEach(restrike), polys[0]);
-  out.perCapFlashAgain = time(() => polys.forEach(restrike), polys[0]);
-
-  for (const p of polys) for (const a of p.getAnimations()) a.cancel();
+  const out = { pc: PC, name: path.dataset.name, hexagonsInPath: caps };
+  out.litOn = time(() => path.classList.add("active"));
+  out.litOff = time(() => path.classList.remove("active"));
+  out.flash = time(() => restrike(path));
+  out.flashAgain = time(() => restrike(path));
+  for (const a of path.getAnimations()) a.cancel();
   return out;
 })();

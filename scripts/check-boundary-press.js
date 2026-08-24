@@ -10,16 +10,16 @@
   const box = svg.viewBox.baseVal;
   const perTwelfth = rect.width / box.width;
 
-  // A cap well inside the viewport, so the whole edge has real neighbours.
-  const cap = [...surface.querySelectorAll("[data-m]")].find((c) => {
-    const r = c.getBoundingClientRect();
-    return r.left > 200 && r.top > 200 && r.right < window.innerWidth - 200 && r.bottom < window.innerHeight - 200;
-  });
-  const [m, n] = [Number(cap.dataset.m), Number(cap.dataset.n)];
-  const [ox, oy] = [3 * (m + n), 3 * n - m];
+  // The cell nearest the camera centre, so the whole edge has real neighbours
+  // at any zoom stop. CENTRE_X/CENTRE_Y are (10.5, 16.5); pos(2, 4) is (10, 18).
+  const [m, n] = [2, 4];
+  // pos(m, n) = (3n - m, 3(m + n)), lattice coords, y up. Evaluated, not
+  // quoted: this file carried the transposed pair until 2026-08-24, which
+  // agreed with a transposed comment and with nothing else.
+  const [ox, oy] = [3 * n - m, 3 * (m + n)];
 
   // HEX[0]-HEX[1]: the minor-third boundary. Lattice coords, y up.
-  const [a, b] = [[2, 0.5], [1, 2.5]];
+  const [a, b] = [[2.5, 1], [0.5, 2]];
   const toClient = ([x, y]) => [
     rect.left + (x - box.x) * perTwelfth,
     rect.top + (-y - box.y) * perTwelfth,
@@ -29,15 +29,22 @@
     [...surface.querySelectorAll(".lit .active")].map((c) => c.dataset.pc),
   ).size;
 
-  const out = [];
-  for (const t of [0.05, 0.15, 0.35, 0.5, 0.65, 0.85, 0.95]) {
-    const point = [ox + a[0] + t * (b[0] - a[0]), oy + a[1] + t * (b[1] - a[1])];
-    const [cx, cy] = toClient(point);
-    const target = document.elementFromPoint(cx, cy);
-    const opts = { pointerId: 1, pointerType: "mouse", clientX: cx, clientY: cy, bubbles: true, isPrimary: true };
-    target.dispatchEvent(new PointerEvent("pointerdown", opts));
-    out.push(`t=${t} -> ${soundingCount()}`);
-    target.dispatchEvent(new PointerEvent("pointerup", opts));
-  }
-  return JSON.stringify(out);
+  // Async, and 120 ms between presses: the lit class has an 80 ms floor
+  // (DESIGN.md "Visual design"), so back-to-back presses would count the
+  // previous one as still sounding and every reading would come out high.
+  const run = async () => {
+    const out = [];
+    for (const t of [0.05, 0.15, 0.35, 0.5, 0.65, 0.85, 0.95]) {
+      const point = [ox + a[0] + t * (b[0] - a[0]), oy + a[1] + t * (b[1] - a[1])];
+      const [cx, cy] = toClient(point);
+      const target = document.elementFromPoint(cx, cy);
+      const opts = { pointerId: 1, pointerType: "mouse", clientX: cx, clientY: cy, bubbles: true, isPrimary: true };
+      target.dispatchEvent(new PointerEvent("pointerdown", opts));
+      out.push(`t=${t} -> ${soundingCount()}`);
+      target.dispatchEvent(new PointerEvent("pointerup", opts));
+      await new Promise((r) => setTimeout(r, 120));
+    }
+    return JSON.stringify(out);
+  };
+  return run();
 })();

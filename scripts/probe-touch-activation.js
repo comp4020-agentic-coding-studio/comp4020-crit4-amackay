@@ -35,7 +35,7 @@ socket.addEventListener("open", async () => {
   const activation = () =>
     evaluate("JSON.stringify({active: navigator.userActivation.isActive, sticky: navigator.userActivation.hasBeenActive})");
 
-  const box = await evaluate("JSON.stringify(document.querySelector('.cap').getBoundingClientRect())");
+  const box = await evaluate("JSON.stringify(document.querySelector('.lit [data-pc]').getBoundingClientRect())");
   const { x, y, width, height } = JSON.parse(box);
   const point = [{ x: x + width / 2, y: y + height / 2 }];
 

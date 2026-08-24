@@ -31,11 +31,11 @@ socket.addEventListener("open", async () => {
   await new Promise((r) => setTimeout(r, 2000));
 
   // A cap whose centre is actually on screen — the lattice runs off the edges,
-  // and the first .cap in DOM order is not necessarily visible.
+  // and the first path in DOM order is not necessarily visible.
   const centre = JSON.parse(
     await evaluate(`JSON.stringify((() => {
       const mid = { x: innerWidth / 2, y: innerHeight / 2 };
-      const cap = [...document.querySelectorAll('.cap')]
+      const cap = [...document.querySelectorAll('.lit [data-pc]')]
         .map((c) => ({ c, r: c.getBoundingClientRect() }))
         .filter(({ r }) => r.left > 0 && r.top > 0 && r.right < innerWidth && r.bottom < innerHeight)
         .sort((a, b) => Math.hypot(a.r.x - mid.x, a.r.y - mid.y) - Math.hypot(b.r.x - mid.x, b.r.y - mid.y))[0];
