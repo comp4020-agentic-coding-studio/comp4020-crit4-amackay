@@ -832,6 +832,17 @@ emitted `d` back into vertices and check them against `pos()` and `HEX`.
 - **Active state** is colour only, as before: it arrives over the 15 ms attack
   and fades back over ~500 ms, so the visual tail matches the audible one.
   Nothing scales; a cap that grew would break the tiling.
+- **A floor of 80 ms on the lit state**, so a tap shorter than a frame is still
+  seen. Style is recalculated once a frame, so a class added and removed
+  between two recalcs is never *computed*: no transition starts and nothing
+  paints, and a brief tap sounded a note the surface never acknowledged. That
+  is worse than either a silent press or a lit one — the player is told nothing
+  while hearing something, so the instrument reads as unreliable rather than as
+  quiet. 80 ms is the attack plus two frames even on a 30 Hz display, which is
+  what it takes for the lit colour to be reached *and* painted before the decay
+  starts. It floors only taps already shorter than itself; a held note is
+  untouched. A re-press inside the floor counts as a restrike, since the light
+  is still showing when it arrives.
 - **Restrike flash.** A cap already lit gains nothing visible when a second
   holder arrives on the same pitch class, yet a second voice really did start —
   so it flashes: `brightness(1.3)` decaying back over 220 ms. This is the one

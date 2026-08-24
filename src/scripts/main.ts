@@ -44,16 +44,47 @@ if (surface) {
   // (`.active`) and the mouse hover preview (`.hover`, DESIGN.md "Mouse
   // preview") are the same bookkeeping over two different classes and two
   // different sets of holders.
-  const pcClassToggle = (className: string) => {
+  //
+  // `minOnMs` is a floor on how long the class stays applied once it goes on.
+  // Style is recalculated once a frame, so a class added and removed between
+  // two recalcs is never *computed*: no transition starts, nothing paints, and
+  // a tap shorter than a frame plays a note the surface never acknowledged —
+  // which is worse than either a silent press or a lit one, because the player
+  // is told nothing while hearing something. 80 ms is the 15 ms attack the
+  // fill transition takes plus two frames even on a 30 Hz display, so the lit
+  // colour is reached and painted before the 500 ms decay begins. It floors
+  // only taps already shorter than itself; a held note is untouched. One
+  // number to tune by eye.
+  const MIN_LIT_MS = 80;
+
+  const pcClassToggle = (className: string, minOnMs = 0) => {
     const holders = new Map<number, Set<string>>();
+    const litAt = new Map<number, number>();
+    const pendingOff = new Map<number, ReturnType<typeof setTimeout>>();
+
+    const removeNow = (p: number): void => {
+      const timer = pendingOff.get(p);
+      if (timer !== undefined) clearTimeout(timer);
+      pendingOff.delete(p);
+      litAt.delete(p);
+      litByPc.get(p)?.classList.remove(className);
+    };
+
     return {
-      /** True when this holder joined a pitch class someone else was already
-       *  holding — a restrike, which is a new voice but no change of class. */
+      /** True when this holder joined a pitch class that was still lit — a
+       *  restrike, which is a new voice but no change of class. Includes one
+       *  still lit only because of the floor above: the light is showing, so
+       *  arriving under it is a restrike and wants the flash, not a silent
+       *  re-press. */
       activate: (p: number, holder: string): boolean => {
         const set = holders.get(p) ?? new Set<string>();
-        const restrike = set.size > 0 && !set.has(holder);
+        const restrike = (set.size > 0 && !set.has(holder)) || pendingOff.has(p);
+        const timer = pendingOff.get(p);
+        if (timer !== undefined) clearTimeout(timer);
+        pendingOff.delete(p);
         set.add(holder);
         holders.set(p, set);
+        litAt.set(p, performance.now());
         litByPc.get(p)?.classList.add(className);
         return restrike;
       },
@@ -61,16 +92,23 @@ if (surface) {
         const set = holders.get(p);
         if (!set) return;
         set.delete(holder);
-        if (set.size === 0) {
-          holders.delete(p);
-          litByPc.get(p)?.classList.remove(className);
-        }
+        if (set.size > 0) return;
+        holders.delete(p);
+        const shown = performance.now() - (litAt.get(p) ?? 0);
+        if (shown >= minOnMs) removeNow(p);
+        else pendingOff.set(p, setTimeout(() => removeNow(p), minOnMs - shown));
       },
-      reset: (): void => holders.clear(),
+      reset: (): void => {
+        holders.clear();
+        for (const p of [...pendingOff.keys()]) removeNow(p);
+        litAt.clear();
+      },
     };
   };
 
-  const { activate: activatePc, deactivate: deactivatePc, reset: resetActive } = pcClassToggle("active");
+  const { activate: activatePc, deactivate: deactivatePc, reset: resetActive } = pcClassToggle("active", MIN_LIT_MS);
+  // No floor on the hover preview: a mouse that is somewhere has been there
+  // for at least a frame, so there is no sub-frame case to catch.
   const { activate: activateHoverPc, deactivate: deactivateHoverPc, reset: resetHover } = pcClassToggle("hover");
 
   // Client coordinates -> lattice twelfths, through the SVG viewBox. Shared by
