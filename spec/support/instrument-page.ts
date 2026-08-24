@@ -109,7 +109,12 @@ export function loadInstrument(page = "index.html"): LoadedPage {
   const surface = document.querySelector(SURFACE);
 
   function capOrSurface(code: string): Element {
-    return surface?.querySelector(`[data-note="${code}"]`) ?? surface ?? document.body;
+    // Whatever element the page says sounds this key. `data-notes` is a
+    // space-separated list, since one element can answer for several codes;
+    // `data-note` is the single-code form. The page uses one or the other,
+    // never both, so the order of the two selectors never has to be decided.
+    const target = surface?.querySelector(`[data-notes~="${code}"], [data-note="${code}"]`);
+    return target ?? surface ?? document.body;
   }
 
   const Ctor = (window as unknown as Record<string, unknown>).PointerEvent ?? window.MouseEvent;
