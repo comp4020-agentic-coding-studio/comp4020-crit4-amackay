@@ -7,6 +7,10 @@ import {
   DOMAIN_Y0,
   domainRows,
   drawnCells,
+  FIT_SIZE_INITIAL,
+  FIT_SIZE_MAX,
+  FIT_SIZE_MIN,
+  fitSizeForStep,
   H,
   HEX,
   KEYED_NODES,
@@ -18,8 +22,11 @@ import {
   pos,
   pressedPitchClasses,
   R,
+  stepForFitSize,
   type Vec,
   visibleCells,
+  ZOOM_RATIO,
+  ZOOM_STEPS_OUT,
 } from "./tonnetz.ts";
 
 describe("the fundamental domain", () => {
@@ -44,6 +51,57 @@ describe("the fundamental domain", () => {
       expect(pc(m + 3, n + 1)).toBe(p);
       expect(pc(m - 3, n + 3)).toBe(p);
     }
+  });
+});
+
+describe("the zoom ladder", () => {
+  it("the ratio is exactly what returns from max zoom-in to the initial view in one step", () => {
+    expect(ZOOM_RATIO).toBe(5 / 4);
+    expect(fitSizeForStep(0)).toBe(FIT_SIZE_MIN);
+    expect(fitSizeForStep(1)).toBe(FIT_SIZE_INITIAL);
+  });
+
+  it("FIT_SIZE_MAX is an exact power of ZOOM_RATIO above FIT_SIZE_MIN, not a clamp of one", () => {
+    expect(fitSizeForStep(ZOOM_STEPS_OUT)).toBe(FIT_SIZE_MAX);
+    // Exact in floating point: ZOOM_RATIO's denominator (4) and
+    // ZOOM_STEPS_OUT (7) combine to a power of two (4^7 = 2^14), so the
+    // whole expression terminates in binary with nothing left to round.
+    expect(FIT_SIZE_MAX).toBe(937500 / 16384);
+  });
+
+  it("k=7 is the closest integer step count to the old ~56 bound; k=6 is not close", () => {
+    expect(Math.abs(FIT_SIZE_MAX - 56) / 56).toBeLessThan(0.03);
+    expect(Math.abs(FIT_SIZE_MIN * ZOOM_RATIO ** 6 - 56) / 56).toBeGreaterThan(0.15);
+  });
+
+  it("zooming in maximally, then out once, lands exactly back on the initial view", () => {
+    // "Maximally": more zoom-in clicks than there are steps, each one
+    // snap-then-move-one-step — the same operation zoom.ts's button handler
+    // performs.
+    let fitSize = FIT_SIZE_MAX;
+    for (let i = 0; i < ZOOM_STEPS_OUT + 3; i++) {
+      fitSize = fitSizeForStep(Math.max(0, stepForFitSize(fitSize) - 1));
+    }
+    expect(fitSize).toBe(FIT_SIZE_MIN);
+
+    fitSize = fitSizeForStep(Math.min(ZOOM_STEPS_OUT, stepForFitSize(fitSize) + 1));
+    expect(fitSize).toBe(FIT_SIZE_INITIAL);
+  });
+
+  it("stepForFitSize round-trips every step with no drift", () => {
+    for (let i = 0; i <= ZOOM_STEPS_OUT; i++) {
+      expect(stepForFitSize(fitSizeForStep(i))).toBe(i);
+    }
+  });
+
+  it("stepForFitSize clamps a value past either bound to the nearest valid step", () => {
+    expect(stepForFitSize(FIT_SIZE_MIN / 2)).toBe(0);
+    expect(stepForFitSize(FIT_SIZE_MAX * 2)).toBe(ZOOM_STEPS_OUT);
+  });
+
+  it("snaps a non-step value (e.g. left mid-continuous-hold) to its nearest step", () => {
+    const geometricMidpoint = fitSizeForStep(2) * Math.sqrt(ZOOM_RATIO); // exactly between steps 2 and 3
+    expect(stepForFitSize(geometricMidpoint)).toBe(3); // Math.round ties toward +Infinity
   });
 });
 

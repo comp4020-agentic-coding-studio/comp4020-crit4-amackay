@@ -210,8 +210,12 @@ const CENTRE_X = 4.5 + DOMAIN_SIZE / 2; // mirrors tonnetz.ts's DOMAIN_X0
 const CENTRE_Y = 10.5 + DOMAIN_SIZE / 2; // mirrors tonnetz.ts's DOMAIN_Y0
 const EXTENT = 64;
 const MARGIN = 2.8;
-const H_SPACING = Math.abs(F[0] - B[0]); // 4
-const FIT_SIZE_MAX = 14 * H_SPACING; // 56, most zoomed out
+const FIT_SIZE_MIN = DOMAIN_SIZE; // 12, most zoomed in — mirrors tonnetz.ts
+const FIT_PADDING = 1.5; // mirrors tonnetz.ts / index.astro's initial-zoom padding
+const FIT_SIZE_INITIAL = DOMAIN_SIZE + 2 * FIT_PADDING; // 15
+const ZOOM_RATIO = FIT_SIZE_INITIAL / FIT_SIZE_MIN; // 1.25 = 5/4
+const ZOOM_STEPS_OUT = 7; // closest integer power of ZOOM_RATIO to the old ~56 target
+const FIT_SIZE_MAX = FIT_SIZE_MIN * ZOOM_RATIO ** ZOOM_STEPS_OUT; // 57.220458984375, most zoomed out
 
 // 11a. visibleCells' fixed m,n scan (-40..40) must still cover the drawn
 // window at this EXTENT: invert pos() at the window's four corners (padded

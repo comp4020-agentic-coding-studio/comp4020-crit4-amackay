@@ -51,28 +51,75 @@ export const DOMAIN_X0 = (5 + 4) / 2; // 4.5
 export const DOMAIN_Y0 = (9 + 12) / 2; // 10.5
 export const DOMAIN_SIZE = 12;
 
+/** Padding, in twelfths, around the fundamental domain that sets the page's
+ *  *initial* zoom level — not one of the zoom bounds below, but the anchor
+ *  the discrete zoom ladder is built from. DESIGN.md "Sizing". */
+export const FIT_PADDING = 1.5;
+
+/** The zoom level the page loads at: the fundamental domain plus a fixed
+ *  padding, in twelfths on the viewport's short axis. Both index.astro's
+ *  initial --fit-size and ZOOM_RATIO below are derived from this, so a
+ *  zoom-out from max zoom-in always lands here exactly. */
+export const FIT_SIZE_INITIAL = DOMAIN_SIZE + 2 * FIT_PADDING; // 15
+
 /** Zoom bounds, in FIT_SIZE's own unit (twelfths on the viewport's short
- *  axis) — DESIGN.md "Sizing". Max zoom in is the fundamental domain itself;
- *  max zoom out is 14 hex-widths across. Both are product decisions, but
- *  expressed in DOMAIN_SIZE/H_SPACING rather than as bare numbers, so a
- *  future change to either constant moves the bounds with it. */
+ *  axis) — DESIGN.md "Sizing"/"Zoom". Max zoom in is the fundamental domain
+ *  itself, a product decision independent of the ratio below. */
 export const FIT_SIZE_MIN = DOMAIN_SIZE; // 12, most zoomed in
-export const FIT_SIZE_MAX = 14 * H_SPACING; // 56, most zoomed out
-export const ZOOM_STEP = H_SPACING; // 4 twelfths/click — 12 clean stops between the bounds
+
+/** Multiplicative step ratio: the one ratio that returns from max zoom-in
+ *  (FIT_SIZE_MIN) to the initial view in exactly one click, so the two
+ *  landmarks a player already knows — "as zoomed in as it goes" and "where
+ *  it opened" — are always exactly one discrete step apart, in either
+ *  direction, regardless of how the domain/padding numbers above are ever
+ *  retuned. */
+export const ZOOM_RATIO = FIT_SIZE_INITIAL / FIT_SIZE_MIN; // 15/12 = 1.25 = 5/4
+
+/** How many ratio-steps out from FIT_SIZE_MIN reach FIT_SIZE_MAX. A product
+ *  decision — "roughly the old 56" — resolved by picking whichever integer
+ *  power of ZOOM_RATIO lands closest: k=7 gives 57.22... (+2.2%), k=6 gives
+ *  45.78 (-18.3%) — not close. */
+export const ZOOM_STEPS_OUT = 7;
+
+/** Most zoomed out. An exact power of ZOOM_RATIO above FIT_SIZE_MIN — never
+ *  a clamp of one — which is what lets repeated zoom-out clicks land on it
+ *  exactly with no rounding to absorb. Exact in floating point too:
+ *  ZOOM_RATIO's denominator (4) and ZOOM_STEPS_OUT (7) combine to a power of
+ *  two (4^7 = 2^14), so 12 * 1.25^7 terminates in binary with nothing left
+ *  over. */
+export const FIT_SIZE_MAX = FIT_SIZE_MIN * ZOOM_RATIO ** ZOOM_STEPS_OUT; // 57.220458984375, most zoomed out
+
+/** Fit size at ratio-step `i` from max zoom-in — i=0 is FIT_SIZE_MIN, i=1 is
+ *  FIT_SIZE_INITIAL, i=ZOOM_STEPS_OUT is FIT_SIZE_MAX. Not clamped: callers
+ *  clamp the *index*, so a step at either boundary is always the bound's own
+ *  exact value, never a clamp() of a close-but-not-exact one. */
+export function fitSizeForStep(i: number): number {
+  return FIT_SIZE_MIN * ZOOM_RATIO ** i;
+}
+
+/** The step index nearest `fitSize`, clamped to [0, ZOOM_STEPS_OUT].
+ *  log_RATIO(fitSize/FIT_SIZE_MIN), rounded. This is what makes a discrete
+ *  zoom move exact regardless of interaction history — e.g. a value left
+ *  mid-continuous-hold, or ordinary float drift: snap to the nearest step,
+ *  then the caller moves exactly one whole step, rather than multiplying
+ *  whatever's currently there by ZOOM_RATIO directly (which would drift a
+ *  hair further from a step every time it started from a non-step value). */
+export function stepForFitSize(fitSize: number): number {
+  const raw = Math.round(Math.log(fitSize / FIT_SIZE_MIN) / Math.log(ZOOM_RATIO));
+  return Math.min(ZOOM_STEPS_OUT, Math.max(0, raw));
+}
 
 /** The drawn window, centred on the domain. Sized for the worst case of a
  *  runtime zoom range: at FIT_SIZE_MAX, neither marked viewport may show
  *  blank canvas past the lattice's edge, including on the long axis.
  *  Portrait 390x844 is the binding case (long/short = 844/390 ~= 2.1641):
- *  long axis needs FIT_SIZE_MAX * 2.1641 ~= 121.2 twelfths. The old
- *  single-FIT_SIZE design already carried proportional slack (34 actual vs
- *  15*2.1641~=32.46 needed, ~4.7%); the same proportion here gives a window
- *  side of ~126.9, so EXTENT=64 (window side 128, ~5.6% slack). Re-verified,
- *  not just asserted here — scripts/tonnetz-check.ts recomputes this and
- *  also checks that visibleCells' fixed m,n scan (-40..40 below) still
- *  covers the grown window. MARGIN is just past the hexagon's farthest
- *  corner (sqrt(7.25) ~= 2.693 — no single circumradius any more) so a
- *  hexagon merely intersecting the window still gets drawn. */
+ *  long axis needs FIT_SIZE_MAX * 2.1641 ~= 123.8 twelfths. EXTENT=64 (window
+ *  side 128) leaves ~3.3% slack. Re-verified, not just asserted here —
+ *  scripts/tonnetz-check.ts recomputes this and also checks that
+ *  visibleCells' fixed m,n scan (-40..40 below) still covers the window.
+ *  MARGIN is just past the hexagon's farthest corner (sqrt(7.25) ~= 2.693 —
+ *  no single circumradius any more) so a hexagon merely intersecting the
+ *  window still gets drawn. */
 export const CENTRE_X = DOMAIN_X0 + DOMAIN_SIZE / 2;
 export const CENTRE_Y = DOMAIN_Y0 + DOMAIN_SIZE / 2;
 export const EXTENT = 64;

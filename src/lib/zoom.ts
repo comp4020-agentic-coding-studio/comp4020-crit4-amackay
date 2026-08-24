@@ -2,8 +2,20 @@
 // element, and everything else (--twelfth, .stage's size, the cursor dot)
 // follows from it through the existing CSS calc chain (index.astro). See
 // DESIGN.md "Sizing" and CLAUDE.md's `const` arrow-function rule.
+//
+// Every move — buttons, the '0' key, the '-'/'=' keys — is the same kind of
+// move: exactly one ratio-step, CSS-animated via index.astro's
+// `transition: --fit-size ...` on .stage. Holding a key down does nothing
+// beyond that first step; main.ts guards on event.repeat.
 
-import { FIT_SIZE_MAX, FIT_SIZE_MIN, ZOOM_STEP } from "./tonnetz.ts";
+import {
+  FIT_SIZE_INITIAL,
+  FIT_SIZE_MAX,
+  FIT_SIZE_MIN,
+  ZOOM_STEPS_OUT,
+  fitSizeForStep,
+  stepForFitSize,
+} from "./tonnetz.ts";
 
 /** Layout.astro's viewport-substitution fix reads --fit-size live off the
  *  stage, but only re-runs on resize/orientationchange/load/visualViewport
@@ -20,9 +32,20 @@ export interface ZoomControl {
    *  About scrim while it's open; this is the matching fix for keyboard
    *  tab order, which stacking order doesn't touch. */
   setEnabled: (enabled: boolean) => void;
+  /** One ratio-step in (shrinks --fit-size) or out (grows it) — the '='/'-'
+   *  keys share this with the +/- buttons. */
+  stepIn: () => void;
+  stepOut: () => void;
+  /** Animate to the initial fit size — the '0' key's move. */
+  reset: () => void;
 }
 
-const CLOSED: ZoomControl = { setEnabled: () => {} };
+const CLOSED: ZoomControl = {
+  setEnabled: () => {},
+  stepIn: () => {},
+  stepOut: () => {},
+  reset: () => {},
+};
 
 export const installZoom = (): ZoomControl => {
   const stage = document.querySelector<HTMLElement>("[data-instrument]");
@@ -54,10 +77,24 @@ export const installZoom = (): ZoomControl => {
     window.dispatchEvent(new Event(FIT_SIZE_CHANGE_EVENT));
   };
 
-  // Zooming in shows fewer twelfths (a smaller fit-size); zooming out shows
-  // more.
-  zoomIn.addEventListener("click", () => setFitSize(current() - ZOOM_STEP));
-  zoomOut.addEventListener("click", () => setFitSize(current() + ZOOM_STEP));
+  // Snap current() to its nearest ratio-step first, then move exactly one
+  // step from there, rather than dividing/multiplying current() by
+  // ZOOM_RATIO directly: current() may not sit on a step at all (ordinary
+  // float slop), and snap-then-step is what makes a move from anywhere
+  // always land exactly on the next clean stop, including the bounds
+  // themselves — see tonnetz.ts's stepForFitSize.
+  const moveStep = (delta: 1 | -1): void => {
+    const step = Math.min(ZOOM_STEPS_OUT, Math.max(0, stepForFitSize(current()) + delta));
+    setFitSize(fitSizeForStep(step));
+  };
+
+  const stepIn = (): void => moveStep(-1);
+  const stepOut = (): void => moveStep(1);
+
+  zoomIn.addEventListener("click", stepIn);
+  zoomOut.addEventListener("click", stepOut);
+
+  const reset = (): void => setFitSize(FIT_SIZE_INITIAL);
 
   updateDisabled(current());
 
@@ -66,5 +103,5 @@ export const installZoom = (): ZoomControl => {
     zoomOut.tabIndex = enabled ? 0 : -1;
   };
 
-  return { setEnabled };
+  return { setEnabled, stepIn, stepOut, reset };
 };

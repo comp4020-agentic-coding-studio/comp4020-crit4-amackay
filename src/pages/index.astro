@@ -3,8 +3,8 @@ import Layout from "../layouts/Layout.astro";
 import {
   CENTRE_X,
   CENTRE_Y,
-  DOMAIN_SIZE,
   EXTENT,
+  FIT_SIZE_INITIAL,
   HEX,
   R,
   WINDOW_SIZE,
@@ -24,11 +24,6 @@ import { equalTemperamentNameFor, equalTemperamentRatioFor, hueFor } from "../li
 const [CX, CY] = [CENTRE_X, CENTRE_Y];
 
 const caps = drawnCells();
-
-// The visibility rect: concentric with the fundamental domain, padded on every
-// side.
-const FIT_PADDING = 1.5;
-const FIT_SIZE = DOMAIN_SIZE + 2 * FIT_PADDING;
 
 // y negated throughout so the drawing is upright (lattice y is up, SVG y is
 // down) — done once here, per cap, never by transforming the whole group.
@@ -127,7 +122,7 @@ const capClip = `polygon(${screenHex
   <main
     data-instrument
     class="stage"
-    style={`--press-diameter:${R * 2}; --cap-clip:${capClip}; --fit-size:${FIT_SIZE}; --window-size:${WINDOW_SIZE}`}
+    style={`--press-diameter:${R * 2}; --cap-clip:${capClip}; --fit-size:${FIT_SIZE_INITIAL}; --window-size:${WINDOW_SIZE}`}
   >
     <svg viewBox={viewBox} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       {
@@ -364,22 +359,25 @@ const capClip = `polygon(${screenHex
       visibility 0s;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .about,
-    .about[data-open],
-    .about-scrim,
-    .about-scrim[data-open],
-    .hud-btn {
-      transition: none;
-    }
+  /* Typed so --fit-size can be transitioned like any other animatable value
+     — browsers can only tween a *known* type, never an opaque string
+     (DESIGN.md "Zoom"). inherits:false: nothing ever reads --fit-size
+     through inheritance — index.astro sets it as an inline style directly
+     on .stage, the one place both the calc chain below and the JS in
+     zoom.ts/Layout.astro read it back from — so there is no cascade for
+     this property to opt into. */
+  @property --fit-size {
+    syntax: "<number>";
+    inherits: false;
+    initial-value: 15;
   }
 
   .stage {
-    /* Driven by --fit-size (FIT_SIZE above) and --window-size (WINDOW_SIZE,
-       tonnetz.ts) rather than hardcoded numbers, so those constants reach
-       both the CSS here and Layout.astro's viewport correction, which reads
-       --fit-size back off this element rather than restating it. DESIGN.md
-       "Sizing". */
+    /* Driven by --fit-size (FIT_SIZE_INITIAL, tonnetz.ts) and --window-size
+       (WINDOW_SIZE, tonnetz.ts) rather than hardcoded numbers, so those
+       constants reach both the CSS here and Layout.astro's viewport
+       correction, which reads --fit-size back off this element rather than
+       restating it. DESIGN.md "Sizing". */
     --twelfth: calc(100vmin / var(--fit-size));
     position: relative;
     width: calc(var(--twelfth) * var(--window-size));
@@ -388,6 +386,26 @@ const capClip = `polygon(${screenHex
     /* Crosshair, per instruction: symmetrical, so it sits concentrically
        inside the press-radius ring instead of fighting it. */
     cursor: crosshair;
+    /* Animates every zoom move (buttons, and the '0'/'-'/'=' keys — all of
+       zoom.ts's moves are one ratio-step) for free through the
+       --twelfth/width/height calc chain above — no JS tween needed. 240ms
+       echoes this page's other transition durations (.hud-btn's opacity,
+       160ms; main.ts's RESTRIKE flash, 220ms). */
+    transition: --fit-size 240ms ease-out;
+  }
+
+  /* Placed after .stage, not before: with equal specificity a media query's
+     `transition: none` only wins a cascade tie if it comes later in source
+     order than the rule it's overriding. */
+  @media (prefers-reduced-motion: reduce) {
+    .about,
+    .about[data-open],
+    .about-scrim,
+    .about-scrim[data-open],
+    .hud-btn,
+    .stage {
+      transition: none;
+    }
   }
 
   .stage svg {

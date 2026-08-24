@@ -136,6 +136,15 @@ if (surface) {
   const pointerPcs = new Map<number, Set<number>>();
   const pointerCell = new Map<number, [number, number]>();
 
+  // The screen position behind every coordinate refine below — real
+  // PointerEvents satisfy this structurally, but so does the synthetic
+  // replay point the zoom-retrigger loop further down passes in on a
+  // pointer that hasn't moved. Recorded on every real refine (see
+  // refinePointerAt/refineHoverAt) so that loop knows where to replay each
+  // held pointer from.
+  type ClientPoint = { clientX: number; clientY: number };
+  const lastClient = new Map<number, ClientPoint>();
+
   const releasePointer = (pointerId: number): void => {
     const previous = pointerPcs.get(pointerId);
     if (!previous) return;
@@ -161,7 +170,7 @@ if (surface) {
   // every coordinate refine below (press and hover alike). null under jsdom,
   // where getBoundingClientRect() is zero-sized — see DESIGN.md "Two hit-test
   // paths".
-  const toLatticePoint = (event: PointerEvent): [number, number] | null => {
+  const toLatticePoint = (event: ClientPoint): [number, number] | null => {
     if (!svg) return null;
     const rect = svg.getBoundingClientRect();
     if (rect.width === 0) return null;
@@ -175,7 +184,8 @@ if (surface) {
   // cellDist against `cell` (already the anchor named by the element path)
   // and its six neighbours, with hysteresis against whatever the pointer
   // already holds.
-  const refinePointerAt = (pointerId: number, event: PointerEvent): boolean => {
+  const refinePointerAt = (pointerId: number, event: ClientPoint): boolean => {
+    lastClient.set(pointerId, { clientX: event.clientX, clientY: event.clientY });
     const cell = pointerCell.get(pointerId);
     if (!cell) return false;
     try {
@@ -231,7 +241,8 @@ if (surface) {
     applyHover(String(pointerId), next, previous);
   };
 
-  const refineHoverAt = (pointerId: number, event: PointerEvent): boolean => {
+  const refineHoverAt = (pointerId: number, event: ClientPoint): boolean => {
+    lastClient.set(pointerId, { clientX: event.clientX, clientY: event.clientY });
     const cell = hoverCell.get(pointerId);
     if (!cell) return false;
     try {
@@ -275,13 +286,55 @@ if (surface) {
     refineHoverAt(event.pointerId, event);
   };
 
-  const positionCursorDot = (event: PointerEvent): void => {
+  const positionCursorDot = (event: ClientPoint): void => {
     if (!cursorDot) return;
     const rect = surface.getBoundingClientRect();
     cursorDot.style.left = `${event.clientX - rect.left}px`;
     cursorDot.style.top = `${event.clientY - rect.top}px`;
     cursorDot.classList.add("visible");
   };
+
+  // --- keep hover/press in sync through a zoom animation ---
+  //
+  // --fit-size's CSS transition (index.astro) changes the screen-to-lattice
+  // mapping every frame it runs, but a pointer sitting still on screen
+  // generates no pointer event of its own to prompt a re-read — so without
+  // this, the mouse's cursor dot/hover preview and any held drag go stale
+  // the instant zoom starts and increasingly wrong as it continues,
+  // recovering only on the next real pointer event, if any. Treat every
+  // animation frame as a pointer event at the same on-screen position,
+  // replaying each still-held pointer's last known coordinates (lastClient)
+  // against the current, mid-transition geometry, for as long as the
+  // transition runs.
+  let zoomRafId: number | null = null;
+
+  const retriggerHeldPointers = (): void => {
+    for (const [id, point] of lastClient) {
+      if (hoverCell.has(id)) {
+        positionCursorDot(point);
+        refineHoverAt(id, point);
+      }
+      if (pointerPcs.has(id)) refinePointerAt(id, point);
+    }
+  };
+
+  surface.addEventListener("transitionrun", (event) => {
+    if (event.propertyName !== "--fit-size" || zoomRafId !== null) return;
+    const tick = (): void => {
+      retriggerHeldPointers();
+      zoomRafId = requestAnimationFrame(tick);
+    };
+    zoomRafId = requestAnimationFrame(tick);
+  });
+
+  const stopZoomRetrigger = (event: TransitionEvent): void => {
+    if (event.propertyName !== "--fit-size" || zoomRafId === null) return;
+    cancelAnimationFrame(zoomRafId);
+    zoomRafId = null;
+    retriggerHeldPointers(); // land exactly on the final geometry, not the last animation frame's
+  };
+  surface.addEventListener("transitionend", stopZoomRetrigger);
+  surface.addEventListener("transitioncancel", stopZoomRetrigger);
 
   for (const cap of caps) {
     cap.addEventListener("pointerdown", (event) => {
@@ -430,6 +483,30 @@ if (surface) {
     if (p === undefined) return;
     heldKeyPcs.delete(event.code);
     releaseHolder(event.code, new Set([p]));
+  });
+
+  // --- zoom keys: '0' resets, '-'/'=' each move one step ---
+  //
+  // Same about.isOpen() gating and "only preventDefault what's mapped"
+  // discipline as the note-key listeners above. One press, one step —
+  // same move a button click makes, animated the same way — and holding
+  // the key down does nothing further: event.repeat is guarded so only
+  // the first keydown of a hold does anything.
+
+  const ZOOM_KEY_ACTION: Record<string, () => void> = {
+    Digit0: () => zoom.reset(),
+    Minus: () => zoom.stepOut(),
+    Equal: () => zoom.stepIn(),
+  };
+
+  window.addEventListener("keydown", (event) => {
+    if (about.isOpen()) return;
+    const action = ZOOM_KEY_ACTION[event.code];
+    if (!action) return; // unmapped keys do nothing
+    if (event.ctrlKey || event.metaKey) return; // Ctrl/Cmd +/-/0 is the browser's own zoom
+    event.preventDefault();
+    if (event.repeat) return;
+    action();
   });
 
   window.addEventListener("blur", releaseEverything);

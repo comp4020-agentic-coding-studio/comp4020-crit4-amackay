@@ -568,25 +568,46 @@ underneath, same as the old plate's `pointer-events: none` did for the caps
 it didn't cover.
 
 The zoom buttons move `--fit-size` — the number of twelfths the viewport's
-short axis shows — between the bounds in `lib/tonnetz.ts`: `FIT_SIZE_MIN =
-DOMAIN_SIZE` (12, the fundamental domain fills the screen) and `FIT_SIZE_MAX
-= 14 * H_SPACING` (56, fourteen hex-widths across). Each click moves by
-`ZOOM_STEP = H_SPACING` (4 twelfths) — 12 clean stops between the bounds,
-reusing the lattice's own horizontal spacing rather than an invented step.
-The camera centre (`CENTRE_X`/`CENTRE_Y`) never moves; only the window size
-does.
+short axis shows — between the bounds in `lib/tonnetz.ts`, multiplicatively:
+`FIT_SIZE_MIN = DOMAIN_SIZE` (12, the fundamental domain fills the screen) and
+`ZOOM_RATIO = FIT_SIZE_INITIAL / FIT_SIZE_MIN` (1.25 = 5/4) — the one ratio
+that returns from max zoom-in to the page's initial view (15, the domain plus
+a fixed padding) in exactly one click. Zoom levels form an 8-stop ladder,
+`fitSizeForStep(i) = FIT_SIZE_MIN * ZOOM_RATIO ** i` for `i` from 0
+(`FIT_SIZE_MIN`) to `ZOOM_STEPS_OUT = 7` (`FIT_SIZE_MAX`, `57.220458984375` —
+the closest integer power of the ratio to the old hand-picked ~56, and exact
+in floating point since `4**7 = 2**14`). A click snaps `current()` to its
+nearest step, then moves exactly one — never multiplies/divides `current()`
+directly — so a move always lands exactly on the next clean stop, including
+the bounds, regardless of where the previous move left the value. The camera
+centre (`CENTRE_X`/`CENTRE_Y`) never moves; only the window size does.
 
 - **`lib/zoom.ts` reads `--fit-size` back off the stage rather than tracking
   its own state**, the same idiom `Layout.astro`'s `fitSize()` already uses
   for the same property. It clamps, sets the property, and toggles
   `disabled`/`aria-disabled` on whichever button is at its bound.
+- **Every zoom move animates**, buttons and keyboard alike: `--fit-size` is
+  registered via `@property` (`syntax: "<number>"`) in `index.astro`'s
+  scoped `<style>` so it can be tweened at all — an unregistered custom
+  property only ever jumps — and `.stage` carries
+  `transition: --fit-size 240ms ease-out`, so the whole existing
+  `--twelfth`/width/height `calc()` chain animates for free with no JS
+  tween. `prefers-reduced-motion: reduce` turns it off along with the
+  page's other transitions.
+- **Keyboard**: `0` resets to the initial view; `-`/`=` zoom out/in one
+  ratio-step, the same move and the same animation a button click makes.
+  Holding a key does nothing beyond that first step — `main.ts` guards on
+  `event.repeat`, same as the note keys. `Ctrl`/`Cmd` are left alone so the
+  browser's own page zoom still works.
 - **`EXTENT` (the pre-rendered lattice window) had to grow from 17 to 64**
   once `--fit-size` became runtime-variable: at `FIT_SIZE_MAX`, the drawn
   window has to cover the long axis of both marked viewports with no blank
-  canvas past the lattice's edge, and portrait 390×844 is the binding case.
+  canvas past the lattice's edge, and portrait 390×844 is the binding case
+  (~123.8 of the 128 twelfths `EXTENT` draws, ~3.3% slack).
   `scripts/tonnetz-check.ts` re-derives this from scratch (the window's
   corners, inverted through the F/B basis) rather than trusting a comment —
-  re-run it after changing `EXTENT`, `DOMAIN_SIZE`, or `H_SPACING`.
+  re-run it after changing `EXTENT`, `DOMAIN_SIZE`, `H_SPACING`, or the zoom
+  ratio/step count.
 - **A hidden coupling**: `Layout.astro`'s "Request Desktop Site" viewport fix
   only recomputes `--twelfth` on `resize`/`orientationchange`/`load`/
   `visualViewport` resize — none of which fire on a zoom click. `zoom.ts`
@@ -612,6 +633,22 @@ does.
   content in DOM order, so leaving it tabbable is the same disclosure pattern
   every other toggle-into-content control here already uses, and per
   instruction it has nothing to hide in the first place.
+- **A pointer that isn't moving still needs re-hit-testing while zoom
+  animates**, since the screen-to-lattice mapping changes every frame the
+  `--fit-size` transition runs but a stationary pointer generates no event of
+  its own to prompt a re-read. `main.ts` treats each animation frame as a
+  pointer event at the same on-screen position: it records every coordinate
+  refine's `{clientX, clientY}` (`lastClient`), and for as long as `.stage`
+  reports a running `--fit-size` transition (`transitionrun` to
+  `transitionend`/`transitioncancel`, via `requestAnimationFrame`) it replays
+  that position for whichever pointers are currently hovering (the cursor
+  dot, the mouse preview) or pressing (a held mouse/touch drag) against the
+  live, mid-transition geometry. Without this, the instrument and the zoom
+  controls are each pressable on their own but not *together* through an
+  animation: a note held stationary while zoom runs — or the mouse's hover
+  preview — freezes at the pre-zoom geometry and only resolves (sometimes
+  incorrectly, having skipped every intermediate cell) on whatever pointer
+  event happens to come next.
 
 ### Mouse preview
 
