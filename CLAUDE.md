@@ -113,9 +113,10 @@ live URL. **`http://localhost:4321/` returning 404 is correct**; the site is at
 
 ## A cap is not an element
 
-The drawn window holds 1474 caps and the view shows between 38 and 650 of them
-depending on the zoom stop, so **anything a handler does per cap is priced by
-the zoom** — a price the instrument cannot pay. So the caps are not elements.
+The drawn window holds hundreds to a couple of thousand caps depending on the
+viewport and the zoom stop, and the view shows a good fraction of them, so
+**anything a handler does per cap is priced by the zoom** — a price the
+instrument cannot pay. So the caps are not elements.
 Twelve `<path>`s, one per pitch class, hold every hexagon of that pitch class
 as a disjoint subpath; they paint the fill, carry the state, and are what the
 browser hit-tests. A seam layer and a label layer sit above them and never
@@ -141,6 +142,14 @@ Two consequences worth knowing before touching the interaction:
   shorter than a frame sounded a note the surface never acknowledged. Hence the
   80 ms floor in `pcClassToggle`. Verify with `getAnimations()`, not by eye:
   the DOM looks right the whole time.
+
+**The window itself is sized at runtime** — `requiredExtent` from the viewport's
+aspect ratio, grown in steps by `installSurface` (DESIGN.md "The drawn window
+is not a constant"). Two traps it already sprang: read `--fit-size` off the
+inline style, never the computed one, because a zoom is a CSS transition and
+the computed value mid-flight is a stop the zoom has already left; and clone
+labels from the ones the page shipped, because Astro's scoped CSS matches a
+`data-astro-cid-*` attribute that `createElementNS` will not give them.
 
 The measuring tools: `dispatchEvent` cannot make two real touches, and an
 unthrottled desktop shows none of the cost. `scripts/probe-two-finger-tap.mjs`

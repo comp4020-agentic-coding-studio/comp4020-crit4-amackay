@@ -4,14 +4,55 @@
 import { installAboutPanel } from "../lib/about-panel.ts";
 import { Instrument } from "../lib/instrument.ts";
 import { installInputChrome } from "../lib/input-chrome.ts";
+import { extentStepFor, installSurface } from "../lib/surface.ts";
 import { PitchClassVoices } from "../lib/pitch-voices.ts";
-import { anchorCell, containingCell, nodeForCode, pc as pcOf, pressedPitchClasses } from "../lib/tonnetz.ts";
-import { installZoom } from "../lib/zoom.ts";
+import { anchorCell, containingCell, EXTENT, FIT_SIZE_INITIAL, nodeForCode, pressedPitchClasses } from "../lib/tonnetz.ts";
+import { FIT_SIZE_CHANGE_EVENT, installZoom } from "../lib/zoom.ts";
 
 const surface = document.querySelector<HTMLElement>("[data-instrument]");
 
 if (surface) {
   installInputChrome(surface);
+
+  // --- the drawn window ---
+  //
+  // The page ships enough lattice for the load state and no more; this grows
+  // it to whatever the real viewport and zoom stop need, which is the whole
+  // fix for an odd aspect ratio showing black canvas past the lattice's edge
+  // (DESIGN.md "The drawn window is not a constant"). Grow-only and rounded to
+  // a step, so a drag-resize converges instead of rebuilding per pixel.
+  const surfaceWindow = installSurface(surface, EXTENT);
+
+  // The *target* fit size, off the inline style, not the computed one. A zoom
+  // step is a CSS transition on --fit-size, so getComputedStyle returns the
+  // value mid-flight — which is smaller than where the zoom is heading and
+  // sizes the window for a stop it has already left. zoom.ts and index.astro
+  // both write --fit-size as an inline style, so the specified value is always
+  // the destination.
+  const fitSize = (): number => {
+    const inline = parseFloat(surface.style.getPropertyValue("--fit-size"));
+    if (Number.isFinite(inline) && inline > 0) return inline;
+    const computed = parseFloat(getComputedStyle(surface).getPropertyValue("--fit-size"));
+    return Number.isFinite(computed) && computed > 0 ? computed : FIT_SIZE_INITIAL;
+  };
+
+  const fitWindow = (): void => {
+    const [w, h] = [window.innerWidth, window.innerHeight];
+    if (!w || !h) return; // jsdom, and any moment the viewport reports nothing
+    surfaceWindow.grow(extentStepFor(fitSize(), Math.max(w, h) / Math.min(w, h)));
+  };
+
+  // A zoom step animates --fit-size over 240ms, so the window has to be big
+  // enough *before* the transition starts or the edges go black on the way
+  // out. zoom.ts fires this synchronously from its own setProperty, which is
+  // before the next style recalc, so growing here lands ahead of the first
+  // animated frame.
+  for (const event of [FIT_SIZE_CHANGE_EVENT, "resize", "orientationchange"]) {
+    window.addEventListener(event, fitWindow);
+  }
+  window.visualViewport?.addEventListener("resize", fitWindow);
+  fitWindow();
+
   const zoom = installZoom();
 
   const instrument = new Instrument();

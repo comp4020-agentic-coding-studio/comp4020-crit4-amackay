@@ -117,8 +117,13 @@ export const CENTRE_X = DOMAIN_X0 + DOMAIN_SIZE / 2;
 export const CENTRE_Y = DOMAIN_Y0 + DOMAIN_SIZE / 2;
 export const MARGIN = 2.8;
 
-/** Half-side of the drawn window the page ships, in twelfths. */
-export const EXTENT = 64;
+/** Half-side of the drawn window the page *ships*, in twelfths. It only has to
+ *  cover the load state — FIT_SIZE_INITIAL, at any sane aspect ratio — because
+ *  the window is not a build-time guess any more: `requiredExtent` sizes it
+ *  from the real viewport and the page grows it at runtime (DESIGN.md "The
+ *  drawn window is not a constant"). 33 covers a 4:1 window at the initial fit,
+ *  which is what makes the first paint correct without JS having run. */
+export const EXTENT = 33;
 
 /** How much lattice a viewport of this aspect ratio needs at this fit size, as
  *  a half-side in twelfths. The short axis shows `fitSize` twelfths, so the

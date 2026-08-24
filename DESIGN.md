@@ -616,15 +616,18 @@ centre (`CENTRE_X`/`CENTRE_Y`) never moves; only the window size does.
   Holding a key does nothing beyond that first step — `main.ts` guards on
   `event.repeat`, same as the note keys. `Ctrl`/`Cmd` are left alone so the
   browser's own page zoom still works.
-- **`EXTENT` (the pre-rendered lattice window) had to grow from 17 to 64**
-  once `--fit-size` became runtime-variable: at `FIT_SIZE_MAX`, the drawn
-  window has to cover the long axis of both marked viewports with no blank
-  canvas past the lattice's edge, and portrait 390×844 is the binding case
-  (~123.8 of the 128 twelfths `EXTENT` draws, ~3.3% slack).
-  `scripts/tonnetz-check.ts` re-derives this from scratch (the window's
-  corners, inverted through the F/B basis) rather than trusting a comment —
-  re-run it after changing `EXTENT`, `DOMAIN_SIZE`, `H_SPACING`, or the zoom
-  ratio/step count.
+- **The drawn window is sized at runtime, not chosen at build time.** At
+  `FIT_SIZE_MAX` the window has to cover the long axis of the viewport with no
+  blank canvas past the lattice's edge, and the viewport's shape is not
+  something a build can know: a constant picked for the two marked viewports
+  covered aspect ratios up to about 2.24:1 and left black bands on anything
+  wider, which an ultrawide monitor at 2.37:1 reaches at the last zoom stop.
+  `requiredExtent(fitSize, ratio)` computes it instead, and `main.ts` grows the
+  window to match. See "The drawn window is not a constant".
+  `scripts/tonnetz-check.ts` re-derives the whole thing from scratch (the
+  window's corners, inverted through the F/B basis) rather than trusting a
+  comment — re-run it after changing `EXTENT`, `DOMAIN_SIZE`, `H_SPACING`, or
+  the zoom ratio/step count.
 - **A hidden coupling**: `Layout.astro`'s "Request Desktop Site" viewport fix
   only recomputes `--twelfth` on `resize`/`orientationchange`/`load`/
   `visualViewport` resize — none of which fire on a zoom click. `zoom.ts`
@@ -764,8 +767,9 @@ one ever changes:
    `.hover` and the restrike flash — and is what the browser hit-tests.
 2. **One static `<path>` of every hexagon's outline**, stroked, drawn over the
    fills: the black cap edges. `pointer-events: none`.
-3. **The labels**, 1474 `<text>` plus the twelve key hints. `pointer-events:
-   none`, and they never change either.
+3. **The labels**, one `<text>` per drawn cap plus the twelve key hints.
+   `pointer-events: none`. They are the only layer a resize rebuilds — see
+   "The drawn window is not a constant".
 
 The split is not an optimisation of the drawing; it is what makes the cost of
 playing a note independent of the zoom. A pitch class has about 121 caps in the
@@ -785,8 +789,8 @@ not: the press boundary is the hexagon itself, measured at exactly the
 geometry's 2, 1.75 and √7.25 twelfths by `scripts/check-hit-boundary.js`. What
 it cannot say is *which* cell was hit — see "Two hit-test paths".
 
-Twelve `pointerenter` listeners are enough for a drag, where 1474 used to be
-needed, because two adjacent caps never share a pitch class: every cap boundary
+Twelve `pointerenter` listeners are enough for a drag, where one per cap used
+to be needed, because two adjacent caps never share a pitch class: every cap boundary
 crossed is a crossing between two of these paths.
 
 The path data is encoded relative, caps ordered by screen row, so every
@@ -794,8 +798,49 @@ hexagon's body is the same twenty-six characters and almost every hop between
 them is `m12,0`. The twelve paths and the seam layer together cost about 600
 bytes over the gzipped page; written absolute they would cost 22 KB.
 `tonnetz.ts`'s `capPaths` builds them, and its tests walk the emitted `d` back
-into vertices and check them against `pos()` and `HEX`. The whole page went
-from 434 KB to 208 KB, 42 KB to 11 KB gzipped.
+into vertices and check them against `pos()` and `HEX`.
+
+### The drawn window is not a constant
+
+How much lattice to draw is a question about the viewport, and the viewport is
+not something a build knows. It used to be answered by a constant — `EXTENT`,
+sized for the worst of the two marked viewports — which covered aspect ratios
+up to `2 * EXTENT / FIT_SIZE_MAX` ≈ 2.24:1 and left black bands past the
+lattice's edge on anything wider. An ultrawide monitor is 2.37:1 and reaches it
+at the last zoom stop; a tall narrow window reaches it two stops earlier.
+
+So `requiredExtent(fitSize, ratio)` computes it instead. The short axis shows
+`fitSize` twelfths and the long one `fitSize * ratio`; the window is square, so
+it is sized for the long one, plus `MARGIN` so a hexagon merely reaching in is
+still drawn. `main.ts` calls it on load, on resize, on orientation change, on
+`visualViewport` resize, and on every zoom step, and `installSurface` grows the
+window to match.
+
+Four things make that safe:
+
+- **Grow-only, in steps of 8 twelfths.** A drag-resize fires continuously; a
+  window that shrank back would rebuild on every pixel, and one that grew by
+  the exact amount would rebuild on nearly every pixel. Growing in steps means
+  a session converges on the largest window it has needed and then stops.
+- **The zoom's target, not its current value.** A zoom step is a CSS transition
+  on `--fit-size`, so `getComputedStyle` returns the value mid-flight —
+  smaller than where the zoom is heading, which sizes the window for a stop it
+  has already left and lets the edges go black on the way out. Read the
+  specified value off the inline style; `zoom.ts` and the page both write it
+  there. `zoom.ts` fires its event synchronously from that write, so the window
+  grows before the transition's first frame.
+- **The twelve lit paths and the seam path are never replaced, only re-`d`-ed.**
+  They carry the played state, the pointer listeners and any running restrike:
+  a note held across a resize has to stay held, and it does. Only the labels,
+  which carry nothing, are rebuilt.
+- **Labels are cloned from the ones the page shipped.** Astro's scoped CSS
+  matches on a `data-astro-cid-*` attribute it hangs on template elements, so a
+  label built from scratch at runtime silently loses its font, its fill and its
+  `pointer-events: none`. Cloning carries whatever the build put there.
+
+What the page ships is now only what the load state needs: `EXTENT` covers a
+4:1 viewport at `FIT_SIZE_INITIAL`, so the first paint is right before any
+script runs, and the page went from 434 KB to 68 KB — 42 KB to 6 KB gzipped.
 
 - **Caps are whole hexagons**, tiling flush edge to edge. Not eroded by
   `r`: the erosion existed to show where the single-note core stopped, and
@@ -1105,11 +1150,6 @@ it is not rediscovered, not worked on:
   mid-note as a distraction. Whether a page can suppress it at all — beyond the
   `touch-action`, `-webkit-touch-callout` and tap-highlight suppressions
   already in `global.css` — is unestablished.
-- **The grid lays out once, at load, sized to fill min-zoom at typical screen
-  sizes.** An odd aspect ratio — very tall or very wide — still leaves a black
-  rect around it. The alternative is laying the grid out again on every
-  resize, zoom and reorientation; each approach has different pros and cons,
-  needs discussing before either is picked.
 - **A phone user hit rendering bugs this repo can't reproduce** — no detail
   beyond "different rendering, including a blank page, on different browsers"
   and "repeated orientation changes." Worth investigating by simulating

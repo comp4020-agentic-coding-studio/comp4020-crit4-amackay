@@ -53,7 +53,6 @@
   // land where has moved before.
   const capA = surface.querySelector('[data-notes]');
   const [codeA, , codeC] = capA.dataset.notes.split(" ");
-  const capG = capA; // same pitch class, so the lit layer gives the same element
   const out = { pc: capA.dataset.pc, name: capA.dataset.name, codes: [codeA, codeC] };
   const made = () => window.__made;
 
