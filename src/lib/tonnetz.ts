@@ -109,25 +109,39 @@ export function stepForFitSize(fitSize: number): number {
   return Math.min(ZOOM_STEPS_OUT, Math.max(0, raw));
 }
 
-/** The drawn window, centred on the domain. Sized for the worst case of a
- *  runtime zoom range: at FIT_SIZE_MAX, neither marked viewport may show
- *  blank canvas past the lattice's edge, including on the long axis.
- *  Portrait 390x844 is the binding case (long/short = 844/390 ~= 2.1641):
- *  long axis needs FIT_SIZE_MAX * 2.1641 ~= 123.8 twelfths. EXTENT=64 (window
- *  side 128) leaves ~3.3% slack. Re-verified, not just asserted here —
- *  scripts/tonnetz-check.ts recomputes this and also checks that
- *  visibleCells' fixed m,n scan (-40..40 below) still covers the window.
+/** The camera centre. It never moves; only the window around it changes size.
  *  MARGIN is just past the hexagon's farthest corner (sqrt(7.25) ~= 2.693 —
  *  no single circumradius any more) so a hexagon merely intersecting the
  *  window still gets drawn. */
 export const CENTRE_X = DOMAIN_X0 + DOMAIN_SIZE / 2;
 export const CENTRE_Y = DOMAIN_Y0 + DOMAIN_SIZE / 2;
-export const EXTENT = 64;
 export const MARGIN = 2.8;
 
-/** The drawn window's side, in twelfths — what index.astro delivers to CSS
- *  as --window-size, so .stage's size is never a hand-copied number either. */
-export const WINDOW_SIZE = EXTENT * 2;
+/** Half-side of the drawn window the page ships, in twelfths. */
+export const EXTENT = 64;
+
+/** How much lattice a viewport of this aspect ratio needs at this fit size, as
+ *  a half-side in twelfths. The short axis shows `fitSize` twelfths, so the
+ *  long axis shows `fitSize * ratio`; the window is square, so it is sized for
+ *  the long one and MARGIN'd so a hexagon merely reaching in is still drawn.
+ *
+ *  This is the whole fix for "an odd aspect ratio leaves a black rect": the
+ *  number was a constant chosen at build time from the two marked viewports,
+ *  and any window shape past about 2.24:1 outran it at the last zoom stop. */
+export function requiredExtent(fitSize: number, ratio: number): number {
+  return (fitSize * Math.max(1, ratio)) / 2 + MARGIN;
+}
+
+/** The drawn window's side, in twelfths — what the page delivers to CSS as
+ *  --window-size, so .stage's size is never a hand-copied number either. */
+export function windowSizeFor(extent: number): number {
+  return extent * 2;
+}
+
+/** The SVG viewBox for a window of this half-side, y negated for the screen. */
+export function viewBoxFor(extent: number): string {
+  return `${CENTRE_X - extent} ${-(CENTRE_Y + extent)} ${extent * 2} ${extent * 2}`;
+}
 
 /** Screen position of lattice vertex (m, n), in twelfths. */
 export function pos(m: number, n: number): Vec {
@@ -248,16 +262,31 @@ export interface Cap {
  *  `margin` on every side first. margin=0 gives "centre inside the box" (the
  *  key-table derivation below); margin>0 gives a cheap superset of "the
  *  hexagon intersects the box" (rendering — over-inclusion costs nothing
- *  since SVG clips). A fixed m,n scan range is fine: this runs once at Astro
- *  build time, never per frame. -40..40 is verified sufficient for the drawn
- *  window at the current EXTENT by scripts/tonnetz-check.ts, not just
- *  asserted here — re-run it after changing EXTENT. */
+ *  since SVG clips).
+ *
+ *  The m,n scan is derived from the box rather than fixed. Inverting pos()
+ *  gives `m = (y - x) / 4` and `n = (y + 3x) / 12`; both are monotonic in x
+ *  and y, so the four corners bound the range, and one cell of slack absorbs
+ *  the rounding. It used to be a hard-coded -40..40 verified against a
+ *  hard-coded EXTENT — which was fine only for as long as the window was a
+ *  constant, and is exactly the coupling the runtime window removes. */
 export function visibleCells(x0: number, x1: number, y0: number, y1: number, margin = 0): Cap[] {
-  const out: Cap[] = [];
   const lo = { x: x0 - margin, y: y0 - margin };
   const hi = { x: x1 + margin, y: y1 + margin };
-  for (let m = -40; m <= 40; m++) {
-    for (let n = -40; n <= 40; n++) {
+  const ms: number[] = [];
+  const ns: number[] = [];
+  for (const x of [lo.x, hi.x]) {
+    for (const y of [lo.y, hi.y]) {
+      ms.push((y - x) / 4);
+      ns.push((y + 3 * x) / 12);
+    }
+  }
+  const [m0, m1] = [Math.floor(Math.min(...ms)) - 1, Math.ceil(Math.max(...ms)) + 1];
+  const [n0, n1] = [Math.floor(Math.min(...ns)) - 1, Math.ceil(Math.max(...ns)) + 1];
+
+  const out: Cap[] = [];
+  for (let m = m0; m <= m1; m++) {
+    for (let n = n0; n <= n1; n++) {
       const [x, y] = pos(m, n);
       if (x >= lo.x && x <= hi.x && y >= lo.y && y <= hi.y) out.push({ m, n, x, y, pc: pc(m, n) });
     }
@@ -265,10 +294,10 @@ export function visibleCells(x0: number, x1: number, y0: number, y1: number, mar
   return out;
 }
 
-/** Every cap the page draws. One definition, so a test can check the keyed
- *  block against exactly what gets rendered. */
-export function drawnCells(): Cap[] {
-  return visibleCells(CENTRE_X - EXTENT, CENTRE_X + EXTENT, CENTRE_Y - EXTENT, CENTRE_Y + EXTENT, MARGIN);
+/** Every cap a window of half-side `extent` draws. One definition, so a test
+ *  can check the keyed block against exactly what gets rendered. */
+export function drawnCells(extent = EXTENT): Cap[] {
+  return visibleCells(CENTRE_X - extent, CENTRE_X + extent, CENTRE_Y - extent, CENTRE_Y + extent, MARGIN);
 }
 
 /** One pitch class's caps as a single SVG path. Twelve of these draw the whole
@@ -321,9 +350,9 @@ export function capPathData(caps: readonly Cap[]): string {
 /** Every drawn cap, grouped into one path per pitch class, ascending. The
  *  groups are not even: the drawn window holds 121 caps of most pitch classes
  *  and 132 of two of them. */
-export function capPaths(): CapPath[] {
+export function capPaths(extent = EXTENT): CapPath[] {
   const byPc = new Map<number, Cap[]>();
-  for (const cap of drawnCells()) {
+  for (const cap of drawnCells(extent)) {
     const group = byPc.get(cap.pc) ?? [];
     group.push(cap);
     byPc.set(cap.pc, group);

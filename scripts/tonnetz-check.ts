@@ -208,7 +208,6 @@ check("...and keeps agreeing well past the <=3 press limit", nbrLimit > 1.3,
 const DOMAIN_SIZE = 12;
 const CENTRE_X = 4.5 + DOMAIN_SIZE / 2; // mirrors tonnetz.ts's DOMAIN_X0
 const CENTRE_Y = 10.5 + DOMAIN_SIZE / 2; // mirrors tonnetz.ts's DOMAIN_Y0
-const EXTENT = 64;
 const MARGIN = 2.8;
 const FIT_SIZE_MIN = DOMAIN_SIZE; // 12, most zoomed in — mirrors tonnetz.ts
 const FIT_PADDING = 1.5; // mirrors tonnetz.ts / index.astro's initial-zoom padding
@@ -217,43 +216,76 @@ const ZOOM_RATIO = FIT_SIZE_INITIAL / FIT_SIZE_MIN; // 1.25 = 5/4
 const ZOOM_STEPS_OUT = 7; // closest integer power of ZOOM_RATIO to the old ~56 target
 const FIT_SIZE_MAX = FIT_SIZE_MIN * ZOOM_RATIO ** ZOOM_STEPS_OUT; // 57.220458984375, most zoomed out
 
-// 11a. visibleCells' fixed m,n scan (-40..40) must still cover the drawn
-// window at this EXTENT: invert pos() at the window's four corners (padded
-// by MARGIN, same as visibleCells itself) and check the extremes stay
-// inside the scan range.
-const invert = (x: number, y: number): [number, number] => [(y - x) / 4, x / 4 + y / 12];
-const corners: [number, number][] = [
-  [CENTRE_X - EXTENT - MARGIN, CENTRE_Y - EXTENT - MARGIN],
-  [CENTRE_X - EXTENT - MARGIN, CENTRE_Y + EXTENT + MARGIN],
-  [CENTRE_X + EXTENT + MARGIN, CENTRE_Y - EXTENT - MARGIN],
-  [CENTRE_X + EXTENT + MARGIN, CENTRE_Y + EXTENT + MARGIN],
-];
-const mnCorners = corners.map(([x, y]) => invert(x, y));
-const mRange = [Math.min(...mnCorners.map(([m]) => m)), Math.max(...mnCorners.map(([m]) => m))];
-const nRange = [Math.min(...mnCorners.map(([, n]) => n)), Math.max(...mnCorners.map(([, n]) => n))];
 check(
-  "visibleCells' fixed m,n scan (-40..40) covers the drawn window at EXTENT",
-  mRange[0]! > -40 && mRange[1]! < 40 && nRange[0]! > -40 && nRange[1]! < 40,
-  `m in [${mRange[0]!.toFixed(1)}, ${mRange[1]!.toFixed(1)}], n in [${nRange[0]!.toFixed(1)}, ${nRange[1]!.toFixed(1)}]`,
+  "the zoom ladder's top stop is FIT_SIZE_MAX",
+  Math.abs(FIT_SIZE_MIN * ZOOM_RATIO ** ZOOM_STEPS_OUT - FIT_SIZE_MAX) < 1e-9,
+  `${(FIT_SIZE_MIN * ZOOM_RATIO ** ZOOM_STEPS_OUT).toFixed(6)} vs ${FIT_SIZE_MAX.toFixed(6)}`,
 );
 
-// 11b. Neither marked viewport (CLAUDE.md "The checks") shows blank canvas
-// past the lattice's edge at max zoom-out: the drawn window's side
-// (2*EXTENT) must cover the long axis at FIT_SIZE_MAX, for whichever of the
-// two viewports has the more extreme aspect ratio.
+// 11a. visibleCells derives its own m,n scan by inverting pos() at the box's
+// four corners. Re-derive the inversion here, independently, and check it
+// really does bound the lattice points inside the box — this is the check that
+// used to say "-40..40 is still wide enough", and it outlived that constant.
+const invert = (x: number, y: number): [number, number] => [(y - x) / 4, x / 4 + y / 12];
+for (const extent of [8, 33, 70, 130]) {
+  const [lo, hi] = [
+    [CENTRE_X - extent - MARGIN, CENTRE_Y - extent - MARGIN],
+    [CENTRE_X + extent + MARGIN, CENTRE_Y + extent + MARGIN],
+  ];
+  const mn = [
+    invert(lo[0]!, lo[1]!),
+    invert(lo[0]!, hi[1]!),
+    invert(hi[0]!, lo[1]!),
+    invert(hi[0]!, hi[1]!),
+  ];
+  const mRange = [Math.min(...mn.map(([m]) => m)), Math.max(...mn.map(([m]) => m))];
+  const nRange = [Math.min(...mn.map(([, n]) => n)), Math.max(...mn.map(([, n]) => n))];
+  // Brute-force every lattice point that could possibly land in the box, and
+  // check none of them falls outside the derived range.
+  let outside = 0;
+  for (let m = -300; m <= 300; m++) {
+    for (let n = -300; n <= 300; n++) {
+      const [x, y] = [3 * n - m, 3 * (m + n)];
+      if (x < lo[0]! || x > hi[0]! || y < lo[1]! || y > hi[1]!) continue;
+      if (m < mRange[0]! - 1 || m > mRange[1]! + 1 || n < nRange[0]! - 1 || n > nRange[1]! + 1) outside++;
+    }
+  }
+  check(`derived m,n scan bounds every cap in the window at extent=${extent}`, outside === 0, `${outside} outside`);
+}
+
+// 11b. The drawn window is sized from the viewport now, not chosen at build
+// time, so the check is no longer "does the constant happen to be big enough"
+// but "does requiredExtent cover the shape". Re-derive it here rather than
+// importing it, and sweep well past the two marked viewports — the constant it
+// replaces was correct for exactly those two and wrong for an ultrawide.
+const required = (fitSize: number, ratio: number): number => (fitSize * Math.max(1, ratio)) / 2 + MARGIN;
 const viewports: [string, number, number][] = [
   ["1920x1080", 1920, 1080],
   ["390x844", 390, 844],
+  ["2560x1080", 2560, 1080],
+  ["3440x1440", 3440, 1440],
+  ["400x1400", 400, 1400],
+  ["1280x360", 1280, 360],
 ];
 for (const [label, w, h] of viewports) {
   const [short, long] = w < h ? [w, h] : [h, w];
-  const longAxisTwelfths = FIT_SIZE_MAX * (long / short);
-  check(
-    `drawn window (2*EXTENT=${2 * EXTENT}) covers ${label}'s long axis at max zoom-out`,
-    2 * EXTENT >= longAxisTwelfths,
-    `needs ${longAxisTwelfths.toFixed(1)}`,
-  );
+  const ratio = long / short;
+  let worst = "";
+  for (let step = 0; step <= ZOOM_STEPS_OUT; step++) {
+    const fit = FIT_SIZE_MIN * ZOOM_RATIO ** step;
+    if (2 * required(fit, ratio) < fit * ratio) worst = `step ${step} short`;
+  }
+  check(`requiredExtent covers ${label} (${ratio.toFixed(2)}:1) at every zoom stop`, worst === "", worst);
 }
+
+// 11c. ...and the window the page *ships* covers the load state at a viewport
+// shape well past anything real, so the first paint needs no JS to be right.
+const SHIPPED_EXTENT = 33; // mirrors tonnetz.ts's EXTENT
+check(
+  `shipped window (2*${SHIPPED_EXTENT}) covers a 4:1 viewport at the initial fit`,
+  2 * SHIPPED_EXTENT >= FIT_SIZE_INITIAL * 4,
+  `needs ${(FIT_SIZE_INITIAL * 4).toFixed(1)}`,
+);
 
 console.log(fails.length ? `\n${fails.length} FAILED` : "\nall checks passed");
 export {};

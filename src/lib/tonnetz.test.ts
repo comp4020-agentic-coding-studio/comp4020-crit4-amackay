@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   anchorCell,
+  CENTRE_X,
+  CENTRE_Y,
+  EXTENT,
+  MARGIN,
+  requiredExtent,
+  viewBoxFor,
+  windowSizeFor,
   capPathData,
   capPaths,
   cellDist,
@@ -409,6 +416,80 @@ const walkPath = (d: string): Vec[][] => {
 
 /** The hexagon capPathData should draw for `cap`, in screen space. */
 const screenHexFor = (cap: { x: number; y: number }): Vec[] => HEX.map(([hx, hy]) => [cap.x + hx, -(cap.y + hy)]);
+
+describe("the drawn window sizes itself to the viewport", () => {
+  const covers = (extent: number, fitSize: number, ratio: number): boolean => {
+    // The short axis shows fitSize twelfths; the long one fitSize * ratio. The
+    // window is a square of side 2*extent centred on the camera, so it covers
+    // the viewport iff its side reaches the long axis.
+    return 2 * extent >= fitSize * ratio;
+  };
+
+  it("covers every zoom stop at every plausible aspect ratio", () => {
+    const ratios = [1, 1.334, 16 / 9, 844 / 390, 2560 / 1080, 32 / 9, 4, 6];
+    for (let step = 0; step <= ZOOM_STEPS_OUT; step++) {
+      const fit = fitSizeForStep(step);
+      for (const ratio of ratios) {
+        expect(covers(requiredExtent(fit, ratio), fit, ratio), `step ${step}, ratio ${ratio}`).toBe(true);
+      }
+    }
+  });
+
+  it("leaves MARGIN of slack, so a hexagon reaching in is still drawn", () => {
+    expect(requiredExtent(FIT_SIZE_MAX, 1) - FIT_SIZE_MAX / 2).toBeCloseTo(MARGIN, 10);
+  });
+
+  it("treats a portrait viewport the same as its landscape mirror", () => {
+    expect(requiredExtent(15, 2.5)).toBe(requiredExtent(15, 2.5));
+    // ratio is long/short by construction, so anything under 1 is a caller
+    // error and must not shrink the window below the square case.
+    expect(requiredExtent(15, 0.4)).toBe(requiredExtent(15, 1));
+  });
+
+  it("is what the shipped window fails at, which is why it exists", () => {
+    // The bug this replaces: EXTENT was 64, and 2560x1080 at the last stop
+    // needs more than that.
+    expect(covers(64, FIT_SIZE_MAX, 2560 / 1080)).toBe(false);
+    expect(covers(requiredExtent(FIT_SIZE_MAX, 2560 / 1080), FIT_SIZE_MAX, 2560 / 1080)).toBe(true);
+  });
+
+  it("ships a window that covers the load state at a 4:1 viewport", () => {
+    expect(covers(EXTENT, FIT_SIZE_INITIAL, 4)).toBe(true);
+  });
+
+  it("agrees with the viewBox and --window-size it hands to CSS", () => {
+    for (const extent of [EXTENT, 17, 70.6]) {
+      const [x, y, w, h] = viewBoxFor(extent).split(" ").map(Number);
+      expect(w).toBe(windowSizeFor(extent));
+      expect(h).toBe(windowSizeFor(extent));
+      // Centred on the camera, y negated for the screen.
+      expect(x + w / 2).toBeCloseTo(CENTRE_X, 10);
+      expect(-(y + h / 2)).toBeCloseTo(CENTRE_Y, 10);
+    }
+  });
+});
+
+describe("visibleCells derives its own scan", () => {
+  it("finds every cap a wide brute-force scan finds, at any window size", () => {
+    for (const extent of [8, 33, 70, 130]) {
+      const [x0, x1] = [CENTRE_X - extent, CENTRE_X + extent];
+      const [y0, y1] = [CENTRE_Y - extent, CENTRE_Y + extent];
+      const got = new Set(visibleCells(x0, x1, y0, y1, MARGIN).map((cap) => `${cap.m},${cap.n}`));
+      const brute = new Set<string>();
+      for (let m = -200; m <= 200; m++) {
+        for (let n = -200; n <= 200; n++) {
+          const [x, y] = pos(m, n);
+          if (x >= x0 - MARGIN && x <= x1 + MARGIN && y >= y0 - MARGIN && y <= y1 + MARGIN) brute.add(`${m},${n}`);
+        }
+      }
+      expect(got).toEqual(brute);
+    }
+  });
+
+  it("still finds the domain's twelve with no margin", () => {
+    expect(visibleCells(DOMAIN_X0, DOMAIN_X0 + DOMAIN_SIZE, DOMAIN_Y0, DOMAIN_Y0 + DOMAIN_SIZE)).toHaveLength(12);
+  });
+});
 
 describe("the anchor a hit test cannot name", () => {
   // The lit layer hit-tests to a pitch class, not a cell, so the cell comes
