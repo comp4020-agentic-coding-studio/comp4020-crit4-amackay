@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   capPathData,
   capPaths,
-  capReaches,
   cellDist,
   containingCell,
   DOMAIN_SIZE,
@@ -379,41 +378,6 @@ describe("visibleCells", () => {
   it("excludes a cell far outside the box regardless of margin", () => {
     const cells = visibleCells(-3, 3, -3, 3, 2.3);
     expect(cells.some((cap) => cap.x > 100)).toBe(false);
-  });
-});
-
-describe("capReaches", () => {
-  const a: Vec = [0, 0];
-  const b: Vec = [10, 10];
-
-  it("takes a cap centred inside the rectangle", () => {
-    expect(capReaches([5, 5], a, b)).toBe(true);
-  });
-
-  it("takes a cap just outside it, whose hexagon still reaches in", () => {
-    expect(capReaches([-2, -2], a, b)).toBe(true);
-    expect(capReaches([12, 12], a, b)).toBe(true);
-  });
-
-  it("drops a cap further out than any hexagon reaches", () => {
-    expect(capReaches([-3, 5], a, b)).toBe(false);
-    expect(capReaches([5, 13], a, b)).toBe(false);
-    expect(capReaches([100, 100], a, b)).toBe(false);
-  });
-
-  it("does not care which corner is which", () => {
-    expect(capReaches([5, 5], b, a)).toBe(true);
-    expect(capReaches([5, 5], [10, 0], [0, 10])).toBe(true);
-    expect(capReaches([100, 100], b, a)).toBe(false);
-  });
-
-  it("agrees with visibleCells over the same box", () => {
-    const box = visibleCells(0, 10, 0, 10, MARGIN).map((cap) => `${cap.m},${cap.n}`);
-    for (let m = -40; m <= 40; m++) {
-      for (let n = -40; n <= 40; n++) {
-        expect(capReaches(pos(m, n), a, b)).toBe(box.includes(`${m},${n}`));
-      }
-    }
   });
 });
 

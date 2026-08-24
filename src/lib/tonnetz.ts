@@ -260,23 +260,6 @@ export function visibleCells(x0: number, x1: number, y0: number, y1: number, mar
   return out;
 }
 
-/** Whether the cap centred at `point` puts any ink inside the axis-aligned
- *  lattice rectangle with opposite corners `a` and `b` — the same
- *  over-inclusive MARGIN test visibleCells applies, asked one cap at a time
- *  and with the corners in either order. visibleCells answers "which caps
- *  does the page draw", once, at build time; this answers "is this drawn cap
- *  currently on screen", at runtime, without rebuilding the list.
- */
-export function capReaches(point: Vec, a: Vec, b: Vec): boolean {
-  const [x, y] = point;
-  return (
-    x >= Math.min(a[0], b[0]) - MARGIN &&
-    x <= Math.max(a[0], b[0]) + MARGIN &&
-    y >= Math.min(a[1], b[1]) - MARGIN &&
-    y <= Math.max(a[1], b[1]) + MARGIN
-  );
-}
-
 /** Every cap the page draws. One definition, so a test can check the keyed
  *  block against exactly what gets rendered. */
 export function drawnCells(): Cap[] {
