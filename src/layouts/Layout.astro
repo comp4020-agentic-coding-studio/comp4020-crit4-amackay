@@ -130,6 +130,12 @@ const favicon = faviconDataUri();
         window.addEventListener("resize", apply);
         window.addEventListener("orientationchange", apply);
         window.addEventListener("load", apply);
+        // Zoom (src/lib/zoom.ts) mutates --fit-size for none of the reasons
+        // above, so it dispatches this after every change and apply() reads
+        // the new value straight back off the stage via fitSize(). The
+        // string has to match zoom.ts's FIT_SIZE_CHANGE_EVENT by hand — this
+        // script is `is:inline` and cannot import it.
+        window.addEventListener("tonnetz:fit-size-change", apply);
         if (window.visualViewport) window.visualViewport.addEventListener("resize", apply);
       })();
     </script>

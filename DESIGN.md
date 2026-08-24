@@ -30,17 +30,20 @@ every dyad is a third or a fifth, and that every triad is major or minor.
 Sliding a finger from the middle of a cell toward a corner where three of them
 meet is the signature gesture: notes join and leave underneath it while the
 common tones stay sounding. Two fingers reach seventh chords. There is no
-score, no fail state, and nothing on the playing surface beyond the cap labels
-and the title. The page is called **Touch-Tonnetz**, and per instruction that
-name is shown: a small centred plate at the top edge, out of flow, so it names
-the thing without becoming a header the instrument has to live underneath.
+score, no fail state, and nothing on the playing surface beyond the cap
+labels — per instruction, no always-visible title either. A HUD of three
+square buttons sits along the top edge instead: an info button at the left,
+and zoom controls at the right (see "Zoom"). The page is still called
+**Touch-Tonnetz** — the browser tab and the About panel carry that, the
+surface itself does not.
 
-Per instruction the plate is also the way in to an **About panel**: click it
-and it expands into a card carrying a short account of what the instrument is,
-with links out to Tonnetz and Shepard tone. The surface itself still explains
-nothing — a player who never clicks the title meets exactly what they met
-before. Being a click target does cost the caps under the plate: they are no
-longer playable there.
+The info button is the way in to an **About panel**: click it and a card
+fades in over the surface carrying the title, a short account of what the
+instrument is, and links out to Tonnetz and Shepard tone. The surface itself
+still explains nothing — a player who never opens it meets exactly what they
+met before. Only the small button footprints cost caps under them; the HUD's
+own wrapper is `pointer-events: none`, so nothing else on the top edge is
+lost the way it was when the whole plate was one click target.
 
 ## The lattice
 
@@ -451,114 +454,164 @@ overscroll, and a focus ring that belongs only to whoever is tabbing.
 
 ### About panel
 
-Per instruction the title plate opens into an About panel. **The plate and the
-card are one element in two states** — `.about`, and `.about[data-open]` — so
-the title reaches its place on the card by the plate growing around it. Nothing
-is duplicated: there is no second heading, and the `<h1>` the invariants
-require stays the same node throughout. The expand measures nothing — the one
-measurement in the panel is the card's height, taken off the transition
-entirely, below.
+Per instruction the info button opens an About panel: a plain card, not a
+plate that grows into one. There is no always-visible title any more for it
+to morph from — see "What it is" — so open/close is just a fade, and the
+whole panel is markedly simpler than the design it replaced.
 
 What the panel is allowed to *say* is settled elsewhere — "What the surface
 already says" and CLAUDE.md's prose rules — and the card is sized to whatever
 survives that, never the other way round.
 
-- **The title stays horizontally centred in both states.** That is what keeps
-  the whole expand a CSS transition: every property that differs between plate
-  and card (`top`, `width`, `height`, `padding`, `border-radius`, background
-  alpha, the title's `font-size`) is animatable, and none of them is
-  `text-align`. A title that moved to the card's top-left corner would need a
-  FLIP or a view transition to travel; this one needs neither.
-- **`width` and `height` interpolate out of `fit-content`**, which takes
-  `interpolate-size: allow-keywords` in `global.css`. The closed plate has to
-  hug its own title rather than carry a hardcoded width. Where
-  `interpolate-size` is unsupported those two properties snap and the rest of
-  the expand still animates.
-- **The copy is absolutely positioned in *both* states**, which is load-bearing
-  and looks like an over-complication. It was in flow when open at first, and
-  the expand then started from a rect the size of the copy rather than the size
-  of the plate — 960×326 against the plate's 329×53, measured by
-  `scripts/probe-about-open.js`. `fit-content` resolves at layout, after the
-  descendant's new `position` has already applied, so the transition's
-  *before-change* value was already the card-sized one. Nothing that changes on
-  open may feed the plate's intrinsic size. Open, the copy is inset to
-  `--card-pad` on three sides and sits under the title on the fourth — an
-  absolutely positioned child is laid out against the padding box, so it has to
-  restate the padding rather than inherit it.
-- **The whole plate is the click target**, per instruction, so the plate's
-  padding lives on the toggle rather than on the panel: the button is the
-  plate. It needs `width: 100%` to get there — a `<button>` shrink-wraps to its
-  glyphs even as a block box — and the panel takes its own padding back when
-  open, where `--card-pad` is the card's inset instead.
-- **The card's height follows the copy.** `about-panel.ts` measures the body
-  once it has laid out and writes `--card-fit`; `--card-h` is that plus
-  `--card-slack`, capped in `dvh` so a short screen shortens the card instead
-  of overflowing it, and the body scrolls in the shortened case. This is the
-  one thing CSS cannot do here: the copy is absolutely positioned in both
-  states — see the bullet above, which is the whole reason — so it contributes
-  nothing to any ancestor's intrinsic size, and the height it would imply is
-  unreachable from a stylesheet. Measured first-child-top to last-child-bottom
-  rather than off the body's own box, which carries a `max-height` derived from
-  the last answer. The `rem` fallback in `--card-h` is what shows if the script
-  never runs.
-- **The body's `max-height` is measured against `--card-max`, not against the
-  fitted height.** The cap is the only thing that can leave the card shorter
-  than its own copy, so it is the only case that has to scroll; measuring it
-  there means the fitted case clears its content by the whole difference
-  instead of landing on it. Against `--card-h` it landed 0.16px *under* the
-  content — `offsetTop`/`offsetLeft`, since replaced, round to integers, and
-  `--copy-top`'s 97.76 rounded up while `--card-pad`'s 38.4 rounded down — and
-  the card grew a hairline scrollbar. Slack was the first fix and is gone
-  again: it bought its px back out of the bottom inset, which is the one thing
-  the card cannot spare.
-- **The insets come off the element, not out of the custom properties.** An
-  unregistered custom property computes to the `calc(...)` it was written as,
-  so `getComputedStyle(...).getPropertyValue("--card-pad")` is a string and
-  `parseFloat` of it is `NaN`. The panel has no border, so an absolutely
-  positioned child's containing block shares the panel's own rect, and the
-  child's offset within it is the used `top`/`left` — `--copy-top` and
-  `--card-pad` resolved, in either state and whatever padding the open card
-  carries.
-- **Two numbers describe the card: `--card-pad` to an edge, `--card-gap`
-  between two things inside it.** Everything else is derived — `--title-top`
-  is a pad, the button and a gap; `--copy-top` is that plus the title's line
-  and another gap; the × takes `--card-pad` for its own inset like everything
-  else. That last one is what makes the insets read as even without being
-  balanced against each other by hand: the top of the card is as far from the ×
-  as the sides are from the copy. Tuning any of these against the others is the
-  smell that this derivation has been broken.
-- **The × shares the title's row, and `--title-open`'s floor is what keeps
-  them apart.** The title is centred and `white-space: nowrap` while the × is
-  absolutely positioned in the corner, so the two collide whenever the title
-  runs wide enough to reach it — which at 390 it did, by 5px, as soon as the
-  button grew to the 44px touch target. The floor came down to `1.75rem` to
-  clear it, and the × sits on a `--close-inset` of its own rather than on
-  `--card-pad`, which would push it into the same ink. **Nothing checks either
-  of those**: jsdom has no layout, so the collision is invisible to the suite.
-  `scripts/probe-about-close.js` measures the gap in a real browser — 19px at
-  1920×1080, 12px at 390×844 — and is what to re-run after touching the title's
-  type, the button's size, or the copy in the plate.
-- **The alternative, if that constant ever gets tiresome**, is to stack them:
-  `--title-top: calc(var(--card-pad) + var(--close-size) + var(--card-gap))`,
-  the × back on `--card-pad`, and the floor back to `2rem`. Overlap stops being
-  possible at all, at the cost of about 75px of card, most of it empty above
-  the title. Per instruction the row won.
+- **Fixed geometry throughout; only `opacity` and `visibility` change.**
+  `.about` carries one set of `top`/`left`/`width`/`max-height`/`padding`
+  always, and `[data-open]` only ever toggles `opacity: 0 → 1` and
+  `visibility: hidden → visible` (200ms, no delay either direction) —
+  literally "fade in and fade out," per instruction. There is no second,
+  animated state to keep in sync with the first, which is what makes this
+  section so much shorter than the plate-that-grew-into-a-card design it
+  replaced (recoverable from git history if anything here is ever worth
+  reviving).
+- **`visibility` and `pointer-events` are inherited, not repeated.** Every
+  descendant — the ×, the `<h1>`, the body copy, its links — used to carry
+  its own `visibility`/`opacity`/`transition` rule, staggered against the
+  panel's own timing. None of that exists any more: `.about` sets
+  `visibility: hidden` and `pointer-events: none` once, and CSS inheritance
+  does the rest for every child, tab-order and click-through included. A
+  child only needs its own rule here if it wants to *diverge* from the
+  panel's state, and nothing currently does.
+- **No more JS-measured height.** `about-panel.ts` used to measure the
+  copy's laid-out height every resize and write it back as `--card-fit`, because
+  the copy was absolutely positioned and so contributed nothing to any
+  ancestor's intrinsic size. Now the copy is in normal flow inside a card of
+  fixed `width` and CSS `max-height: var(--card-max)` (`78dvh`, `82dvh` under
+  34rem) with `overflow: hidden auto` — plain CSS sizes it and scrolls it if
+  it's ever too tall. `about-panel.ts` now does nothing but toggle
+  `data-open` and `aria-expanded`; it never measured anything else, and it
+  still never animates.
+- **The info button is a normal, separate HUD button — see "Zoom" for the
+  shared button style.** It is not part of `.about` at all any more: no
+  travelling icon, no fading-to-become-the-×, nothing that hides when
+  pressed, per instruction. Clicking it only ever opens
+  (`toggle.addEventListener("click", () => setOpen(true))` in
+  `about-panel.ts` — a no-op if already open), so a second press while the
+  panel is open does nothing, and the button stays exactly as visible and
+  clickable as it was closed. `aria-label="About"` carries its accessible
+  name now that its content is only a glyph; `aria-expanded`/
+  `aria-controls="about-body"` are unchanged.
+- **The `<h1>` moved into the card and is plain text again**, not a button.
+  The invariants still require exactly one on the page, and it still is —
+  present in the static markup regardless of the panel's `visibility` — but
+  it is now visually/programmatically exposed only while the panel is open,
+  where it used to be the always-visible plate. Accepted, not fixed: nothing
+  else on the page claims to be a heading, and the page `<title>` still
+  carries "Touch-Tonnetz" for anyone who never opens the panel.
+- **The × still shares the heading's row, and still needs its own gap
+  checked.** The heading is centred and `white-space: nowrap` while `.about-close`
+  is absolutely positioned in the corner, so the two still collide if the
+  heading's type ever runs wide enough to reach it — the same risk as before,
+  now with one fewer moving part (no icon sharing the row any more).
+  **Nothing checks this automatically**: jsdom has no layout, so the
+  collision is invisible to the suite. `scripts/probe-about-close.js`
+  measures the gap in a real browser — 19px at 1920×1080, 12px at 390×844,
+  the same numbers as the original pre-icon design, since the heading's own
+  ink is unchanged — and is what to re-run after touching the heading's
+  type, the button's size, or the copy in the card.
 - **Disclosure semantics, not a dialog** — `aria-expanded` on the toggle,
-  `aria-controls` to the body. A disclosure needs no focus trap: focus is
-  already on the toggle when the panel opens, and the × and the two links
-  follow it in DOM order. `visibility: hidden` while closed is what keeps them
-  out of the tab order, so nothing has to manage `inert`.
+  `aria-controls` to the body. A disclosure needs no focus trap: the ×, the
+  heading and the two links all sit in DOM order after the toggle, and
+  `visibility: hidden` while closed is what keeps them out of the tab order,
+  so nothing has to manage `inert`.
 - **Three ways out**, per instruction plus one: the ×, a click anywhere on the
-  scrim, and `Escape`. All three hand focus back to the toggle.
+  scrim, and `Escape`. All three hand focus back to the toggle. **The info
+  button itself is not a fourth**: `about-panel.ts`'s toggle handler only ever
+  opens, and per instruction it does not need to hide itself to say so.
 - **The instrument goes quiet while it is open.** The scrim covers the surface,
   so no pointer reaches a cap; `main.ts` gates its `keydown` on
   `about.isOpen()` for the same reason, and opening runs the same
   release-everything cleanup that losing the window does. Otherwise a key held
   as the panel opened would sound under it forever, and `Space` on a focused
   link would both play a note and follow the link.
-- **`about-panel.ts` never animates anything.** It sets `data-open` and
-  `aria-expanded`; the motion is entirely CSS, which is what keeps the panel's
-  behaviour and its look separately reviewable.
+
+### Zoom
+
+Per instruction, three square buttons on a top bar — `.hud`, a `position:
+fixed` row spanning the top edge with `justify-content: space-between` — the
+info button alone at the left end, `+`/`−` zoom as a pair at the right,
+`−` then `+` left to right. One shared `.hud-btn` style, and one shared
+`.hud` scope for the two custom properties both live in:
+
+- **`--hud-btn-size: clamp(3rem, 5vmin, 3.5rem)`** — floored at 48px. Apple
+  HIG's minimum tappable area is 44pt; Material Design's recommended minimum
+  touch target is 48dp, and per instruction this is "a bit bigger" than the
+  44px floor it replaces. Ceiling and the `vmin` term are both the old
+  values scaled by the same ratio (48/44) as the floor, so the button's
+  shape across the viewport range — not just its two endpoints — grew by the
+  same proportion everywhere.
+- **`--hud-gap: calc(var(--hud-btn-size) * 0.182)`**, not its own clamp. The
+  old zoom-pair gap (8px) to old button floor (44px) ratio was ≈0.182;
+  keeping that ratio and driving it off `--hud-btn-size` directly means the
+  edge margin, the gap between the zoom buttons, and the button size all
+  move together at *every* viewport width, not just where a hand-picked
+  second clamp happens to agree with the first. `.hud`'s `top`/`left`/`right`
+  insets and `.zoom-controls`' `gap` both read this one property — per
+  instruction, the margin to the screen edge and the margin between the two
+  zoom buttons are the same number, and moving the buttons closer to the
+  edge was exactly swapping the old, unrelated edge-inset clamp for this one.
+  The icon glyphs scale the same way, off `--hud-btn-size` too (`0.57` of
+  it, the old glyph-to-button ratio), so a bigger button does not read as
+  the same glyph with more padding around it.
+
+`.hud` itself is `pointer-events: none` with each button opting back in, so
+the empty space between the two clusters still reaches the surface
+underneath, same as the old plate's `pointer-events: none` did for the caps
+it didn't cover.
+
+The zoom buttons move `--fit-size` — the number of twelfths the viewport's
+short axis shows — between the bounds in `lib/tonnetz.ts`: `FIT_SIZE_MIN =
+DOMAIN_SIZE` (12, the fundamental domain fills the screen) and `FIT_SIZE_MAX
+= 14 * H_SPACING` (56, fourteen hex-widths across). Each click moves by
+`ZOOM_STEP = H_SPACING` (4 twelfths) — 12 clean stops between the bounds,
+reusing the lattice's own horizontal spacing rather than an invented step.
+The camera centre (`CENTRE_X`/`CENTRE_Y`) never moves; only the window size
+does.
+
+- **`lib/zoom.ts` reads `--fit-size` back off the stage rather than tracking
+  its own state**, the same idiom `Layout.astro`'s `fitSize()` already uses
+  for the same property. It clamps, sets the property, and toggles
+  `disabled`/`aria-disabled` on whichever button is at its bound.
+- **`EXTENT` (the pre-rendered lattice window) had to grow from 17 to 64**
+  once `--fit-size` became runtime-variable: at `FIT_SIZE_MAX`, the drawn
+  window has to cover the long axis of both marked viewports with no blank
+  canvas past the lattice's edge, and portrait 390×844 is the binding case.
+  `scripts/tonnetz-check.ts` re-derives this from scratch (the window's
+  corners, inverted through the F/B basis) rather than trusting a comment —
+  re-run it after changing `EXTENT`, `DOMAIN_SIZE`, or `H_SPACING`.
+- **A hidden coupling**: `Layout.astro`'s "Request Desktop Site" viewport fix
+  only recomputes `--twelfth` on `resize`/`orientationchange`/`load`/
+  `visualViewport` resize — none of which fire on a zoom click. `zoom.ts`
+  dispatches a `tonnetz:fit-size-change` window event after every change, and
+  `Layout.astro` listens for it too. The event name has to match by hand on
+  both sides — that script is `is:inline` and can't import a constant.
+- **The whole `.hud` sits under `.about-scrim` in stacking** (`z-index: 1`,
+  declared before the scrim in the DOM so same-layer ties resolve in the
+  scrim's favour), not above it: while the About panel is open, the scrim
+  visually covers all three buttons — including the info button, which per
+  instruction does not need to *hide*, only to sit under the same translucent
+  layer everything else on the surface does — and intercepts clicks on them,
+  closing the panel same as clicking anywhere else on the scrim, with no
+  extra state to manage for that part. Giving `.hud` no `z-index` at all left
+  it in the same paint bucket as `.stage` (also `position: relative`,
+  `z-index: auto`) and, being earlier in the DOM, painted *under* it —
+  invisible despite a correct rect and `opacity: 1`.
+- **Keyboard tab order needs separate handling for the zoom pair only.**
+  `zoom.ts`'s `setEnabled()` pulls `+`/`−` out of the tab order on open (via
+  `about-panel.ts`'s `onOpen`/`onClose`) and back in on close, since stacking
+  order says nothing to a screen reader. The info button is deliberately left
+  out of this: it is the disclosure toggle immediately before the panel's own
+  content in DOM order, so leaving it tabbable is the same disclosure pattern
+  every other toggle-into-content control here already uses, and per
+  instruction it has nothing to hide in the first place.
 
 ### Mouse preview
 
@@ -580,7 +633,7 @@ being played. **Any** mouse event brings both back, not just movement: a
 player who reaches for the mouse and clicks without nudging it produces no
 `pointermove` at all, so keying the restore to movement left the marks off
 through the whole click and after it. Keys that do not sound leave both alone,
-so tabbing to the title plate disturbs nothing. The pointer itself stays the
+so tabbing to a HUD button disturbs nothing. The pointer itself stays the
 browser's throughout — see below.
 
 ### The page never owns the cursor
@@ -672,10 +725,11 @@ never redrawn; pressing a cap toggles a class.
 - **No greys, per instruction.** Every mark that is not a cap's own hue is
   plain black: the cap edges, both labels, and the keyboard focus ring in
   `global.css`. The page behind the surface is black too. Two exceptions, both
-  stated: the title panel keeps its own light-on-dark backdrop, since it has to
-  stay legible over caps spanning 64–89% lightness; and the cursor disk keeps
-  its white ring and wash, per instruction, because black read as a shadow on
-  caps this light instead of as the pointer's footprint.
+  stated: the About panel and the HUD buttons keep the same light-on-dark
+  backdrop, since they have to stay legible over caps spanning 64–89%
+  lightness; and the cursor disk keeps its white ring and wash, per
+  instruction, because black read as a shadow on caps this light instead of as
+  the pointer's footprint.
 - **The edge is plain black**, shared by every cap rather than derived from
   each cap's own hue. It is not decoration: two flush caps of equal lightness
   and chroma vibrate at the seam without one. A constant edge does that
@@ -711,11 +765,12 @@ never redrawn; pressing a cap toggles a class.
   lives in one line of script rather than as a second copy of the palette; it
   is on the `polygon`, so the clip contains it. Only ever on a *re*-strike; a
   first strike already has the 15 ms attack to announce it.
-- **Motion.** Only those transitions, plus the About panel's 320 ms expand
-  (see "About panel"), which is also the one thing here that answers
-  `prefers-reduced-motion` — a cap's colour transitions are the state itself
-  arriving, where the panel's is decoration over a state change that could just
-  as well be instant. No idle animation. One asymmetry is deliberate: a released cap that the mouse is *still sitting on* returns to
+- **Motion.** Only those transitions, plus the About panel's fade and the
+  zoom buttons' disabled-state dimming (see "About panel" and "Zoom") — all of
+  which answer `prefers-reduced-motion` — a cap's colour transitions are the
+  state itself arriving, where the panel's is decoration over a state change
+  that could just as well be instant. No idle animation. One asymmetry is
+  deliberate: a released cap that the mouse is *still sitting on* returns to
   the hover colour over 200 ms rather than decaying to rest over 500 ms. The
   full tail belongs to a cap you have left; a cap under the cursor should go
   on saying "you are here" instead of pretending it isn't hovered.
@@ -831,22 +886,26 @@ the resize events that drive it.
 ## Accessibility floor
 
 The invariants require a nav landmark, exactly one `<h1>`, a document language,
-a title and a meta description on the built page. The `<h1>` is the visible title
-plate and the About panel's heading — one element in both states, so there is
-no second heading to keep unique; the nav stays in the markup, visually
-hidden. Avoid the words *score*, *streak*, *try
+a title and a meta description on the built page. The `<h1>` is the About
+panel's heading — present in the static markup regardless of the panel's
+`visibility`, so the invariant holds, but visually/programmatically exposed
+only once the panel is open (see "About panel"); the nav stays in the
+markup, visually hidden. Avoid the words *score*, *streak*, *try
 again*, *game over*, *you lose*, *wrong note* and *high score* in copy **and in
 identifiers** — `spec/crit-4.test.ts` greps the built HTML and the page script
 for them.
 
-**With scripting off, a small plate under the title says so.** That is this
-page's one failure mode where it looks entirely correct and is not: the
-lattice lays out perfectly, and then nothing responds to anything. The notice
-lives in `index.astro` rather than the layout because it borrows the title
-plate's look, and it is positioned by `--plate-h` in `global.css`, which is
-also what the plate's own height is built from. `scripts/probe-noscript.js`
-checks it at both marked sizes with scripting genuinely disabled; jsdom
-renders `<noscript>` content unconditionally and so cannot.
+**With scripting off, a small plate says so.** That is this page's one
+failure mode where it looks entirely correct and is not: the lattice lays out
+perfectly, and then nothing responds to anything — the HUD buttons and the
+About panel are all inert without `zoom.ts`/`about-panel.ts`/`main.ts`
+running. The notice lives in `index.astro` rather than the layout because it
+is its own small plate — the About panel only ever appears once script has
+run to open it, and with scripting off nothing ever will —
+positioned at the same top inset the HUD buttons use.
+`scripts/probe-noscript.js` checks it at both marked sizes with scripting
+genuinely disabled; jsdom renders `<noscript>` content unconditionally and so
+cannot.
 
 ## What the surface already says
 
@@ -900,12 +959,14 @@ to the copy that earns its way in, never the copy to the panel.
   (verified over CDP with 180 real auto-repeats). Accepted, not fixed — the
   real fix belongs to whoever's desktop it is.
 - **"Request Desktop Site" can't be detected or turned off by a page, only
-  worked around.** See "Sizing" above for what it breaks and how. Corrected,
-  but only the title plate's `clamp(…, 4.2vmin, …)` still reads the
-  substituted viewport, so it sets a little larger than it does normally —
-  accepted. No automated test can exercise any of this: jsdom has no layout
-  engine and the substitution is browser chrome, not DOM. Verified by hand on
-  an Android Chrome phone; see "The checks" and CLAUDE.md's "Two things this
+  worked around.** See "Sizing" above for what it breaks and how. Corrected
+  for the lattice itself, but every other `vmin`-based `clamp(…)` on the page
+  — the HUD buttons, the About panel's heading and card, the no-JS notice —
+  still reads the substituted viewport, since only `--twelfth` is overridden.
+  They set a little larger than they do normally — accepted. No automated
+  test can exercise any of this: jsdom has no layout engine and the
+  substitution is browser chrome, not DOM. Verified by hand on an Android
+  Chrome phone; see "The checks" and CLAUDE.md's "Two things this
   harness cannot do."
 
 One more, from play-testing and **noted, not investigated** — recorded here so

@@ -1,29 +1,17 @@
-// One-off browser probe (agent-browser eval) for the About panel: the plate
-// opens, the title and the card grow with it, every way out closes it, and the
-// keyboard goes quiet while it is open.
+// One-off browser probe (agent-browser eval) for the About panel: the info
+// button opens it, every way out closes it, and the keyboard goes quiet
+// while it is open. No more plate-to-card growth to sample — the panel is a
+// fixed-size card that only fades — so this only checks state, not geometry.
 (async () => {
-  // Async because every size here is behind a 320ms transition: measuring
-  // synchronously after the click reads the middle of the animation.
-  const settled = () => new Promise((resolve) => setTimeout(resolve, 450));
+  // Async because opacity/visibility are behind a 200ms transition:
+  // measuring synchronously after the click reads mid-fade.
+  const settled = () => new Promise((resolve) => setTimeout(resolve, 300));
   const panel = document.querySelector("[data-about]");
   const toggle = document.querySelector("[data-about-toggle]");
   const closeButton = document.querySelector("[data-about-close]");
   const scrim = document.querySelector("[data-about-scrim]");
-  const heading = panel.querySelector("h1");
   const out = {};
 
-  const body = panel.querySelector(".about-body");
-  const size = () => {
-    const box = panel.getBoundingClientRect();
-    return {
-      w: Math.round(box.width),
-      h: Math.round(box.height),
-      title: Math.round(parseFloat(getComputedStyle(heading).fontSize)),
-      // How tall the copy actually wants to be, against the card it is in:
-      // slack here is dead space, overflow is a scrollbar.
-      copy: body.scrollHeight,
-    };
-  };
   const click = (target) => target.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
   const pointerdown = (target) =>
     target.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true }));
@@ -31,19 +19,27 @@
   const lit = () => document.querySelectorAll(".cap.active").length;
   const open = () => panel.hasAttribute("data-open");
 
-  out.closed = size();
   out.closedExpanded = toggle.getAttribute("aria-expanded");
-  // Closed, nothing inside the card may be reachable by Tab.
+  // Closed, nothing inside the card may be reachable by Tab — inherited from
+  // the panel's own visibility:hidden, not set per-element any more.
+  out.closedPanelHidden = getComputedStyle(panel).visibility === "hidden";
   out.closedBodyHidden = getComputedStyle(panel.querySelector(".about-body")).visibility === "hidden";
   out.closedCloseHidden = getComputedStyle(closeButton).visibility === "hidden";
+  // The info button itself must stay visible and clickable throughout —
+  // per instruction, it is not part of what hides.
+  out.closedToggleVisible = getComputedStyle(toggle).visibility === "visible";
 
   click(toggle);
   await settled();
-  out.openedByTitle = open();
+  out.openedByToggle = open();
   out.openedExpanded = toggle.getAttribute("aria-expanded");
   out.scrimShown = scrim.hasAttribute("data-open");
-  out.open = size();
-  out.grew = out.open.w > out.closed.w && out.open.h > out.closed.h && out.open.title > out.closed.title;
+  out.openToggleVisible = getComputedStyle(toggle).visibility === "visible";
+
+  // Clicking the info button again while already open must not close it —
+  // only the × (or the scrim, or Escape) does.
+  click(toggle);
+  out.stillOpenAfterTogglePress = open();
 
   // Silent while open: a mapped key lights no cap.
   keydown({ code: "KeyF", key: "f" });

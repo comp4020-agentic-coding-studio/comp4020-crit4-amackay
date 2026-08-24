@@ -202,5 +202,54 @@ for (let r = R; r < 2.2; r += 0.02) {
 check("...and keeps agreeing well past the <=3 press limit", nbrLimit > 1.3,
   `diverges only at r=${nbrLimit.toFixed(3)}, vs the r<1.118 the design needs`);
 
+// 11. Zoom window coverage — re-derives EXTENT's job fresh rather than
+// trusting the comment in tonnetz.ts. "A note name in a comment is not
+// evidence" (CLAUDE.md) applies just as much to window geometry.
+const DOMAIN_SIZE = 12;
+const CENTRE_X = 4.5 + DOMAIN_SIZE / 2; // mirrors tonnetz.ts's DOMAIN_X0
+const CENTRE_Y = 10.5 + DOMAIN_SIZE / 2; // mirrors tonnetz.ts's DOMAIN_Y0
+const EXTENT = 64;
+const MARGIN = 2.8;
+const H_SPACING = Math.abs(F[0] - B[0]); // 4
+const FIT_SIZE_MAX = 14 * H_SPACING; // 56, most zoomed out
+
+// 11a. visibleCells' fixed m,n scan (-40..40) must still cover the drawn
+// window at this EXTENT: invert pos() at the window's four corners (padded
+// by MARGIN, same as visibleCells itself) and check the extremes stay
+// inside the scan range.
+const invert = (x: number, y: number): [number, number] => [(y - x) / 4, x / 4 + y / 12];
+const corners: [number, number][] = [
+  [CENTRE_X - EXTENT - MARGIN, CENTRE_Y - EXTENT - MARGIN],
+  [CENTRE_X - EXTENT - MARGIN, CENTRE_Y + EXTENT + MARGIN],
+  [CENTRE_X + EXTENT + MARGIN, CENTRE_Y - EXTENT - MARGIN],
+  [CENTRE_X + EXTENT + MARGIN, CENTRE_Y + EXTENT + MARGIN],
+];
+const mnCorners = corners.map(([x, y]) => invert(x, y));
+const mRange = [Math.min(...mnCorners.map(([m]) => m)), Math.max(...mnCorners.map(([m]) => m))];
+const nRange = [Math.min(...mnCorners.map(([, n]) => n)), Math.max(...mnCorners.map(([, n]) => n))];
+check(
+  "visibleCells' fixed m,n scan (-40..40) covers the drawn window at EXTENT",
+  mRange[0]! > -40 && mRange[1]! < 40 && nRange[0]! > -40 && nRange[1]! < 40,
+  `m in [${mRange[0]!.toFixed(1)}, ${mRange[1]!.toFixed(1)}], n in [${nRange[0]!.toFixed(1)}, ${nRange[1]!.toFixed(1)}]`,
+);
+
+// 11b. Neither marked viewport (CLAUDE.md "The checks") shows blank canvas
+// past the lattice's edge at max zoom-out: the drawn window's side
+// (2*EXTENT) must cover the long axis at FIT_SIZE_MAX, for whichever of the
+// two viewports has the more extreme aspect ratio.
+const viewports: [string, number, number][] = [
+  ["1920x1080", 1920, 1080],
+  ["390x844", 390, 844],
+];
+for (const [label, w, h] of viewports) {
+  const [short, long] = w < h ? [w, h] : [h, w];
+  const longAxisTwelfths = FIT_SIZE_MAX * (long / short);
+  check(
+    `drawn window (2*EXTENT=${2 * EXTENT}) covers ${label}'s long axis at max zoom-out`,
+    2 * EXTENT >= longAxisTwelfths,
+    `needs ${longAxisTwelfths.toFixed(1)}`,
+  );
+}
+
 console.log(fails.length ? `\n${fails.length} FAILED` : "\nall checks passed");
 export {};

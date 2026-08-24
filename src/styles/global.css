@@ -6,23 +6,6 @@
 
 :root {
   color-scheme: dark;
-  /* Lets the About panel's width and height interpolate out of `fit-content`
-     (index.astro, DESIGN.md "About panel"). Where it is unsupported the two
-     sizes snap and the rest of the expand still animates. */
-  interpolate-size: allow-keywords;
-
-  /* The closed title plate's geometry. Here rather than in index.astro's
-     scoped block because the no-JS notice hangs directly below the plate and
-     has to know how tall it is: one set of numbers with two readers beats two
-     sets that drift. --title-size transitions to the open card's size, so the
-     plate's own is the token and the state is the override. */
-  --plate-title-size: clamp(1.6rem, 4.2vmin, 2.2rem);
-  --plate-leading: 1.2;
-  --plate-pad-top: 0.3rem;
-  --plate-pad-bottom: 0.4rem;
-  --plate-h: calc(
-    var(--plate-title-size) * var(--plate-leading) + var(--plate-pad-top) + var(--plate-pad-bottom)
-  );
 }
 
 html,

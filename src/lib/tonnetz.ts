@@ -37,6 +37,11 @@ export const NEIGHBOURS: [number, number][] = [
 const F: Vec = [-1, 3];
 const B: Vec = [3, 3];
 
+/** Horizontal spacing between adjacent hexagons in a screen row, in
+ *  twelfths: F-B = (-4, 0), a purely horizontal vector. Derived rather than
+ *  hand-copied, since the zoom bounds below are counted in this unit. */
+export const H_SPACING = Math.abs(F[0] - B[0]); // 4
+
 /** The fundamental domain's low corner, in twelfths, and its side. The corner
  *  is the midpoint between Gb (m,n)=(1,2) at (5,9) and its +F (P5) neighbour
  *  Db (2,2) at (4,12); all four corners of the square are Gb/Db midpoints, by
@@ -46,15 +51,36 @@ export const DOMAIN_X0 = (5 + 4) / 2; // 4.5
 export const DOMAIN_Y0 = (9 + 12) / 2; // 10.5
 export const DOMAIN_SIZE = 12;
 
-/** The drawn window, centred on the domain. EXTENT covers both marked
- *  viewports' long axis with slack at FIT_SIZE = 15; MARGIN is just past the
- *  hexagon's farthest corner (sqrt(7.25) ~= 2.693 — no single circumradius any
- *  more) so a hexagon merely intersecting the window still gets drawn.
- *  DESIGN.md "Sizing". */
+/** Zoom bounds, in FIT_SIZE's own unit (twelfths on the viewport's short
+ *  axis) — DESIGN.md "Sizing". Max zoom in is the fundamental domain itself;
+ *  max zoom out is 14 hex-widths across. Both are product decisions, but
+ *  expressed in DOMAIN_SIZE/H_SPACING rather than as bare numbers, so a
+ *  future change to either constant moves the bounds with it. */
+export const FIT_SIZE_MIN = DOMAIN_SIZE; // 12, most zoomed in
+export const FIT_SIZE_MAX = 14 * H_SPACING; // 56, most zoomed out
+export const ZOOM_STEP = H_SPACING; // 4 twelfths/click — 12 clean stops between the bounds
+
+/** The drawn window, centred on the domain. Sized for the worst case of a
+ *  runtime zoom range: at FIT_SIZE_MAX, neither marked viewport may show
+ *  blank canvas past the lattice's edge, including on the long axis.
+ *  Portrait 390x844 is the binding case (long/short = 844/390 ~= 2.1641):
+ *  long axis needs FIT_SIZE_MAX * 2.1641 ~= 121.2 twelfths. The old
+ *  single-FIT_SIZE design already carried proportional slack (34 actual vs
+ *  15*2.1641~=32.46 needed, ~4.7%); the same proportion here gives a window
+ *  side of ~126.9, so EXTENT=64 (window side 128, ~5.6% slack). Re-verified,
+ *  not just asserted here — scripts/tonnetz-check.ts recomputes this and
+ *  also checks that visibleCells' fixed m,n scan (-40..40 below) still
+ *  covers the grown window. MARGIN is just past the hexagon's farthest
+ *  corner (sqrt(7.25) ~= 2.693 — no single circumradius any more) so a
+ *  hexagon merely intersecting the window still gets drawn. */
 export const CENTRE_X = DOMAIN_X0 + DOMAIN_SIZE / 2;
 export const CENTRE_Y = DOMAIN_Y0 + DOMAIN_SIZE / 2;
-export const EXTENT = 17;
+export const EXTENT = 64;
 export const MARGIN = 2.8;
+
+/** The drawn window's side, in twelfths — what index.astro delivers to CSS
+ *  as --window-size, so .stage's size is never a hand-copied number either. */
+export const WINDOW_SIZE = EXTENT * 2;
 
 /** Screen position of lattice vertex (m, n), in twelfths. */
 export function pos(m: number, n: number): Vec {
@@ -171,7 +197,9 @@ export interface Cap {
  *  key-table derivation below); margin>0 gives a cheap superset of "the
  *  hexagon intersects the box" (rendering — over-inclusion costs nothing
  *  since SVG clips). A fixed m,n scan range is fine: this runs once at Astro
- *  build time, never per frame. */
+ *  build time, never per frame. -40..40 is verified sufficient for the drawn
+ *  window at the current EXTENT by scripts/tonnetz-check.ts, not just
+ *  asserted here — re-run it after changing EXTENT. */
 export function visibleCells(x0: number, x1: number, y0: number, y1: number, margin = 0): Cap[] {
   const out: Cap[] = [];
   const lo = { x: x0 - margin, y: y0 - margin };

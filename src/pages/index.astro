@@ -7,6 +7,7 @@ import {
   EXTENT,
   HEX,
   R,
+  WINDOW_SIZE,
   drawnCells,
   nodeForCell,
 } from "../lib/tonnetz.ts";
@@ -80,17 +81,33 @@ const capClip = `polygon(${screenHex
       <a href="./">Home</a>
     </nav>
   </header>
-  <!-- The title plate and the About panel are one element in two states; the
-       whole expand is a CSS transition between them, so nothing here is
-       duplicated for the open case and the <h1> is the panel's heading as
-       well as the plate. DESIGN.md "About panel". -->
+  <!-- The HUD: three square buttons on a top bar, info at one end and zoom
+       at the other, all sharing one style — DESIGN.md "About panel" /
+       "Zoom". Declared before .about-scrim so same-layer stacking puts the
+       scrim on top of these while the About panel is open. -->
+  <div class="hud" data-hud>
+    <button
+      type="button"
+      class="hud-btn"
+      data-about-toggle
+      aria-label="About"
+      aria-expanded="false"
+      aria-controls="about-body"
+    >
+      &#9432;
+    </button>
+    <div class="zoom-controls" data-zoom-controls>
+      <button type="button" class="hud-btn" data-zoom-out aria-label="Zoom out">&#8722;</button>
+      <button type="button" class="hud-btn" data-zoom-in aria-label="Zoom in">&#43;</button>
+    </div>
+  </div>
+  <div class="about-scrim" data-about-scrim aria-hidden="true"></div>
+  <!-- A plain card, not a plate that grows into one: no always-visible title
+       to morph from, so open/close is just a fade — DESIGN.md "About
+       panel". -->
   <section class="about" data-about>
-    <h1>
-      <button type="button" data-about-toggle aria-expanded="false" aria-controls="about-body">
-        Touch-Tonnetz
-      </button>
-    </h1>
     <button type="button" class="about-close" data-about-close aria-label="Close">&#215;</button>
+    <h1>Touch-Tonnetz</h1>
     <div class="about-body" id="about-body">
       <p>
         A musical instrument based on the
@@ -104,14 +121,13 @@ const capClip = `polygon(${screenHex
       <p>Playable via touch, mouse, or keyboard.</p>
     </div>
   </section>
-  <div class="about-scrim" data-about-scrim aria-hidden="true"></div>
   <noscript>
     <p class="noscript-plate">Needs JavaScript to play.</p>
   </noscript>
   <main
     data-instrument
     class="stage"
-    style={`--press-diameter:${R * 2}; --cap-clip:${capClip}; --fit-size:${FIT_SIZE}`}
+    style={`--press-diameter:${R * 2}; --cap-clip:${capClip}; --fit-size:${FIT_SIZE}; --window-size:${WINDOW_SIZE}`}
   >
     <svg viewBox={viewBox} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       {
@@ -141,102 +157,130 @@ const capClip = `polygon(${screenHex
      scaling reveals more of this same pre-drawn square on the long axis with
      no separate portrait case. The body (global.css) centres and clips the
      excess. */
-  /* The title sits over the surface rather than in the flow: the stage is a
-     square much larger than the viewport and centred in it (see "Sizing"), so
-     a second grid row would push the lattice off-centre and change what the
-     marked viewports show. Out of flow, it costs the layout nothing.
+  /* The HUD: three square buttons on a top bar, one style shared by all of
+     them. z-index:1, same layer as .about-scrim and declared before it in
+     the markup: same-layer siblings paint in DOM order, so the scrim (later)
+     always paints on top of these and intercepts clicks on them while the
+     About panel is open, closing the panel the same way clicking anywhere
+     else on the scrim does — nothing extra to wire up for that.
+     pointer-events:none on the wrapper, opted back in per-button, so the gap
+     between the two clusters still reaches the surface underneath.
 
-     Closed, this is the plate; open, it is the About card, and every property
-     that differs between the two is animatable — so the title reaches its
-     place on the card by the plate growing around it, with no second heading
-     and no measurement in script. It stays horizontally centred throughout,
-     which is what keeps the whole morph a transition rather than a FLIP.
-     DESIGN.md "About panel".
+     Both custom properties live here, not on .hud-btn, since .hud's own
+     insets and .zoom-controls' gap need --hud-gap too — descendants read
+     both back by inheritance. --hud-btn-size is floored at 3rem = 48px:
+     Apple HIG's minimum is 44pt, but Material Design's recommended minimum
+     touch target is 48dp, and per instruction this is "a bit bigger" than
+     the 44px floor it replaces. --hud-gap is a fixed fraction of the button
+     size (8px : 44px, the original gap-to-button ratio between the zoom
+     buttons and their old floor) rather than its own clamp, so the edge
+     margin, the gap between the zoom buttons, and the button size all move
+     together at every viewport width — never just at the clamp's own
+     floor/ceiling — and per instruction are the same one number. */
+  .hud {
+    --hud-btn-size: clamp(3rem, 5vmin, 3.5rem);
+    --hud-gap: calc(var(--hud-btn-size) * 0.182);
+    position: fixed;
+    top: var(--hud-gap);
+    left: var(--hud-gap);
+    right: var(--hud-gap);
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+  }
 
-     `width`/`height` interpolate from `fit-content` because global.css sets
-     `interpolate-size: allow-keywords`. */
+  .hud-btn {
+    width: var(--hud-btn-size);
+    height: var(--hud-btn-size);
+    display: grid;
+    place-items: center;
+    /* Scaled with the button (0.57 of its size, the original glyph-to-button
+       ratio) so the icon keeps the same visual weight inside a bigger box. */
+    font: 400 calc(var(--hud-btn-size) * 0.57) / 1 system-ui, sans-serif;
+    color: oklch(96% 0.01 260);
+    background: oklch(18% 0.01 260 / 0.72);
+    border: 0;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: opacity 160ms ease-out;
+  }
+
+  /* Zoom in/out disable at their bounds (src/lib/zoom.ts); the info button
+     never gets this attribute. */
+  .hud-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  /* Order is out then in, left to right, per instruction. Keyboard tab order
+     needs separate handling: src/lib/zoom.ts's setEnabled() pulls these two
+     out of the tab order while the About panel is open, since a screen
+     reader has no notion of "visually covered" by the scrim. */
+  .zoom-controls {
+    display: flex;
+    gap: var(--hud-gap);
+  }
+
+  /* A plain card, not a plate that grows into one: there is no
+     always-visible title to morph from any more, so open/close is just a
+     fade — fixed geometry throughout, only opacity and visibility change.
+     DESIGN.md "About panel". */
   .about {
-    /* The open card's geometry, as constants rather than as state: the copy is
-       laid out against these in *both* states, so it is laid out once and the
-       growing card only reveals it. Sized against the animating box instead,
-       it re-wrapped on every frame of the expand. */
+    /* Two numbers describe the whole card: --card-pad is every distance to
+       an edge, --card-gap is every distance between two things inside it.
+       The × reads --card-pad for its own inset like everything else. */
     --card-w: min(34rem, 92vw);
-    /* Two numbers describe the whole card: --card-pad is every distance to an
-       edge, --card-gap is every distance between two things inside it. The ×
-       reads --card-pad for its own inset like everything else, so the top of
-       the card is inset exactly as far as the sides are and none of this needs
-       balancing against the rest by hand. */
     --card-pad: clamp(1.35rem, 4vmin, 2.4rem);
     --card-gap: clamp(0.8rem, 2.4vmin, 1.6rem);
     --close-size: clamp(2.75rem, 4.6vmin, 3.2rem);
     /* The × hugs the corner rather than sitting on --card-pad: it shares the
        title's row, and anything further in runs into the title's ink. */
     --close-inset: clamp(0.35rem, 1.6vmin, 1.05rem);
-    /* Height follows the copy: `about-panel.ts` measures the body once it is
-       laid out and writes --card-fit. The fallback is only what shows if that
-       never runs; --card-max is what keeps a tall card off a short screen. */
     --card-max: 78dvh;
-    --card-h: min(var(--card-fit, 26rem), var(--card-max));
-    /* The floor is the phone's, and it is load-bearing: the title is centred
-       and `nowrap`, the × is in the corner of the same row, and at 390 the two
-       collide as soon as the type goes past about here. Nothing automated
-       catches that --- jsdom has no layout --- so it is
-       `scripts/probe-about-close.js` that measures the gap. */
-    --title-open: clamp(1.75rem, 5.4vmin, 2.8rem);
-    --title-leading: var(--plate-leading);
-    --title-top: var(--card-pad);
-    --copy-top: calc(var(--title-top) + var(--title-open) * var(--title-leading) + var(--card-gap));
-    /* The one piece of geometry that *is* state: the title's own size, which
-       transitions between the plate's and the card's. */
-    --title-size: var(--plate-title-size);
     position: fixed;
-    top: 0;
+    top: clamp(0.75rem, 6dvh, 4rem);
     left: 50%;
     transform: translateX(-50%);
     z-index: 2;
-    width: fit-content;
-    height: fit-content;
-    max-width: 92vw;
-    /* No padding of its own while closed: the toggle carries it, so the whole
-       plate is the click target and not just the glyphs. */
-    padding: 0;
-    overflow: hidden;
+    width: var(--card-w);
+    max-height: var(--card-max);
+    padding: var(--card-pad);
+    overflow: hidden auto;
+    border-radius: 0.75rem;
     color: oklch(96% 0.01 260);
     /* Its own backdrop, because it has to stay legible over whichever cap
        happens to be under it, and the caps span a wide lightness range. The
        one part of the UI exempt from "no greys" — DESIGN.md "Visual design". */
-    background: oklch(18% 0.01 260 / 0.72);
-    border-radius: 0 0 0.5rem 0.5rem;
-    /* The plate is a click target now, so only the buttons inside it take the
-       pointer while it is closed: the surface keeps everything else. */
+    background: oklch(18% 0.01 260 / 0.94);
+    opacity: 0;
+    /* `visibility` is what keeps the ×, the heading and the body's links out
+       of the tab order while closed — inherited, so nothing inside this
+       panel needs its own visibility rule to get the same treatment. Same
+       for pointer-events below: closed, nothing in here is clickable either. */
+    visibility: hidden;
     pointer-events: none;
     transition:
-      top 320ms cubic-bezier(0.2, 0, 0, 1),
-      width 320ms cubic-bezier(0.2, 0, 0, 1),
-      height 320ms cubic-bezier(0.2, 0, 0, 1),
-      padding 320ms cubic-bezier(0.2, 0, 0, 1),
-      border-radius 320ms cubic-bezier(0.2, 0, 0, 1),
-      background-color 320ms ease-out;
+      opacity 200ms ease-out,
+      visibility 0s linear 200ms;
   }
 
   .about[data-open] {
-    --title-size: var(--title-open);
-    top: clamp(0.75rem, 6dvh, 4rem);
-    width: var(--card-w);
-    height: var(--card-h);
-    padding: var(--title-top) var(--card-pad) var(--card-pad);
-    border-radius: 0.75rem;
-    background: oklch(18% 0.01 260 / 0.94);
+    opacity: 1;
+    visibility: visible;
     pointer-events: auto;
+    transition:
+      opacity 200ms ease-out,
+      visibility 0s;
   }
 
   .about h1 {
-    margin: 0;
-    font: 600 var(--title-size) / var(--title-leading) system-ui, sans-serif;
+    margin: 0 0 var(--card-gap);
+    font: 600 clamp(1.75rem, 5.4vmin, 2.8rem) / 1.2 system-ui, sans-serif;
     letter-spacing: 0.09em;
     white-space: nowrap;
     text-align: center;
-    transition: font-size 320ms cubic-bezier(0.2, 0, 0, 1);
   }
 
   /* Tall enough for the copy at the card's width, with a little slack. The
@@ -249,43 +293,11 @@ const capClip = `polygon(${screenHex
     }
   }
 
-  /* The plate is the button: no chrome of its own, the title's own type, and
-     the plate's padding — which is what makes the whole plate the click
-     target. Open, the card's own padding takes over and this goes to zero. */
-  .about h1 button {
-    display: block;
-    /* A button shrink-wraps even as a block box, so the plate would only be
-       as wide as its glyphs without this. */
-    width: 100%;
-    padding: var(--plate-pad-top) 1.1rem var(--plate-pad-bottom);
-    font: inherit;
-    letter-spacing: inherit;
-    color: inherit;
-    background: none;
-    border: 0;
-    cursor: pointer;
-    pointer-events: auto;
-    user-select: none;
-    -webkit-user-select: none;
-    transition: padding 320ms cubic-bezier(0.2, 0, 0, 1);
-  }
-
-  .about[data-open] h1 button {
-    padding: 0;
-    cursor: default;
-  }
-
   /* global.css's focus ring is black and inset, which is right on a cap and
      invisible on this panel. Same ring, this panel's palette. */
   .about :focus-visible {
     outline: 2px solid oklch(96% 0.01 260);
     outline-offset: 3px;
-  }
-
-  /* The toggle is the whole plate, and the plate sits flush against the top
-     edge: an outset ring there would be half off-screen. */
-  .about h1 button:focus-visible {
-    outline-offset: -3px;
   }
 
   .about-close {
@@ -304,69 +316,14 @@ const capClip = `polygon(${screenHex
     border: 0;
     border-radius: 0.4rem;
     cursor: pointer;
-    pointer-events: auto;
-    opacity: 0;
-    /* `visibility` rather than opacity alone: it is what keeps the ×, and the
-       body's links, out of the tab order while the panel is closed. */
-    visibility: hidden;
-    transition:
-      opacity 160ms ease-out,
-      visibility 0s linear 320ms;
   }
 
-  .about[data-open] .about-close {
-    opacity: 1;
-    visibility: visible;
-    transition:
-      opacity 180ms ease-out 260ms,
-      visibility 0s;
-  }
-
-  /* Out of flow in *both* states, so none of this copy ever reaches the
-     plate's `fit-content` size. Letting it join the flow on open was enough to
-     break the expand: `fit-content` is resolved at layout, after the
-     descendant's new `position` has applied, so the transition's start value
-     was the card-sized one and the plate appeared to grow out of a rect far
-     bigger than itself.
-
-     The box is the *open* card's copy area in both states, never the animating
-     one, so the text is laid out once: while the card is smaller than this the
-     panel's `overflow: hidden` simply clips it. That is what stops the copy
-     re-wrapping on every frame of the expand — and, with the box never
-     starting at zero height, what stops `overflow-y` flashing a scrollbar as
-     it grows. */
   .about-body {
-    position: absolute;
-    left: var(--card-pad);
-    top: var(--copy-top);
-    width: calc(var(--card-w) - 2 * var(--card-pad));
-    /* Its own content's height, which is what --card-fit is measured from;
-       the cap only bites when the dvh clamp above has already shortened the
-       card, and then this is what scrolls. */
-    height: auto;
-    max-height: calc(var(--card-max) - var(--copy-top) - var(--card-pad));
-    overflow-y: auto;
     font: 400 clamp(1.05rem, 2.6vmin, 1.5rem) / 1.55 system-ui, sans-serif;
     letter-spacing: normal;
     text-align: left;
     user-select: text;
     -webkit-user-select: text;
-    opacity: 0;
-    visibility: hidden;
-    transition:
-      opacity 160ms ease-out,
-      visibility 0s linear 320ms;
-  }
-
-  /* Held back until the card has finished growing: laid-out-once copy still
-     reads badly arriving through a moving clip edge. Fading out on close needs
-     no such delay — the copy is gone before the card starts shrinking. */
-  .about[data-open] .about-body {
-    opacity: 1;
-    visibility: visible;
-    transition:
-      opacity 180ms ease-out 260ms,
-      visibility 0s;
   }
 
   .about-body p {
@@ -378,9 +335,11 @@ const capClip = `polygon(${screenHex
   }
 
   /* global.css's link blue is a light-background colour; this one has to hold
-     up on the panel's own dark backdrop. */
+     up on the panel's own dark backdrop. No underline: the colour alone
+     distinguishes a link against this backdrop's short, link-sparse prose. */
   .about-body a {
     color: oklch(80% 0.13 240);
+    text-decoration: none;
   }
 
   /* Under the panel, over the surface: a click anywhere off the card closes
@@ -408,27 +367,23 @@ const capClip = `polygon(${screenHex
   @media (prefers-reduced-motion: reduce) {
     .about,
     .about[data-open],
-    .about h1,
-    .about[data-open] h1,
-    .about .about-close,
-    .about[data-open] .about-close,
-    .about .about-body,
-    .about[data-open] .about-body,
     .about-scrim,
-    .about-scrim[data-open] {
+    .about-scrim[data-open],
+    .hud-btn {
       transition: none;
     }
   }
 
   .stage {
-    /* Driven by --fit-size (FIT_SIZE above) rather than a hardcoded number,
-       so the one constant reaches both the CSS here and Layout.astro's
-       viewport correction, which reads it back off this element rather than
-       restating it. DESIGN.md "Sizing". */
+    /* Driven by --fit-size (FIT_SIZE above) and --window-size (WINDOW_SIZE,
+       tonnetz.ts) rather than hardcoded numbers, so those constants reach
+       both the CSS here and Layout.astro's viewport correction, which reads
+       --fit-size back off this element rather than restating it. DESIGN.md
+       "Sizing". */
     --twelfth: calc(100vmin / var(--fit-size));
     position: relative;
-    width: calc(var(--twelfth) * 34);
-    height: calc(var(--twelfth) * 34);
+    width: calc(var(--twelfth) * var(--window-size));
+    height: calc(var(--twelfth) * var(--window-size));
     touch-action: none;
     /* Crosshair, per instruction: symmetrical, so it sits concentrically
        inside the press-radius ring instead of fighting it. */
@@ -549,16 +504,16 @@ const capClip = `polygon(${screenHex
     }
   }
 
-  /* Hangs under the title plate, and only exists at all with scripting off —
-     the state where the lattice lays out perfectly and then does nothing, by
-     far the most convincing way this page can look correct and be broken. Its
-     own small plate rather than a second state of `.about`: that element is a
-     transition between two shapes, and none of that machinery has anything to
-     do with a line of text that never moves. The offset is --plate-h, which
-     the plate's own height is built from (global.css). */
+  /* Only exists at all with scripting off — the state where the lattice lays
+     out perfectly and then does nothing, by far the most convincing way this
+     page can look correct and be broken. Its own small plate rather than
+     reusing `.about`: that element only ever appears once script has run to
+     open it, and with scripting off nothing ever will. Top inset matches the
+     HUD buttons' own — nothing else sits above this any more, so there is no
+     other plate's height left to clear. */
   .noscript-plate {
     position: fixed;
-    top: calc(var(--plate-h) + 0.5rem);
+    top: clamp(0.75rem, 3vmin, 1.5rem);
     left: 50%;
     transform: translateX(-50%);
     z-index: 2;
@@ -567,9 +522,9 @@ const capClip = `polygon(${screenHex
     width: max-content;
     max-width: 92vw;
     margin: 0;
-    padding: var(--plate-pad-top) 1.1rem var(--plate-pad-bottom);
+    padding: 0.3rem 1.1rem 0.4rem;
     color: oklch(96% 0.01 260);
-    font: 600 clamp(0.9rem, 2.2vmin, 1.1rem) / var(--plate-leading) system-ui, sans-serif;
+    font: 600 clamp(0.9rem, 2.2vmin, 1.1rem) / 1.2 system-ui, sans-serif;
     letter-spacing: 0.06em;
     text-align: center;
     /* The plate's backdrop, for the plate's reason: it has to stay legible

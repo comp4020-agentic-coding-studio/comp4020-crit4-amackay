@@ -1,6 +1,6 @@
 // One-off CDP probe: with scripting disabled, does the no-JS notice render,
-// and does it sit clear of the title plate and on screen at both marked sizes?
-// agent-browser cannot turn scripting off, so this drives CDP itself.
+// centred and on screen at both marked sizes? agent-browser cannot turn
+// scripting off, so this drives CDP itself.
 // Usage: node scripts/probe-noscript.js "$(agent-browser get cdp-url)" <url>
 const [browserUrl, pageUrl] = process.argv.slice(2);
 let nextId = 1;
@@ -37,12 +37,10 @@ socket.addEventListener("open", async () => {
         const note = document.querySelector('.noscript-plate');
         if (!note) return { rendered: false };
         const n = note.getBoundingClientRect();
-        const plate = document.querySelector('[data-about]').getBoundingClientRect();
         return {
           rendered: true,
           text: note.textContent.trim(),
           onScreen: n.top >= 0 && n.left >= 0 && n.right <= innerWidth && n.bottom <= innerHeight,
-          gapBelowPlate: Math.round(n.top - plate.bottom),
           centred: Math.abs((n.left + n.right) / 2 - innerWidth / 2) < 1,
           scriptRan: document.documentElement.classList.contains('keyboard-nav') || !!window.__anything,
         };

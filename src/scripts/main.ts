@@ -6,11 +6,13 @@ import { Instrument } from "../lib/instrument.ts";
 import { installInputChrome } from "../lib/input-chrome.ts";
 import { PitchClassVoices } from "../lib/pitch-voices.ts";
 import { anchorCell, nodeForCode, pc as pcOf, pressedPitchClasses } from "../lib/tonnetz.ts";
+import { installZoom } from "../lib/zoom.ts";
 
 const surface = document.querySelector<HTMLElement>("[data-instrument]");
 
 if (surface) {
   installInputChrome(surface);
+  const zoom = installZoom();
 
   const instrument = new Instrument();
   const voices = new PitchClassVoices(instrument);
@@ -388,7 +390,16 @@ if (surface) {
 
   // The scrim already keeps the pointer off the caps while the About panel is
   // open; this is the same silence for the keyboard. DESIGN.md "About panel".
-  const about = installAboutPanel({ onOpen: releaseEverything });
+  // The zoom buttons sit under the scrim (index.astro's z-index) so it
+  // already blocks pointer access while open; this pulls them out of the tab
+  // order too, since stacking order says nothing to a screen reader.
+  const about = installAboutPanel({
+    onOpen: () => {
+      releaseEverything();
+      zoom.setEnabled(false);
+    },
+    onClose: () => zoom.setEnabled(true),
+  });
 
   // Where nothing hovers, the key hints start hidden (index.astro): almost
   // nothing that answers to that description has a keyboard. The exception —
