@@ -34,7 +34,7 @@ score, no fail state, and nothing on the playing surface beyond the cap
 labels — per instruction, no always-visible title either. A HUD of three
 square buttons sits along the top edge instead: an info button at the left,
 and zoom controls at the right (see "Zoom"). The page is still called
-**Touch-Tonnetz** — the browser tab and the About panel carry that, the
+**Tonnetz Organ** — the browser tab and the About panel carry that, the
 surface itself does not.
 
 The info button is the way in to an **About panel**: click it and a card
@@ -505,7 +505,7 @@ survives that, never the other way round.
   it is now visually/programmatically exposed only while the panel is open,
   where it used to be the always-visible plate. Accepted, not fixed: nothing
   else on the page claims to be a heading, and the page `<title>` still
-  carries "Touch-Tonnetz" for anyone who never opens the panel.
+  carries "Tonnetz Organ" for anyone who never opens the panel.
 - **The × still shares the heading's row, and still needs its own gap
   checked.** The heading is centred and `white-space: nowrap` while `.about-close`
   is absolutely positioned in the corner, so the two still collide if the

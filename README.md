@@ -1,4 +1,4 @@
-# Touch-Tonnetz
+# Tonnetz Organ
 
 A COMP4020 prototype: the browser as a musical instrument a stranger can pick
 up and play. One fundamental domain of the 12-TET pitch-class torus, drawn as a
