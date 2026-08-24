@@ -3,6 +3,11 @@
 // animation frame ran while the cap was lit — a class added and removed inside
 // one frame is correct in the DOM and invisible on screen.
 // Usage: node scripts/probe-brief-tap.mjs [holdMs...]
+//
+// Its globals are namespaced because they have to be: another probe's
+// MutationObserver, still attached from an earlier run on the same page, will
+// keep writing into a shared log with timestamps from its own epoch, and the
+// readings come out negative. Reload between probes.
 import { execSync } from "node:child_process";
 
 const HOLDS = process.argv.slice(2).map(Number);
@@ -49,13 +54,13 @@ const evaluate = async (expression, awaitPromise = false) => {
 // change on the lit layer. Same count in and out = never painted lit.
 await evaluate(`(() => {
   const surface = document.querySelector("[data-instrument]");
-  window.__frames = 0;
-  const tick = () => { window.__frames++; requestAnimationFrame(tick); };
+  window.__tapFrames = 0;
+  const tick = () => { window.__tapFrames++; requestAnimationFrame(tick); };
   requestAnimationFrame(tick);
-  window.__log = [];
+  window.__tapLog = [];
   new MutationObserver((rs) => {
-    for (const r of rs) window.__log.push({
-      frame: window.__frames,
+    for (const r of rs) window.__tapLog.push({
+      frame: window.__tapFrames,
       t: +performance.now().toFixed(1),
       on: r.target.classList.contains("active"),
       pc: r.target.dataset.pc,
@@ -74,12 +79,12 @@ const touch = (type, points) =>
   call("Input.dispatchTouchEvent", { type, touchPoints: points, timestamp: Date.now() / 1000 });
 
 for (const hold of holds) {
-  await evaluate("window.__log.length = 0, true");
+  await evaluate("window.__tapLog.length = 0, true");
   await touch("touchStart", [{ x: point.x, y: point.y, id: 1 }]);
   await new Promise((r) => setTimeout(r, hold));
   await touch("touchEnd", []);
   await new Promise((r) => setTimeout(r, 400));
-  const log = await evaluate("JSON.stringify(window.__log)");
+  const log = await evaluate("JSON.stringify(window.__tapLog)");
   const events = JSON.parse(log);
   const on = events.find((e) => e.on);
   const off = events.find((e) => !e.on);
