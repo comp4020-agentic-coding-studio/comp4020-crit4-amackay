@@ -736,6 +736,37 @@ Static SVG in twelfth units with y negated so the drawing is upright. Every
 coordinate is an integer, so the surface is emitted once at build time and
 never redrawn; pressing a cap toggles a class.
 
+### The lit layer
+
+The surface is two layers, and only the first one ever changes.
+
+1. **Twelve `<path>`s, one per pitch class**, each holding every hexagon of
+   that pitch class in the drawn window as a disjoint subpath. This layer
+   carries the fill and the whole of the played state — `.active`, `.hover` and
+   the restrike flash. It is `pointer-events: none`.
+2. **The caps**, one `<g>` each as before, carrying the black edge, the clip,
+   the two labels, the `data-*` the interaction reads and the hit test. They
+   paint no fill and never change class.
+
+The split is not an optimisation of the drawing; it is what makes the cost of
+playing a note independent of the zoom. A pitch class has about 121 caps in the
+drawn window and between one and fifty of them on screen depending on the zoom
+stop, so state held per cap costs whatever the zoom happens to show — and the
+cost is the browser's style recalc over the matched elements, which no amount
+of cleverness on the JS side avoids (a root class plus a static CSS rule
+measured no faster than the loop it replaced). Held on one path per pitch
+class, a press is one class write and a restrike one `animate()`, at every
+zoom. Measured at 6x CPU throttle, the second touch of a two-finger tap
+sharing a triad went from 25.6 ms to 6.9 ms at the most zoomed-out stop, and
+stopped varying with the zoom at all.
+
+Fills go *under* the caps rather than over them because the labels live inside
+each cap's `<g>` and have to stay on top. The path data is encoded relative,
+caps ordered by screen row, so every hexagon's body is the same twenty-six
+characters and the twelve paths cost about 120 bytes over the gzipped page
+rather than 22 KB. `tonnetz.ts`'s `capPaths` builds them; its tests walk the
+emitted `d` back into vertices and check them against `pos()` and `HEX`.
+
 - **Caps are whole hexagons**, tiling flush edge to edge. Not eroded by
   `r`: the erosion existed to show where the single-note core stopped, and
   nothing here shows that.
@@ -782,6 +813,12 @@ never redrawn; pressing a cap toggles a class.
   `.cap polygon` carries a `clip-path` of its own hexagon, derived from `HEX`
   and applied over `fill-box`. This is the same instinct as "nothing scales"
   below, and as the inward `outline-offset` on the focus ring in `global.css`.
+  The clip is load-bearing for the *pointer* as well as the paint: it is what
+  makes a cap stop answering `elementFromPoint` at its hexagon rather than at
+  the stroke's outer edge, which `scripts/check-cap-clip.js` measures. That is
+  also why the cap keeps its polygon now that the fill has moved to the lit
+  layer — `fill: none` costs it the default `visiblePainted` hit test, so it
+  takes `pointer-events: all` to go on catching the pointer at all.
 - **No reduced opacity anywhere**, per instruction. A cap outside the
   fundamental domain is drawn exactly like its twin inside it, because it *is*
   its twin — same note, same colour, same name. The wrap shows itself by
@@ -799,9 +836,14 @@ never redrawn; pressing a cap toggles a class.
   holder arrives on the same pitch class, yet a second voice really did start —
   so it flashes: `brightness(1.3)` decaying back over 220 ms. This is the one
   place a `filter` is used, chosen over a `fill` animation so the transient
-  lives in one line of script rather than as a second copy of the palette; it
-  is on the `polygon`, so the clip contains it. Only ever on a *re*-strike; a
-  first strike already has the 15 ms attack to announce it.
+  lives in one line of script rather than as a second copy of the palette. It
+  is on the pitch class's path in the lit layer, and needs no clip of its own:
+  `brightness()` is a per-channel transform with no spatial spread, so it
+  cannot put ink anywhere the path's own hexagons did not. **That is a
+  constraint on what the flash may become, not just a note about what it is** —
+  a `blur`, a `drop-shadow` or a glow would need containing again, and the
+  containing element's bounding box is now the whole drawn window. Only ever on
+  a *re*-strike; a first strike already has the 15 ms attack to announce it.
 - **Motion.** Only those transitions, plus the About panel's fade and the
   zoom buttons' disabled-state dimming (see "About panel" and "Zoom") — all of
   which answer `prefers-reduced-motion` — a cap's colour transitions are the

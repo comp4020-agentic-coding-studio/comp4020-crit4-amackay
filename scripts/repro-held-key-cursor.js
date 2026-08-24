@@ -55,16 +55,16 @@ const main = async () => {
     if (i % 8 === 0) {
       await mouse(400 + i * 12, 300 + i * 6);
       positions.push(await evaluate(`document.querySelector('[data-cursor]').style.left`));
-      hovers.push(await evaluate(`document.querySelectorAll('.cap.hover').length`));
+      hovers.push(await evaluate(`document.querySelectorAll('.lit .hover').length`));
     }
     await new Promise((r) => setTimeout(r, 33));
   }
 
   const moves = await evaluate(`window.__moves`);
-  const activeCaps = await evaluate(`document.querySelectorAll('.cap.active').length`);
+  const activeCaps = await evaluate(`document.querySelectorAll('.lit .active').length`);
   const repeatSeen = await evaluate(`window.__sawRepeat ?? null`);
   await call("Input.dispatchKeyEvent", { type: "keyUp", ...keyA }, sessionId);
-  const litAfterRelease = await evaluate(`document.querySelectorAll('.cap.active').length`);
+  const litAfterRelease = await evaluate(`document.querySelectorAll('.lit .active').length`);
 
   console.log("dot left before holding the key:", before);
   console.log("dot left during the hold:", positions.join(" "));

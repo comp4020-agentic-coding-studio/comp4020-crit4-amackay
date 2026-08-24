@@ -2,12 +2,15 @@
 // Input.dispatchTouchEvent so the browser makes genuine multi-touch pointer
 // events (dispatchEvent cannot). Logs when each cap's .active class actually
 // changes, relative to the touch, and how long the frames take meanwhile.
-// Usage: node scripts/probe-two-finger-tap.mjs [cpuThrottle] [holdMs]
+// Usage: node scripts/probe-two-finger-tap.mjs [cpuThrottle] [holdMs] [fitSize]
+// fitSize jumps the zoom to a given stop first (12 = most in, 57.220458984375
+// = most out), which is where the per-cap costs used to show worst.
 import { readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 
 const THROTTLE = Number(process.argv[2] ?? 1);
 const HOLD_MS = Number(process.argv[3] ?? 60);
+const FIT_SIZE = process.argv[4];
 
 const browserWs = execSync("agent-browser get cdp-url").toString().trim();
 
@@ -54,6 +57,14 @@ const evaluate = async (expression, awaitPromise = false) => {
   if (r.exceptionDetails) throw new Error(JSON.stringify(r.exceptionDetails, null, 2));
   return r.result.value;
 };
+
+if (FIT_SIZE) {
+  await evaluate(
+    `(() => { const s = document.querySelector("[data-instrument]");
+       s.style.transition = "none"; s.style.setProperty("--fit-size", "${FIT_SIZE}");
+       s.getBoundingClientRect(); return getComputedStyle(s).getPropertyValue("--fit-size"); })()`,
+  );
+}
 
 // Page-side setup: find a triad corner in client coordinates, and start
 // logging every .active class change with a timestamp.

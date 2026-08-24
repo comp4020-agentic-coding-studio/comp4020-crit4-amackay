@@ -5,7 +5,7 @@ import { installAboutPanel } from "../lib/about-panel.ts";
 import { Instrument } from "../lib/instrument.ts";
 import { installInputChrome } from "../lib/input-chrome.ts";
 import { PitchClassVoices } from "../lib/pitch-voices.ts";
-import { anchorCell, capReaches, nodeForCode, pc as pcOf, pos, pressedPitchClasses } from "../lib/tonnetz.ts";
+import { anchorCell, nodeForCode, pc as pcOf, pressedPitchClasses } from "../lib/tonnetz.ts";
 import { installZoom } from "../lib/zoom.ts";
 
 const surface = document.querySelector<HTMLElement>("[data-instrument]");
@@ -20,19 +20,19 @@ if (surface) {
   const svg = surface.querySelector<SVGSVGElement>("svg");
   const caps = [...surface.querySelectorAll<SVGGElement>("[data-m]")];
 
-  // A pitch class can light up more than one on-screen cap at once — the
-  // fundamental-domain instance and any wrapped copies within the drawn
-  // margin — so the DOM ".active" class is refcounted per pitch class, not
-  // per cap. The class is still a refcount even though voices no longer are:
-  // a cap is lit while *anyone* holds its pitch class, whereas each holder
-  // owns a voice of its own (DESIGN.md "One voice per gesture"). The count is
-  // what tells a restrike apart from a first strike.
-  const capsByPc = new Map<number, SVGGElement[]>();
-  for (const cap of caps) {
-    const p = Number(cap.dataset.pc);
-    const list = capsByPc.get(p) ?? [];
-    list.push(cap);
-    capsByPc.set(p, list);
+  // A pitch class lights up every one of its caps at once — the
+  // fundamental-domain instance and every wrapped copy in the drawn window —
+  // and there are about 121 of each, so it is drawn as *one* path holding all
+  // of them (DESIGN.md "The lit layer"). Lighting a note is therefore one
+  // class on one element, whatever the zoom shows.
+  //
+  // The class is still refcounted per pitch class, and still a refcount even
+  // though voices no longer are: a pitch class is lit while *anyone* holds it,
+  // whereas each holder owns a voice of its own (DESIGN.md "One voice per
+  // gesture"). The count is what tells a restrike apart from a first strike.
+  const litByPc = new Map<number, SVGPathElement>();
+  for (const path of surface.querySelectorAll<SVGPathElement>(".lit [data-pc]")) {
+    litByPc.set(Number(path.dataset.pc), path);
   }
   // `const` arrow functions throughout this block, not `function`
   // declarations: the spec harness runs the built script as a classic
@@ -54,7 +54,7 @@ if (surface) {
         const restrike = set.size > 0 && !set.has(holder);
         set.add(holder);
         holders.set(p, set);
-        for (const cap of capsByPc.get(p) ?? []) cap.classList.add(className);
+        litByPc.get(p)?.classList.add(className);
         return restrike;
       },
       deactivate: (p: number, holder: string): void => {
@@ -63,7 +63,7 @@ if (surface) {
         set.delete(holder);
         if (set.size === 0) {
           holders.delete(p);
-          for (const cap of capsByPc.get(p) ?? []) cap.classList.remove(className);
+          litByPc.get(p)?.classList.remove(className);
         }
       },
       reset: (): void => holders.clear(),
@@ -89,51 +89,30 @@ if (surface) {
     return [localX, -localY];
   };
 
-  // Where each drawn cap sits in twelfths, computed once. The lattice is
-  // static, so this never needs recomputing; what moves is the window onto it.
-  const capPoints = new Map(caps.map((cap) => [cap, pos(Number(cap.dataset.m), Number(cap.dataset.n))]));
-
-  // The drawn window is 128 twelfths across and the view shows at most ~57 on
-  // its short axis, so of a pitch class's ~121 caps only a handful are ever on
-  // screen. Anything that costs real work per cap — as opposed to a class
-  // change, which does not — has to ask this first: 363 Web Animations built
-  // in one pointerdown handler blocked the main thread for ~200 ms on a
-  // mid-range phone, which is long enough to delay the *next* touch's caps
-  // lighting and its lift being handled at all (measured,
-  // scripts/probe-two-finger-tap.mjs).
-  const onScreenCapsFor = (p: number): SVGGElement[] => {
-    const all = capsByPc.get(p) ?? [];
-    const topLeft = toLatticePoint({ clientX: 0, clientY: 0 });
-    const bottomRight = toLatticePoint({ clientX: window.innerWidth, clientY: window.innerHeight });
-    if (!topLeft || !bottomRight) return all; // no layout to ask (jsdom): filter nothing
-    return all.filter((cap) => capReaches(capPoints.get(cap)!, topLeft, bottomRight));
-  };
-
   // A pitch class already sounding gains nothing visible when a second holder
-  // arrives — the cap is lit and stays lit — but a second voice really did
-  // start, so restrike it: a brief flash that decays back into the held state.
+  // arrives — it is lit and stays lit — but a second voice really did start,
+  // so restrike it: a brief flash that decays back into the held state.
   // `filter` rather than `fill` so this stays one transient in one place
-  // instead of a second copy of the palette living in the script; clipping is
-  // applied after filtering on the same element, so the flash cannot leave the
-  // hexagon. See DESIGN.md "One voice per gesture".
+  // instead of a second copy of the palette living in the script. It needs no
+  // clip of its own: brightness() has no spatial spread, so it cannot put ink
+  // anywhere the path's own hexagons did not. See DESIGN.md "One voice per
+  // gesture".
   const RESTRIKE = "restrike";
 
   const flashRestrike = (p: number): void => {
-    for (const cap of onScreenCapsFor(p)) {
-      const polygon = cap.querySelector("polygon");
-      if (!polygon || typeof polygon.animate !== "function") continue; // jsdom has no Web Animations
-      if (typeof polygon.getAnimations === "function") {
-        for (const running of polygon.getAnimations()) if (running.id === RESTRIKE) running.cancel();
-      }
-      // Held just short of washing out: a restrike on an already-bright cap
-      // has little headroom before it clips to white and the cap loses the hue
-      // that says which note it is. One number to tune by eye.
-      polygon.animate([{ filter: "brightness(1.3)" }, { filter: "brightness(1)" }], {
-        duration: 220,
-        easing: "ease-out",
-        id: RESTRIKE,
-      });
+    const path = litByPc.get(p);
+    if (!path || typeof path.animate !== "function") return; // jsdom has no Web Animations
+    if (typeof path.getAnimations === "function") {
+      for (const running of path.getAnimations()) if (running.id === RESTRIKE) running.cancel();
     }
+    // Held just short of washing out: a restrike on an already-bright cap has
+    // little headroom before it clips to white and the cap loses the hue that
+    // says which note it is. One number to tune by eye.
+    path.animate([{ filter: "brightness(1.3)" }, { filter: "brightness(1)" }], {
+      duration: 220,
+      easing: "ease-out",
+      id: RESTRIKE,
+    });
   };
 
   // Drives both the DOM class and the voices from one diff, so the two can
@@ -451,7 +430,7 @@ if (surface) {
   const releaseEverything = (): void => {
     instrument.releaseAll();
     voices.releaseAll();
-    for (const cap of caps) cap.classList.remove("active", "hover");
+    for (const path of litByPc.values()) path.classList.remove("active", "hover");
     resetActive();
     resetHover();
     pointerPcs.clear();

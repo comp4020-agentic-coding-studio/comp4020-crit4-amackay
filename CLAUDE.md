@@ -111,25 +111,30 @@ live URL. **`http://localhost:4321/` returning 404 is correct**; the site is at
   for anything declared inside a block in a page script, never a `function`
   declaration.
 
-## Every pitch class is ~121 caps, and only a handful are on screen
+## Every pitch class is ~121 caps, so nothing may cost per cap
 
-The drawn window is 128 twelfths square so that no zoom step shows blank
-canvas past the lattice's edge; the view shows at most ~57 of them. So each of
-the twelve pitch classes has about 121 caps in the DOM and one to six of them
-visible, and **anything that does real per-cap work in an event handler is
-paying ~40x over the odds.** Refcounting the `.active` class over all 121 is
-fine (a `classList` call is cheap, and a cap that scrolls in during a zoom has
-to already be lit). Building a Web Animation per cap is not: a two-finger tap
-sharing a triad built 363 of them in one `pointerdown` and blocked the main
-thread for ~200 ms on a 6x-throttled CPU — long enough that the *second*
-touch's caps lit late, its lift was handled late, and the notes hung on past
-the finger. Filter by `onScreenCapsFor` (main.ts) first.
+The drawn window is 128 twelfths square so that no zoom step shows blank canvas
+past the lattice's edge; the view shows between 12 and ~57 of them. So each of
+the twelve pitch classes has about 121 caps in the DOM and anywhere from one to
+fifty on screen depending on the zoom stop — and **anything a handler does per
+cap is priced by the zoom, which is not a price the instrument can pay.**
+
+That is why the played state lives on the lit layer's twelve paths and not on
+the caps (DESIGN.md "The lit layer"). Two things that look like fixes and are
+not: filtering to the caps currently on screen (still ~50 per pitch class at
+the far zoom stop, which is where the bug was reported); and moving the class
+write to the SVG root with a static CSS rule matching the caps, which measured
+*no faster* than the per-cap loop — **the cost is the browser's style recalc
+over the matched elements, not the JS write**, so only reducing the element
+count helps.
 
 The measuring tool matters here: `dispatchEvent` cannot make two real touches,
 and an unthrottled desktop shows none of this. `scripts/probe-two-finger-tap.mjs`
 drives the page over CDP with `Input.dispatchTouchEvent` and
-`Emulation.setCPUThrottlingRate`, and logs when each cap's class actually
-changed against when the touch landed.
+`Emulation.setCPUThrottlingRate`, takes an optional zoom stop as its third
+argument, and logs when each class change actually happened against when the
+touch landed. `scripts/probe-flash-cost.js` keeps the per-cap and per-path
+costs side by side on the same page.
 
 ## User-facing prose is the complement of the artefact
 

@@ -23,13 +23,10 @@
 
   const [ax, ay] = toClient(corner[0], corner[1]);
 
-  // On-screen caps only, so the log stays readable.
-  const onScreen = new Set(
-    [...surface.querySelectorAll("[data-m]")].filter((c) => {
-      const r = c.getBoundingClientRect();
-      return r.right > 0 && r.left < window.innerWidth && r.bottom > 0 && r.top < window.innerHeight;
-    }),
-  );
+  // The lit layer is twelve elements, so the observer watches those rather
+  // than every cap on screen — which also stops the probe distorting what it
+  // measures: observing 1474 elements was itself part of the old cost.
+  const lit = surface.querySelector(".lit");
 
   window.__t0 = performance.now();
   window.__log = [];
@@ -37,11 +34,10 @@
 
   new MutationObserver((records) => {
     for (const r of records) {
-      if (!onScreen.has(r.target)) continue;
       const active = r.target.classList.contains("active");
       window.__log.push({ t: at(), kind: active ? "lit" : "unlit", pc: r.target.dataset.pc });
     }
-  }).observe(surface, { subtree: true, attributes: true, attributeFilter: ["class"] });
+  }).observe(lit, { subtree: true, attributes: true, attributeFilter: ["class"] });
 
   for (const type of ["pointerdown", "pointerup", "pointercancel"]) {
     window.addEventListener(type, (e) => window.__log.push({ t: at(), kind: type, id: e.pointerId }), true);

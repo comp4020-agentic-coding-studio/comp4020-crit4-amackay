@@ -8,6 +8,7 @@ import {
   HEX,
   R,
   WINDOW_SIZE,
+  capPaths,
   drawnCells,
   nodeForCell,
 } from "../lib/tonnetz.ts";
@@ -44,10 +45,19 @@ const renderCaps = caps.map((cap) => {
     key: node?.hint ? shortKey(node.code) : undefined,
     x: cap.x,
     y: -cap.y,
-    hue: hueFor(ratio),
     name: equalTemperamentNameFor(ratio),
   };
 });
+
+// The lit layer: one path per pitch class, holding every hexagon of that pitch
+// class in the drawn window. It paints the fill and it is the only thing that
+// changes when a note sounds, so a press costs one class write however many
+// caps are on screen — DESIGN.md "The lit layer". The caps below still own the
+// stroke, the clip, the labels and the hit test.
+const litPaths = capPaths().map((path) => ({
+  ...path,
+  hue: hueFor(equalTemperamentRatioFor(path.pc)),
+}));
 
 const viewBox = `${CX - EXTENT} ${-(CY + EXTENT)} ${EXTENT * 2} ${EXTENT * 2}`;
 
@@ -125,21 +135,26 @@ const capClip = `polygon(${screenHex
     style={`--press-diameter:${R * 2}; --cap-clip:${capClip}; --fit-size:${FIT_SIZE_INITIAL}; --window-size:${WINDOW_SIZE}`}
   >
     <svg viewBox={viewBox} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      {
-        renderCaps.map((cap) => (
-          <g class="cap" data-m={cap.m} data-n={cap.n} data-pc={cap.pc} data-note={cap.code} style={`--hue:${cap.hue}`}>
-            <polygon points={cap.points} />
-            <text class="name" x={cap.x} y={cap.y}>
-              {cap.name}
-            </text>
-            {cap.key && (
-              <text class="key" x={cap.x + 0.9} y={cap.y + 0.9}>
-                {cap.key}
+      <g class="lit">
+        {litPaths.map((path) => <path data-pc={path.pc} style={`--hue:${path.hue}`} d={path.d} />)}
+      </g>
+      <g class="caps">
+        {
+          renderCaps.map((cap) => (
+            <g class="cap" data-m={cap.m} data-n={cap.n} data-pc={cap.pc} data-note={cap.code}>
+              <polygon points={cap.points} />
+              <text class="name" x={cap.x} y={cap.y}>
+                {cap.name}
               </text>
-            )}
-          </g>
-        ))
-      }
+              {cap.key && (
+                <text class="key" x={cap.x + 0.9} y={cap.y + 0.9}>
+                  {cap.key}
+                </text>
+              )}
+            </g>
+          ))
+        }
+      </g>
     </svg>
     <div class="cursor-dot" data-cursor aria-hidden="true"></div>
   </main>
@@ -415,9 +430,52 @@ const capClip = `polygon(${screenHex
     touch-action: none;
   }
 
-  /* Every cap is clipped to its own hexagon, so nothing drawn on one can reach
+  /* The lit layer: one path per pitch class, every hexagon of that pitch class
+     in the drawn window as a disjoint subpath. It carries the fill and the
+     state, so lighting a note is one class on one element whatever the zoom —
+     DESIGN.md "The lit layer". pointer-events: none keeps it out of the way of
+     the caps above, which are still what the browser hit-tests.
+
+     Three states across a wide range, per instruction: the surface rests dark
+     and dull and blooms as it is played. Lightness and chroma rise together,
+     so a state differs in vividness as well as brightness — DESIGN.md
+     "Visual design". Resting chroma stays high enough that hue still reads as
+     pitch class; below about 0.06 the twelve stop being tellable apart. */
+  .lit {
+    pointer-events: none;
+  }
+
+  .lit path {
+    fill: oklch(64% 0.07 var(--hue));
+    transition: fill 500ms ease-out;
+  }
+
+  /* The mouse hover preview: which caps a click would press, DESIGN.md
+     "Mouse preview". The same channel the played state uses, a smaller step
+     along it — a preview is the played state's quieter cousin, not a
+     different kind of mark. Declared before .active, which has equal
+     specificity, so a pitch class that is both (a held key under a hovering
+     mouse) reads as played. */
+  .lit path.hover {
+    fill: oklch(76% 0.115 var(--hue));
+    transition-duration: 200ms;
+  }
+
+  .lit path.active {
+    fill: oklch(89% 0.175 var(--hue));
+    transition-duration: 15ms;
+  }
+
+  /* The caps paint no fill any more — the layer above does — but they still
+     own the black edge, the clip, the labels and the hit test.
+
+     Every cap is clipped to its own hexagon, so nothing drawn on one can reach
      a neighbour and make the paint order visible — DESIGN.md "Effects stay
-     inside the cap".
+     inside the cap". A centred stroke would spill half onto the neighbour
+     without it, and the clip is load-bearing for the *pointer* as well as the
+     paint: it is what makes a cap stop answering elementFromPoint at its
+     hexagon rather than at the stroke's outer edge (scripts/check-cap-clip.js
+     measures exactly that).
 
      `fill-box` is not optional. The default reference box for an SVG element
      is `border-box`, which css-masking maps to *stroke*-box, giving a clip
@@ -428,34 +486,18 @@ const capClip = `polygon(${screenHex
      bounding box is the union of its children, labels included, so the
      fractions above would no longer describe the hexagon); and any future
      filter goes here too, since clipping is applied after filtering only for
-     the same element. */
-  /* Three states across a wide range, per instruction: the surface rests dark
-     and dull and blooms as it is played. Lightness and chroma rise together,
-     so a state differs in vividness as well as brightness — DESIGN.md
-     "Visual design". Resting chroma stays high enough that hue still reads as
-     pitch class; below about 0.06 the twelve stop being tellable apart. */
+     the same element.
+
+     `pointer-events: all` is what `fill: none` costs: the default
+     `visiblePainted` hit-tests the fill only where there is fill to paint, so
+     without this every cap would stop answering and the surface would go
+     dead. */
   .cap polygon {
-    fill: oklch(64% 0.07 var(--hue));
+    fill: none;
     stroke: #000;
     stroke-width: 0.09;
     clip-path: var(--cap-clip) fill-box;
-    transition: fill 500ms ease-out;
-  }
-
-  /* The mouse hover preview: which caps a click would press, DESIGN.md
-     "Mouse preview". The same channel the played state uses, a smaller step
-     along it — a preview is the played state's quieter cousin, not a
-     different kind of mark. Declared before .active, which has equal
-     specificity, so a cap that is both (a held key under a hovering mouse)
-     reads as played. */
-  .cap.hover polygon {
-    fill: oklch(76% 0.115 var(--hue));
-    transition-duration: 200ms;
-  }
-
-  .cap.active polygon {
-    fill: oklch(89% 0.175 var(--hue));
-    transition-duration: 15ms;
+    pointer-events: all;
   }
 
   /* The fat-finger hitbox, drawn for the one input that has no size of its

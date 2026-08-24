@@ -71,14 +71,14 @@
   pointer(capA, "pointerup", 11);
   window.dispatchEvent(new PointerEvent("pointerup", { pointerId: 11, pointerType: "touch", bubbles: true }));
   out.stoppedByOneLift = window.__stopped - stoppedBefore;
-  out.litAfterOneLift = document.querySelectorAll(`.cap.active[data-pc="${capA.dataset.pc}"]`).length > 0;
+  out.litAfterOneLift = document.querySelectorAll(`.lit [data-pc="${capA.dataset.pc}"].active`).length > 0;
 
   // Clean up so the probe leaves nothing sounding.
   key("keyup", "KeyA");
   key("keyup", "KeyG");
   pointer(capA, "pointerup", 12);
   window.dispatchEvent(new PointerEvent("pointerup", { pointerId: 12, pointerType: "touch", bubbles: true }));
-  out.litAtEnd = document.querySelectorAll(".cap.active").length;
+  out.litAtEnd = document.querySelectorAll(".lit .active").length;
 
   return JSON.stringify(out);
 })();

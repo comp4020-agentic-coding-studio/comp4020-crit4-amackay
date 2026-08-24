@@ -26,7 +26,7 @@
   ];
 
   const soundingCount = () => new Set(
-    [...surface.querySelectorAll(".cap.active")].map((c) => c.dataset.pc),
+    [...surface.querySelectorAll(".lit .active")].map((c) => c.dataset.pc),
   ).size;
 
   const out = [];

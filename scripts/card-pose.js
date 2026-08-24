@@ -52,7 +52,7 @@
   // back: the card is a picture of the instrument at rest, not of a session.
   document.documentElement.classList.remove("has-keyboard");
 
-  const lit = new Set([...document.querySelectorAll(".cap.active")].map((cap) => cap.dataset.pc));
+  const lit = new Set([...document.querySelectorAll(".lit .active")].map((cap) => cap.dataset.pc));
   const litPitchClasses = [...lit].map(Number).sort((a, b) => a - b);
   const plateHidden = getComputedStyle(document.querySelector("[data-about]")).display === "none";
   const hudHidden = getComputedStyle(document.querySelector("[data-hud]")).display === "none";

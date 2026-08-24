@@ -16,7 +16,7 @@
   const pointerdown = (target) =>
     target.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 1, isPrimary: true }));
   const keydown = (init) => window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init }));
-  const lit = () => document.querySelectorAll(".cap.active").length;
+  const lit = () => document.querySelectorAll(".lit .active").length;
   const open = () => panel.hasAttribute("data-open");
 
   out.closedExpanded = toggle.getAttribute("aria-expanded");

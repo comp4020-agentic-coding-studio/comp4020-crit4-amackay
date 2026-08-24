@@ -43,7 +43,7 @@ socket.addEventListener("open", async () => {
     })())`),
   );
   const point = [{ x: centre.x, y: centre.y }];
-  const lit = () => evaluate("document.querySelectorAll('.cap.active').length");
+  const lit = () => evaluate("document.querySelectorAll('.lit .active').length");
 
   const tap = async (label) => {
     await rpc(socket, "Input.dispatchTouchEvent", { type: "touchStart", touchPoints: point }, sessionId);

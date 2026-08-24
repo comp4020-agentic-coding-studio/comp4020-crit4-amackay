@@ -29,7 +29,7 @@
     );
 
   const marks = () => ({
-    hover: document.querySelectorAll(".cap.hover").length,
+    hover: document.querySelectorAll(".lit .hover").length,
     disk: document.querySelector("[data-cursor]").classList.contains("visible"),
   });
 
