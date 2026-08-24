@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  capPathData,
+  capPaths,
+  capReaches,
   cellDist,
   containingCell,
   DOMAIN_SIZE,
@@ -15,7 +18,6 @@ import {
   HEX,
   KEYED_NODES,
   KEYS,
-  capReaches,
   MARGIN,
   NEIGHBOURS,
   nodeForCell,
@@ -411,6 +413,88 @@ describe("capReaches", () => {
       for (let n = -40; n <= 40; n++) {
         expect(capReaches(pos(m, n), a, b)).toBe(box.includes(`${m},${n}`));
       }
+    }
+  });
+});
+
+/** Walk a `d` of the shape capPathData emits back into absolute vertex lists,
+ *  so a test can compare what a browser would reconstruct against pos()/HEX
+ *  rather than against another copy of the same string-building. `z` returns
+ *  the current point to the subpath's start, which is what the next `m` is
+ *  measured from. */
+const walkPath = (d: string): Vec[][] => {
+  const shapes: Vec[][] = [];
+  let shape: Vec[] = [];
+  let [x, y] = [0, 0];
+  let [startX, startY] = [0, 0];
+  for (const token of d.match(/[MmlLz][^MmlLz]*/g) ?? []) {
+    const op = token[0];
+    if (op === "z") {
+      shapes.push(shape);
+      shape = [];
+      [x, y] = [startX, startY];
+      continue;
+    }
+    const [dx, dy] = token.slice(1).split(",").map(Number);
+    [x, y] = op === "M" || op === "L" ? [dx, dy] : [x + dx, y + dy];
+    if (op === "M" || op === "m") [startX, startY] = [x, y];
+    shape.push([x, y]);
+  }
+  return shapes;
+};
+
+/** The hexagon capPathData should draw for `cap`, in screen space. */
+const screenHexFor = (cap: { x: number; y: number }): Vec[] => HEX.map(([hx, hy]) => [cap.x + hx, -(cap.y + hy)]);
+
+describe("caps as one path per pitch class", () => {
+  const paths = capPaths();
+
+  it("is twelve paths, one per pitch class, ascending", () => {
+    expect(paths.map((path) => path.pc)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  });
+
+  it("partitions the drawn caps, losing and duplicating none", () => {
+    const drawn = drawnCells();
+    expect(paths.reduce((total, path) => total + path.count, 0)).toBe(drawn.length);
+    for (const path of paths) {
+      expect(path.count).toBe(drawn.filter((cap) => cap.pc === path.pc).length);
+    }
+  });
+
+  it("holds one closed subpath per cap, so a dropped z cannot hide", () => {
+    for (const path of paths) {
+      expect(path.d.match(/z/g) ?? []).toHaveLength(path.count);
+      expect(path.d.match(/[Mm]/g) ?? []).toHaveLength(path.count);
+    }
+  });
+
+  it("reconstructs exactly the hexagons pos() and HEX give, with no drift", () => {
+    const drawn = drawnCells();
+    for (const path of paths) {
+      const expected = drawn
+        .filter((cap) => cap.pc === path.pc)
+        .map((cap) => JSON.stringify(screenHexFor(cap)))
+        .sort();
+      const actual = walkPath(path.d)
+        .map((shape) => JSON.stringify(shape))
+        .sort();
+      // Exact string equality, not a tolerance: every delta is an integer and
+      // every start point a half-integer, so accumulating them must be exact.
+      expect(actual).toEqual(expected);
+    }
+  });
+
+  it("repeats one identical hexagon body, which is what makes it compress", () => {
+    // The property the encoding's byte cost rests on. If a future change makes
+    // the bodies differ, the twelve paths stop being nearly free.
+    const bodies = new Set(capPathData(drawnCells()).split(/[Mm][^lz]*/).filter(Boolean));
+    expect(bodies).toEqual(new Set(["l-2,-1l-2,1l-1,2l2,1l2,-1z"]));
+  });
+
+  it("orders caps down the screen and then left to right", () => {
+    const starts = walkPath(paths[0].d).map((shape) => shape[0]);
+    for (const [[x0, y0], [x1, y1]] of starts.slice(1).map((s, i) => [starts[i], s])) {
+      expect(y1 > y0 || (y1 === y0 && x1 > x0)).toBe(true);
     }
   });
 });

@@ -283,6 +283,68 @@ export function drawnCells(): Cap[] {
   return visibleCells(CENTRE_X - EXTENT, CENTRE_X + EXTENT, CENTRE_Y - EXTENT, CENTRE_Y + EXTENT, MARGIN);
 }
 
+/** One pitch class's caps as a single SVG path. Twelve of these draw the whole
+ *  surface's fill, so lighting a pitch class is one class on one element
+ *  rather than a class on each of its ~121 caps — see DESIGN.md "The lit
+ *  layer". `count` is the number of hexagons the path holds, one subpath each. */
+export interface CapPath {
+  pc: number;
+  d: string;
+  count: number;
+}
+
+/** The `d` for a set of caps: each hexagon a closed subpath, disjoint from the
+ *  rest, so the path fills and hit-tests per hexagon exactly as separate
+ *  polygons did.
+ *
+ *  **Screen space** — y is negated here as it is for the caps themselves
+ *  (lattice y is up, SVG y is down). This is the only function in this module
+ *  that leaves lattice orientation, and it does so because the string it
+ *  returns goes straight into an attribute.
+ *
+ *  Encoded relative, caps ordered by screen row: every hexagon's body is then
+ *  the same twenty-six characters and almost every hop between two of them is
+ *  `m12,0`, so the twelve paths add ~150 bytes to the gzipped page instead of
+ *  ~22 KB. Every delta is an exact integer and every start point an exact
+ *  half-integer, so accumulating them is exact in double precision — the
+ *  vertices a browser reconstructs are the same numbers `pos()` gives, which
+ *  `tonnetz.test.ts` checks rather than assumes. */
+export function capPathData(caps: readonly Cap[]): string {
+  // One body for every hexagon, since they are all the same shape: the five
+  // edges from HEX[0] round to HEX[5], with `z` closing the sixth.
+  const body = HEX.slice(1)
+    .map(([x, y], i) => `l${x - HEX[i][0]},${-(y - HEX[i][1])}`)
+    .join("");
+
+  // Top of the screen first, then left to right — the order that makes
+  // consecutive hexagons one horizontal period apart.
+  const ordered = [...caps].sort((a, b) => b.y - a.y || a.x - b.x);
+
+  let d = "";
+  let [cx, cy] = [0, 0];
+  for (const cap of ordered) {
+    const [sx, sy] = [cap.x + HEX[0][0], -(cap.y + HEX[0][1])];
+    d += `${d ? "m" : "M"}${sx - cx},${sy - cy}${body}z`;
+    [cx, cy] = [sx, sy];
+  }
+  return d;
+}
+
+/** Every drawn cap, grouped into one path per pitch class, ascending. The
+ *  groups are not even: the drawn window holds 121 caps of most pitch classes
+ *  and 132 of two of them. */
+export function capPaths(): CapPath[] {
+  const byPc = new Map<number, Cap[]>();
+  for (const cap of drawnCells()) {
+    const group = byPc.get(cap.pc) ?? [];
+    group.push(cap);
+    byPc.set(cap.pc, group);
+  }
+  return [...byPc.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([pc, group]) => ({ pc, d: capPathData(group), count: group.length }));
+}
+
 export interface KeyedNode extends Cap {
   code: string;
   /** Whether this cap carries a visible key hint — true for the twelve inside
