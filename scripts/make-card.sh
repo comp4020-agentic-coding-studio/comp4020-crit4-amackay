@@ -3,7 +3,7 @@
 # the built site, then records the fingerprint that check-card.ts compares
 # against. `pnpm card`.
 #
-# The pose is scripts/card-pose.js: title plate hidden, C-E-G-A held.
+# The pose is scripts/card-pose.js: title plate and HUD hidden, C-E-G-A held.
 # agent-browser is a local tool, not a repo dependency, so this runs on the
 # builder's machine and CI only ever checks the result.
 set -euo pipefail

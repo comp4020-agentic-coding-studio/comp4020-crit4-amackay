@@ -1,5 +1,5 @@
 // Poses the built page for the share card (agent-browser eval, driven by
-// scripts/make-card.sh): title plate hidden, C-E-G-A held.
+// scripts/make-card.sh): title plate and HUD hidden, C-E-G-A held.
 //
 // It also judges its own work. The card is a screenshot, so a pose that
 // silently stopped working still produces a PNG and still records a
@@ -19,7 +19,7 @@
   const named = (name) => caps.find((cap) => cap.querySelector(".name")?.textContent.trim() === name);
 
   const style = document.createElement("style");
-  style.textContent = "[data-about], [data-about-scrim] { display: none !important; }";
+  style.textContent = "[data-about], [data-about-scrim], [data-hud] { display: none !important; }";
   document.head.append(style);
 
   // Synthetic events grant no user activation, so the page correctly decides
@@ -55,6 +55,7 @@
   const lit = new Set([...document.querySelectorAll(".cap.active")].map((cap) => cap.dataset.pc));
   const litPitchClasses = [...lit].map(Number).sort((a, b) => a - b);
   const plateHidden = getComputedStyle(document.querySelector("[data-about]")).display === "none";
+  const hudHidden = getComputedStyle(document.querySelector("[data-hud]")).display === "none";
   const keyHintsShown = [...document.querySelectorAll(".cap .key")].some(
     (hint) => getComputedStyle(hint).display !== "none",
   );
@@ -67,6 +68,7 @@
     problems.push(`lit pitch classes are [${litPitchClasses}], expected [${wanted}]`);
   }
   if (!plateHidden) problems.push("the title plate is still showing");
+  if (!hudHidden) problems.push("the HUD is still showing");
   if (keyHintsShown) problems.push("the key hints are still showing");
 
   return {
@@ -75,6 +77,7 @@
     pressed,
     litPitchClasses,
     plateHidden,
+    hudHidden,
     keyHintsShown,
   };
 })();
