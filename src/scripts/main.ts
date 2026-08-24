@@ -5,7 +5,7 @@ import { installAboutPanel } from "../lib/about-panel.ts";
 import { Instrument } from "../lib/instrument.ts";
 import { installInputChrome } from "../lib/input-chrome.ts";
 import { PitchClassVoices } from "../lib/pitch-voices.ts";
-import { anchorCell, nodeForCode, pc as pcOf, pressedPitchClasses } from "../lib/tonnetz.ts";
+import { anchorCell, capReaches, nodeForCode, pc as pcOf, pos, pressedPitchClasses } from "../lib/tonnetz.ts";
 import { installZoom } from "../lib/zoom.ts";
 
 const surface = document.querySelector<HTMLElement>("[data-instrument]");
@@ -73,6 +73,42 @@ if (surface) {
   const { activate: activatePc, deactivate: deactivatePc, reset: resetActive } = pcClassToggle("active");
   const { activate: activateHoverPc, deactivate: deactivateHoverPc, reset: resetHover } = pcClassToggle("hover");
 
+  // Client coordinates -> lattice twelfths, through the SVG viewBox. Shared by
+  // the on-screen filter below and by every coordinate refine further down
+  // (press and hover alike). null under jsdom, where getBoundingClientRect()
+  // is zero-sized — see DESIGN.md "Two hit-test paths".
+  type ClientPoint = { clientX: number; clientY: number };
+
+  const toLatticePoint = (event: ClientPoint): [number, number] | null => {
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    if (rect.width === 0) return null;
+    const box = svg.viewBox.baseVal;
+    const localX = box.x + ((event.clientX - rect.left) / rect.width) * box.width;
+    const localY = box.y + ((event.clientY - rect.top) / rect.height) * box.height;
+    return [localX, -localY];
+  };
+
+  // Where each drawn cap sits in twelfths, computed once. The lattice is
+  // static, so this never needs recomputing; what moves is the window onto it.
+  const capPoints = new Map(caps.map((cap) => [cap, pos(Number(cap.dataset.m), Number(cap.dataset.n))]));
+
+  // The drawn window is 128 twelfths across and the view shows at most ~57 on
+  // its short axis, so of a pitch class's ~121 caps only a handful are ever on
+  // screen. Anything that costs real work per cap — as opposed to a class
+  // change, which does not — has to ask this first: 363 Web Animations built
+  // in one pointerdown handler blocked the main thread for ~200 ms on a
+  // mid-range phone, which is long enough to delay the *next* touch's caps
+  // lighting and its lift being handled at all (measured,
+  // scripts/probe-two-finger-tap.mjs).
+  const onScreenCapsFor = (p: number): SVGGElement[] => {
+    const all = capsByPc.get(p) ?? [];
+    const topLeft = toLatticePoint({ clientX: 0, clientY: 0 });
+    const bottomRight = toLatticePoint({ clientX: window.innerWidth, clientY: window.innerHeight });
+    if (!topLeft || !bottomRight) return all; // no layout to ask (jsdom): filter nothing
+    return all.filter((cap) => capReaches(capPoints.get(cap)!, topLeft, bottomRight));
+  };
+
   // A pitch class already sounding gains nothing visible when a second holder
   // arrives — the cap is lit and stays lit — but a second voice really did
   // start, so restrike it: a brief flash that decays back into the held state.
@@ -83,7 +119,7 @@ if (surface) {
   const RESTRIKE = "restrike";
 
   const flashRestrike = (p: number): void => {
-    for (const cap of capsByPc.get(p) ?? []) {
+    for (const cap of onScreenCapsFor(p)) {
       const polygon = cap.querySelector("polygon");
       if (!polygon || typeof polygon.animate !== "function") continue; // jsdom has no Web Animations
       if (typeof polygon.getAnimations === "function") {
@@ -142,7 +178,6 @@ if (surface) {
   // pointer that hasn't moved. Recorded on every real refine (see
   // refinePointerAt/refineHoverAt) so that loop knows where to replay each
   // held pointer from.
-  type ClientPoint = { clientX: number; clientY: number };
   const lastClient = new Map<number, ClientPoint>();
 
   const releasePointer = (pointerId: number): void => {
@@ -164,20 +199,6 @@ if (surface) {
     const next = new Set<number>([pcOf(m, n)]);
     pointerPcs.set(pointerId, next);
     applyPress(String(pointerId), next, previous);
-  };
-
-  // Client coordinates -> lattice twelfths, through the SVG viewBox. Shared by
-  // every coordinate refine below (press and hover alike). null under jsdom,
-  // where getBoundingClientRect() is zero-sized — see DESIGN.md "Two hit-test
-  // paths".
-  const toLatticePoint = (event: ClientPoint): [number, number] | null => {
-    if (!svg) return null;
-    const rect = svg.getBoundingClientRect();
-    if (rect.width === 0) return null;
-    const box = svg.viewBox.baseVal;
-    const localX = box.x + ((event.clientX - rect.left) / rect.width) * box.width;
-    const localY = box.y + ((event.clientY - rect.top) / rect.height) * box.height;
-    return [localX, -localY];
   };
 
   // Coordinate refine, shared by pointermove and pointerenter: measures
