@@ -40,16 +40,20 @@
   out.focusKept = document.activeElement === first;
   pointer(first, "pointerup");
 
-  // Drag: press one, enter the next, and see which are lit at each step.
+  // Drag: press one, enter the next, and see what is lit at each step. The
+  // counts are pitch classes, not caps — the played state lives on the lit
+  // layer's twelve paths (DESIGN.md "The lit layer"), so one held note is 1.
+  const lit = () => surface.querySelectorAll(".lit .active").length;
+  const isLit = (cap) => !!surface.querySelector(`.lit [data-pc="${cap.dataset.pc}"].active`);
   pointer(first, "pointerdown");
-  out.litOnPress = caps.filter((c) => c.classList.contains("active")).length;
+  out.litOnPress = lit();
   pointer(first, "pointerleave");
-  out.litInGap = caps.filter((c) => c.classList.contains("active")).length;
+  out.litInGap = lit();
   pointer(second, "pointerenter");
-  out.litOnNext = caps.filter((c) => c.classList.contains("active")).length;
-  out.nextIsLit = second.classList.contains("active");
+  out.litOnNext = lit();
+  out.nextIsLit = isLit(second);
   pointer(second, "pointerup");
-  out.litAfterLift = caps.filter((c) => c.classList.contains("active")).length;
+  out.litAfterLift = lit();
 
   out.scrolls = document.documentElement.scrollHeight > window.innerHeight;
   return JSON.stringify(out);
