@@ -1015,6 +1015,16 @@ it is not rediscovered, not worked on:
   mid-note as a distraction. Whether a page can suppress it at all — beyond the
   `touch-action`, `-webkit-touch-callout` and tap-highlight suppressions
   already in `global.css` — is unestablished.
+- **The grid lays out once, at load, sized to fill min-zoom at typical screen
+  sizes.** An odd aspect ratio — very tall or very wide — still leaves a black
+  rect around it. The alternative is laying the grid out again on every
+  resize, zoom and reorientation; each approach has different pros and cons,
+  needs discussing before either is picked.
+- **A phone user hit rendering bugs this repo can't reproduce** — no detail
+  beyond "different rendering, including a blank page, on different browsers"
+  and "repeated orientation changes." Worth investigating by simulating
+  plausible phone models and interactions with the tooling already in use
+  here, rather than adding anything new just for this.
 
 ## Still open
 
