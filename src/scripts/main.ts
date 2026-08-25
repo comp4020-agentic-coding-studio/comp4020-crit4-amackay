@@ -6,6 +6,7 @@ import { Instrument } from "../lib/instrument.ts";
 import { installInputChrome } from "../lib/input-chrome.ts";
 import { extentStepFor, installSurface } from "../lib/surface.ts";
 import { PitchClassVoices } from "../lib/pitch-voices.ts";
+import { installSpelling } from "../lib/spelling.ts";
 import { anchorCell, containingCell, EXTENT, FIT_SIZE_INITIAL, nodeForCode, pressedPitchClasses } from "../lib/tonnetz.ts";
 import { FIT_SIZE_CHANGE_EVENT, installZoom } from "../lib/zoom.ts";
 
@@ -54,6 +55,11 @@ if (surface) {
   fitWindow();
 
   const zoom = installZoom();
+
+  // Swaps every cap's pitch name between the flat and sharp rows. It reads and
+  // writes `data-spelling` on the stage, which surface.ts's rebuild reads too,
+  // so a window grown after a toggle comes back in the right row.
+  const spelling = installSpelling();
 
   const instrument = new Instrument();
   const voices = new PitchClassVoices(instrument);
@@ -557,8 +563,12 @@ if (surface) {
     onOpen: () => {
       releaseEverything();
       zoom.setEnabled(false);
+      spelling.setEnabled(false);
     },
-    onClose: () => zoom.setEnabled(true),
+    onClose: () => {
+      zoom.setEnabled(true);
+      spelling.setEnabled(true);
+    },
   });
 
   // Where nothing hovers, the key hints start hidden (index.astro): almost

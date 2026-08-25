@@ -10,6 +10,7 @@
 
 import { capPaths, drawnCells, nodeForCell, requiredExtent, viewBoxFor, windowSizeFor } from "./tonnetz.ts";
 import { equalTemperamentNameFor, equalTemperamentRatioFor } from "./tuning.ts";
+import { spellingOf } from "./spelling.ts";
 
 const shortKey = (code: string): string => code.replace(/^Key|^Digit/, "");
 
@@ -62,12 +63,16 @@ export function installSurface(stage: HTMLElement, initialExtent: number): Surfa
     }
     seams.setAttribute("d", paths.map((path) => path.d).join(""));
 
+    const spelling = spellingOf(stage);
     const next = document.createDocumentFragment();
     for (const cap of labelCaps) {
       const name = nameTemplate.cloneNode(false) as SVGTextElement;
       name.setAttribute("x", String(cap.x));
       name.setAttribute("y", String(-cap.y));
-      name.textContent = equalTemperamentNameFor(equalTemperamentRatioFor(cap.pc));
+      // The spelling is read off the stage every rebuild rather than captured
+      // once: the HUD's toggle may have swapped it since (DESIGN.md
+      // "Spelling"), and a grown window must not come back in the other row.
+      name.textContent = equalTemperamentNameFor(equalTemperamentRatioFor(cap.pc), spelling);
       next.append(name);
 
       const node = nodeForCell(cap.m, cap.n);

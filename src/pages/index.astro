@@ -85,22 +85,29 @@ const viewBox = viewBoxFor(EXTENT);
       <a href="./">Home</a>
     </nav>
   </header>
-  <!-- The HUD: three square buttons on a top bar, info at one end and zoom
-       at the other, all sharing one style — DESIGN.md "About panel" /
-       "Zoom". Declared before .about-scrim so same-layer stacking puts the
-       scrim on top of these while the About panel is open. -->
+  <!-- The HUD: four square buttons on a top bar in two clusters, info and
+       spelling at one end and zoom at the other, all sharing one style —
+       DESIGN.md "About panel" / "Spelling" / "Zoom". Declared before
+       .about-scrim so same-layer stacking puts the scrim on top of these
+       while the About panel is open. -->
   <div class="hud" data-hud>
-    <button
-      type="button"
-      class="hud-btn"
-      data-about-toggle
-      aria-label="About"
-      aria-expanded="false"
-      aria-controls="about-body"
-    >
-      &#9432;
-    </button>
-    <div class="zoom-controls" data-zoom-controls>
+    <div class="hud-group">
+      <button
+        type="button"
+        class="hud-btn"
+        data-about-toggle
+        aria-label="About"
+        aria-expanded="false"
+        aria-controls="about-body"
+      >
+        &#9432;
+      </button>
+      <!-- The glyph is the spelling this button switches *to*, so it shows a
+           sharp while the caps are showing flats — DESIGN.md "Spelling".
+           spelling.ts rewrites both it and the label on every toggle. -->
+      <button type="button" class="hud-btn" data-spelling-toggle aria-label="Show sharps">&#9839;</button>
+    </div>
+    <div class="hud-group" data-zoom-controls>
       <button type="button" class="hud-btn" data-zoom-out aria-label="Zoom out">&#8722;</button>
       <button type="button" class="hud-btn" data-zoom-in aria-label="Zoom in">&#43;</button>
     </div>
@@ -132,6 +139,7 @@ const viewBox = viewBoxFor(EXTENT);
     data-instrument
     class="stage"
     style={`--press-diameter:${R * 2}; --fit-size:${FIT_SIZE_INITIAL}; --window-size:${windowSizeFor(EXTENT)}`}
+    data-spelling="flat"
   >
     <svg viewBox={viewBox} xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <g class="lit">
@@ -176,7 +184,7 @@ const viewBox = viewBoxFor(EXTENT);
      scaling reveals more of this same pre-drawn square on the long axis with
      no separate portrait case. The body (global.css) centres and clips the
      excess. */
-  /* The HUD: three square buttons on a top bar, one style shared by all of
+  /* The HUD: four square buttons on a top bar, one style shared by all of
      them. z-index:1, same layer as .about-scrim and declared before it in
      the markup: same-layer siblings paint in DOM order, so the scrim (later)
      always paints on top of these and intercepts clicks on them while the
@@ -226,18 +234,20 @@ const viewBox = viewBoxFor(EXTENT);
     transition: opacity 160ms ease-out;
   }
 
-  /* Zoom in/out disable at their bounds (src/lib/zoom.ts); the info button
-     never gets this attribute. */
+  /* Zoom in/out disable at their bounds (src/lib/zoom.ts); the info and
+     spelling buttons never get this attribute. */
   .hud-btn:disabled {
     opacity: 0.35;
     cursor: default;
   }
 
-  /* Order is out then in, left to right, per instruction. Keyboard tab order
-     needs separate handling: src/lib/zoom.ts's setEnabled() pulls these two
-     out of the tab order while the About panel is open, since a screen
-     reader has no notion of "visually covered" by the scrim. */
-  .zoom-controls {
+  /* The two clusters, one at each end of the bar: info then spelling on the
+     left, zoom out then in on the right (per instruction for the zoom pair).
+     Keyboard tab order needs separate handling: src/lib/zoom.ts's and
+     src/lib/spelling.ts's setEnabled() pull their buttons out of the tab
+     order while the About panel is open, since a screen reader has no notion
+     of "visually covered" by the scrim. */
+  .hud-group {
     display: flex;
     gap: var(--hud-gap);
   }

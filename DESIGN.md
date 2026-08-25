@@ -31,9 +31,10 @@ Sliding a finger from the middle of a cell toward a corner where three of them
 meet is the signature gesture: notes join and leave underneath it while the
 common tones stay sounding. Two fingers reach seventh chords. There is no
 score, no fail state, and nothing on the playing surface beyond the cap
-labels — per instruction, no always-visible title either. A HUD of three
-square buttons sits along the top edge instead: an info button at the left,
-and zoom controls at the right (see "Zoom"). The page is still called
+labels — per instruction, no always-visible title either. A HUD of four
+square buttons sits along the top edge instead, in two clusters: an info
+button and the flat/sharp spelling toggle at the left (see "Spelling"), and
+zoom controls at the right (see "Zoom"). The page is still called
 **Tonnetz Organ** — the browser tab and the About panel carry that, the
 surface itself does not.
 
@@ -374,8 +375,10 @@ hear it.**
 ### DOM contract
 
 - The playable surface carries **`data-instrument`**.
+- The playable surface also carries **`data-spelling`** (`flat` | `sharp`),
+  which is where the spelling toggle's state lives — see "Spelling".
 - The lit layer's twelve paths each carry **`data-pc`**, **`data-name`** (the
-  pitch name) and **`data-notes`** — the space-separated `KeyboardEvent.code`s
+  pitch name, in the spelling currently showing) and **`data-notes`** — the space-separated `KeyboardEvent.code`s
   that sound that pitch class, three each. `data-notes` is both the keyboard
   mapping and the handle the spec tests hold; they match it with
   `[data-notes~="KeyF"]`.
@@ -564,11 +567,13 @@ survives that, never the other way round.
 
 ### Zoom
 
-Per instruction, three square buttons on a top bar — `.hud`, a `position:
-fixed` row spanning the top edge with `justify-content: space-between` — the
-info button alone at the left end, `+`/`−` zoom as a pair at the right,
-`−` then `+` left to right. One shared `.hud-btn` style, and one shared
-`.hud` scope for the two custom properties both live in:
+Per instruction, square buttons on a top bar — `.hud`, a `position: fixed`
+row spanning the top edge with `justify-content: space-between` — info and
+the spelling toggle as a pair at the left end, `+`/`−` zoom as a pair at the
+right, `−` then `+` left to right. Each cluster is a `.hud-group`
+(`display: flex`, `gap: var(--hud-gap)`), so the two gaps inside the bar are
+the one number. One shared `.hud-btn` style, and one shared `.hud` scope for
+the two custom properties every button lives in:
 
 - **`--hud-btn-size: clamp(3rem, 5vmin, 3.5rem)`** — floored at 48px. Apple
   HIG's minimum tappable area is 44pt; Material Design's recommended minimum
@@ -580,10 +585,10 @@ info button alone at the left end, `+`/`−` zoom as a pair at the right,
 - **`--hud-gap: calc(var(--hud-btn-size) * 0.182)`**, not its own clamp. The
   old zoom-pair gap (8px) to old button floor (44px) ratio was ≈0.182;
   keeping that ratio and driving it off `--hud-btn-size` directly means the
-  edge margin, the gap between the zoom buttons, and the button size all
+  edge margin, the gap inside a cluster, and the button size all
   move together at *every* viewport width, not just where a hand-picked
   second clamp happens to agree with the first. `.hud`'s `top`/`left`/`right`
-  insets and `.zoom-controls`' `gap` both read this one property — per
+  insets and `.hud-group`'s `gap` both read this one property — per
   instruction, the margin to the screen edge and the margin between the two
   zoom buttons are the same number, and moving the buttons closer to the
   edge was exactly swapping the old, unrelated edge-inset clamp for this one.
@@ -649,7 +654,7 @@ centre (`CENTRE_X`/`CENTRE_Y`) never moves; only the window size does.
 - **The whole `.hud` sits under `.about-scrim` in stacking** (`z-index: 1`,
   declared before the scrim in the DOM so same-layer ties resolve in the
   scrim's favour), not above it: while the About panel is open, the scrim
-  visually covers all three buttons — including the info button, which per
+  visually covers all four buttons — including the info button, which per
   instruction does not need to *hide*, only to sit under the same translucent
   layer everything else on the surface does — and intercepts clicks on them,
   closing the panel same as clicking anywhere else on the scrim, with no
@@ -657,11 +662,11 @@ centre (`CENTRE_X`/`CENTRE_Y`) never moves; only the window size does.
   it in the same paint bucket as `.stage` (also `position: relative`,
   `z-index: auto`) and, being earlier in the DOM, painted *under* it —
   invisible despite a correct rect and `opacity: 1`.
-- **Keyboard tab order needs separate handling for the zoom pair only.**
+- **Keyboard tab order needs separate handling for every button but info.**
   `zoom.ts`'s `setEnabled()` pulls `+`/`−` out of the tab order on open (via
   `about-panel.ts`'s `onOpen`/`onClose`) and back in on close, since stacking
-  order says nothing to a screen reader. The info button is deliberately left
-  out of this: it is the disclosure toggle immediately before the panel's own
+  order says nothing to a screen reader; `spelling.ts`'s does the same for its
+  own button. The info button is deliberately left out of this: it is the disclosure toggle immediately before the panel's own
   content in DOM order, so leaving it tabbable is the same disclosure pattern
   every other toggle-into-content control here already uses, and per
   instruction it has nothing to hide in the first place.
@@ -681,6 +686,44 @@ centre (`CENTRE_X`/`CENTRE_Y`) never moves; only the window size does.
   preview — freezes at the pre-zoom geometry and only resolves (sometimes
   incorrectly, having skipped every intermediate cell) on whatever pointer
   event happens to come next.
+
+### Spelling
+
+Per instruction a second HUD button, immediately right of the info button,
+switches the caps between flat and sharp names. **The glyph is the spelling
+it switches *to***, so the button shows `♯` while the caps are showing flats
+and `♭` while they are showing sharps — an offer, not a readout — and
+`aria-label` says the same thing in words ("Show sharps" / "Show flats"),
+rewritten with the glyph.
+
+- **The state lives on the stage as `data-spelling`**, not in a variable in
+  `lib/spelling.ts`, because `surface.ts`'s `grow()` rebuilds every label from
+  scratch on a resize or a zoom step and has to build them in whatever spelling
+  is showing. Same "one value, read back off the element" idiom `zoom.ts` uses
+  for `--fit-size`. `scripts/check-spelling-toggle.js` drives a toggle and then
+  a grow, and checks the rebuilt labels came back in the right row.
+- **Both rows live in `lib/tuning.ts`** — `equalTemperamentNameFor(ratio,
+  spelling)` — so a name is still derived from a ratio and never from another
+  name, everywhere except the toggle itself. The toggle takes the other route:
+  `respellName` maps a name to its twin, which is what lets it rewrite a label
+  from what the label already says, with no cap having to carry its pitch class
+  as an attribute (see "The lit layer" for why caps carry nothing).
+- **The labels are the one layer priced by the zoom, and this is the one thing
+  that pays it.** A toggle rewrites every drawn `.name` — hundreds to a couple
+  of thousand — plus the twelve lit paths' `data-name`. That is a discrete
+  click, not a gesture, and it touches nothing that sounds or lights a note, so
+  the cost stays off the instrument's own paths. The page ships in the spelling
+  `data-spelling` claims, so load rewrites nothing at all.
+- **The seven naturals are spelled the same either way**; only five caps in
+  twelve change, which is also what makes the swap read as a respelling rather
+  than a different lattice. Flats are the default, matching the fifths-chain
+  naming this document uses throughout.
+- **Tab order gets the same treatment as the zoom pair**: `setEnabled(false)`
+  while the About panel is open (`main.ts` wires both to the panel's
+  `onOpen`/`onClose`), since the scrim covers the button visually and
+  intercepts its clicks but says nothing to a screen reader. Unlike the info
+  button, this one is not the panel's own disclosure toggle, so it has no
+  reason to stay reachable underneath it.
 
 ### Mouse preview
 
@@ -919,7 +962,8 @@ script runs, and the page went from 434 KB to 68 KB — 42 KB to 6 KB gzipped.
   repetition, and the surface reads as one continuous thing rather than a tile
   with a decorated border.
 - **Two labels per cap**, both plain black. The pitch name centred and
-  prominent; the keyboard key bottom-right and quieter by size and weight
+  prominent (in flats or sharps, per the HUD's toggle — see "Spelling"); the
+  keyboard key bottom-right and quieter by size and weight
   alone, since reducing its opacity would composite the cap's hue through it.
   Caps outside the keyed block carry the pitch name alone — on desktop there
   are none, so this only shows on a tall viewport.
