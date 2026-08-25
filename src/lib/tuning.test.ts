@@ -5,6 +5,7 @@ import {
   hueFor,
   partialsFor,
   pitchClassFor,
+  respellName,
   stackPositionFor,
 } from "./tuning.ts";
 
@@ -59,6 +60,43 @@ describe("equalTemperamentNameFor", () => {
   });
 });
 
+describe("respellName", () => {
+  // The spelling toggle rewrites each label from what it already says, so the
+  // two rows have to agree pitch class by pitch class in both directions.
+  const semitones = Array.from({ length: 12 }, (_, i) => equalTemperamentRatioFor(i));
+
+  it("maps every flat name to its sharp twin, and back", () => {
+    for (const ratio of semitones) {
+      const flat = equalTemperamentNameFor(ratio, "flat");
+      const sharp = equalTemperamentNameFor(ratio, "sharp");
+      expect(respellName(flat, "sharp")).toBe(sharp);
+      expect(respellName(sharp, "flat")).toBe(flat);
+    }
+  });
+
+  it("is a no-op on a name already in the asked-for spelling", () => {
+    for (const spelling of ["flat", "sharp"] as const) {
+      for (const ratio of semitones) {
+        const name = equalTemperamentNameFor(ratio, spelling);
+        expect(respellName(name, spelling)).toBe(name);
+      }
+    }
+  });
+
+  it("leaves the seven naturals alone and respells the five accidentals", () => {
+    const changed = semitones.filter((ratio) => {
+      const flat = equalTemperamentNameFor(ratio, "flat");
+      return respellName(flat, "sharp") !== flat;
+    });
+    expect(changed).toHaveLength(5);
+  });
+
+  it("passes through anything that is not one of the twelve", () => {
+    expect(respellName("", "sharp")).toBe("");
+    expect(respellName("H", "flat")).toBe("H");
+  });
+});
+
 describe("equalTemperamentRatioFor", () => {
   it("is 1/1 at index 0", () => {
     expect(equalTemperamentRatioFor(0)).toBe(1);
@@ -75,6 +113,12 @@ describe("equalTemperamentRatioFor", () => {
   it("composes with equalTemperamentNameFor to name all twelve semitones, in order, from the root", () => {
     const names = Array.from({ length: 12 }, (_, i) => equalTemperamentNameFor(equalTemperamentRatioFor(i)));
     expect(names).toEqual(["F", "G♭", "G", "A♭", "A", "B♭", "B", "C", "D♭", "D", "E♭", "E"]);
+    expect(new Set(names).size).toBe(12);
+  });
+
+  it("names the same twelve in sharps when asked, in the same order", () => {
+    const names = Array.from({ length: 12 }, (_, i) => equalTemperamentNameFor(equalTemperamentRatioFor(i), "sharp"));
+    expect(names).toEqual(["F", "F♯", "G", "G♯", "A", "A♯", "B", "C", "C♯", "D", "D♯", "E"]);
     expect(new Set(names).size).toBe(12);
   });
 });

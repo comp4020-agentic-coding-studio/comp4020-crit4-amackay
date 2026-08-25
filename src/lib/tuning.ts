@@ -44,15 +44,32 @@ export function hueFor(ratio: number): number {
   return (25 + 360 * pitchClassFor(ratio)) % 360;
 }
 
-// Chromatic scale ascending in semitones from the root, F, spelled with flats
-// to match DESIGN.md's own fifths-chain naming (Ab Eb Bb F C G D A E). These
-// are the names the caps carry.
+/** Which of the two names an accidental is written under. The seven naturals
+ *  are spelled the same either way, so only five of the twelve differ. */
+export type Spelling = "flat" | "sharp";
+
+// Chromatic scale ascending in semitones from the root, F, in both spellings.
+// Flats are the default, matching DESIGN.md's own fifths-chain naming
+// (Ab Eb Bb F C G D A E); the sharp row is the same twelve pitch classes
+// respelled, and the toggle in the HUD swaps which row the caps carry.
 const CHROMATIC = ["F", "G♭", "G", "A♭", "A", "B♭", "B", "C", "D♭", "D", "E♭", "E"];
+const CHROMATIC_SHARP = ["F", "F♯", "G", "G♯", "A", "A♯", "B", "C", "C♯", "D", "D♯", "E"];
+
+const rowFor = (spelling: Spelling): string[] => (spelling === "sharp" ? CHROMATIC_SHARP : CHROMATIC);
 
 /** The nearest 12-tone-equal-temperament name for a ratio's pitch class. */
-export function equalTemperamentNameFor(ratio: number): string {
+export function equalTemperamentNameFor(ratio: number, spelling: Spelling = "flat"): string {
   const index = Math.round(pitchClassFor(ratio) * 12) % 12;
-  return CHROMATIC[index]!;
+  return rowFor(spelling)[index]!;
+}
+
+/** The same pitch class under the other spelling — the toggle's whole
+ *  operation, so a label can be rewritten from what it already says without
+ *  the element having to carry its pitch class as well. A name that is not one
+ *  of the twelve comes back unchanged. */
+export function respellName(name: string, spelling: Spelling): string {
+  const index = CHROMATIC.indexOf(name) === -1 ? CHROMATIC_SHARP.indexOf(name) : CHROMATIC.indexOf(name);
+  return index === -1 ? name : rowFor(spelling)[index]!;
 }
 
 /** 12-TET ratio for a semitone index, relative to the same root F as the
