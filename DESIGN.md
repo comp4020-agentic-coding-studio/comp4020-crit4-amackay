@@ -526,10 +526,8 @@ the gesture behind it: with the `touchstart` handler in place, the sequence's
 gesture-derived events (`click`, `selectstart`) stop arriving and the pointer
 events and user activation do not change. **Desktop Chromium never buzzes and
 takes a different branch anyway** (`GetShowContextMenuOnMouseUp` defers the
-menu to long-*tap* there), so only a phone can confirm the buzz itself is gone.
-If it somehow is not, the next candidate is the other end of step 2 — stop
-cancelling `contextmenu` and let a long press find nothing to build a menu from
-— which trades a certain buzz for the risk of a menu.
+menu to long-*tap* there), so the buzz being gone is a phone's finding, not
+this harness's — nothing here will notice if it ever comes back.
 
 ### About panel
 
@@ -1244,12 +1242,9 @@ to the copy that earns its way in, never the copy to the panel.
   Chrome phone; see "The checks" and CLAUDE.md's "Two things this
   harness cannot do."
 
-One more, from play-testing:
+One more, from play-testing and **noted, not investigated** — recorded here so
+it is not rediscovered, not worked on:
 
-- **A long press on a phone fired the platform's haptic buzz.** Investigated
-  and addressed — see "The long-press buzz" for the mechanism and what it cost
-  — but the buzz itself is invisible to every check here, so it stays listed
-  until a phone says otherwise.
 - **A phone user hit rendering bugs this repo can't reproduce** — no detail
   beyond "different rendering, including a blank page, on different browsers"
   and "repeated orientation changes." Worth investigating by simulating
