@@ -54,6 +54,14 @@ not disagree.
   counts lit caps fine), the audio half now reads zero and proves nothing. The
   fake context in `spec/support/fake-audio.ts` resumes synchronously, which is
   why the spec suite is unaffected — and is load-bearing, not incidental.
+- **Nothing here can feel a phone's haptics, and the desktop does not even take
+  the same branch.** Chromium fires the long-press buzz only when the renderer
+  reports the `GestureLongPress` consumed, which on desktop is deferred to
+  long-*tap* (`GetShowContextMenuOnMouseUp`) — so a desktop probe, headless or
+  not, cannot reproduce it. `scripts/probe-long-press-haptic.mjs` measures the
+  gesture behind the buzz (a dropped gesture stops producing `click` and
+  `selectstart`) and leaves the buzz to a phone. DESIGN.md "The long-press
+  buzz".
 - **An `AudioParam` runs every event still in its timeline, including ones
   scheduled later than the one you just added.** Releasing a note inside its
   15 ms attack used to leave the attack's `linearRampToValueAtTime` sitting

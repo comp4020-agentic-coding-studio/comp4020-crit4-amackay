@@ -479,10 +479,57 @@ F-keys and modifier combinations still work and the page stays escapable.
 
 ### Input chrome
 
-`lib/input-chrome.ts` is unchanged and still called from each page script: no
-context menu on the playing surface (a held finger is the primary gesture and
-the browser reads a long press as a right click), no browser zoom or
-overscroll, and a focus ring that belongs only to whoever is tabbing.
+`lib/input-chrome.ts` is called from each page script: no context menu on the
+playing surface (a held finger is the primary gesture and the browser reads a
+long press as a right click), no browser zoom or overscroll, no touch gesture
+of any kind on the surface (below), and a focus ring that belongs only to
+whoever is tabbing.
+
+#### The long-press buzz
+
+Holding one spot on an Android phone fired the platform's haptic buzz about a
+second in — the context-menu gesture's feedback, arriving mid-note with no menu
+to announce. Traced through Chromium rather than guessed at, because the
+mechanism is the fix:
+
+1. `GestureListenerManagerImpl.onEventAck` performs
+   `performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)` on a
+   `GESTURE_LONG_PRESS` **only when the renderer reports it consumed**.
+2. Blink's `GestureManager::HandleGestureLongPress` ends in
+   `SendContextMenuEventForGesture`, which returns whatever dispatching the DOM
+   `contextmenu` event returned — and a cancelled event is
+   `kHandledApplication`, i.e. consumed. (There is a UseCounter sitting on that
+   exact branch.) **So cancelling `contextmenu` to keep the menu away is itself
+   what reports the long press consumed, and so what asks for the buzz.**
+   Letting the menu open instead reports consumed too, by the other branch.
+3. The only way out is upstream of the gesture. `TouchDispositionGestureFilter`
+   gives `kGestureLongPress` `RT_START`, so a **consumed `touchstart` drops it**
+   — with the whole sequence's other gestures — in the browser process, before
+   one is ever generated.
+
+Hence `preventDefault()` on `touchstart`, scoped to the surface. What that
+costs is every gesture the surface would otherwise get: the compatibility mouse
+events, `click`, double-tap zoom, fling. The surface wants none of them — it
+has no `click` handler, and `touch-action: none` already refused the rest — and
+the HUD's buttons are outside the element, so their clicks are untouched.
+
+**It does not cost the audio unlock**, which is the one thing that would make
+it unusable. Touch activation is granted by `PointerEventManager` on
+`kPointerUp` ("any finger lifting is a user gesture"), not by any gesture, so
+it survives the sequence's gestures being dropped —
+`scripts/probe-touch-activation.js` still measures activation arriving on the
+lift, exactly as "Two hit-test paths" and `Instrument.unlock` already assumed.
+
+`scripts/probe-long-press-haptic.mjs` drives a real 1.4 s hold over CDP. The
+buzz is an Android platform effect no page can observe, so what it measures is
+the gesture behind it: with the `touchstart` handler in place, the sequence's
+gesture-derived events (`click`, `selectstart`) stop arriving and the pointer
+events and user activation do not change. **Desktop Chromium never buzzes and
+takes a different branch anyway** (`GetShowContextMenuOnMouseUp` defers the
+menu to long-*tap* there), so only a phone can confirm the buzz itself is gone.
+If it somehow is not, the next candidate is the other end of step 2 — stop
+cancelling `contextmenu` and let a long press find nothing to build a menu from
+— which trades a certain buzz for the risk of a menu.
 
 ### About panel
 
@@ -1197,15 +1244,12 @@ to the copy that earns its way in, never the copy to the panel.
   Chrome phone; see "The checks" and CLAUDE.md's "Two things this
   harness cannot do."
 
-One more, from play-testing and **noted, not investigated** — recorded here so
-it is not rediscovered, not worked on:
+One more, from play-testing:
 
-- **A long press on a phone fires the platform's haptic buzz**, about a second
-  after touching and holding one spot. It is the context-menu gesture, which
-  makes sense when a menu follows; here nothing does, so the buzz arrives
-  mid-note as a distraction. Whether a page can suppress it at all — beyond the
-  `touch-action`, `-webkit-touch-callout` and tap-highlight suppressions
-  already in `global.css` — is unestablished.
+- **A long press on a phone fired the platform's haptic buzz.** Investigated
+  and addressed — see "The long-press buzz" for the mechanism and what it cost
+  — but the buzz itself is invisible to every check here, so it stays listed
+  until a phone says otherwise.
 - **A phone user hit rendering bugs this repo can't reproduce** — no detail
   beyond "different rendering, including a blank page, on different browsers"
   and "repeated orientation changes." Worth investigating by simulating
